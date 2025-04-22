@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Users, FileText, Calendar, PlusCircle, Search, Image, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,7 +25,6 @@ interface TeacherDashboardProps {
 }
 
 const SEMESTERS = ["All", "Semester 1", "Semester 2", "Semester 3", "Semester 4"];
-const SUBJECTS = ["All", "Mathematics", "Science", "History", "English"];
 
 export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [students, setStudents] = useState<any[]>([]);
@@ -60,7 +58,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [currentSection, setCurrentSection] = useState("Section 1");
   const { toast } = useToast();
 
-  // Fetch students and exams
   useEffect(() => {
     const studentsRef = ref(db, 'users');
     const unsubscribeStudents = onValue(studentsRef, (snapshot) => {
@@ -97,7 +94,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     };
   }, []);
 
-  // Add student with photo and semester; uploads image to Cloudinary
   const handleAddStudent = async () => {
     if (!newStudent.name || !newStudent.email || !newStudent.regNumber || !newStudent.password || !newStudent.semester) {
       toast({
@@ -110,7 +106,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     try {
       let uploadedPhotoUrl = newStudent.photo;
       if (newStudent.photo && newStudent.photo.startsWith("blob:")) {
-        // Upload photo to Cloudinary
         toast({ title: "Uploading image...", description: "Please wait." });
         const blob = await fetch(newStudent.photo).then(r => r.blob());
         const file = new File([blob], "photo.jpg", { type: blob.type });
@@ -169,7 +164,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   };
 
   const handleAddQuestion = () => {
-    // Validate question
     if (!currentQuestion.text) {
       toast({
         title: "Incomplete question",
@@ -179,7 +173,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
       return;
     }
 
-    // Validate based on question type
     if (currentQuestion.type === "multiple-choice") {
       if (!currentQuestion.options?.every(option => option.trim())) {
         toast({
@@ -199,10 +192,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
       }
     }
 
-    // Add question to list
     setQuestions([...questions, { ...currentQuestion }]);
     
-    // Reset current question
     const newId = String(questions.length + 2);
     setCurrentQuestion({
       id: newId,
@@ -277,7 +268,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   };
 
   const handleSaveExam = async () => {
-    // Validate required fields
     if (!examTitle || !examSubject || !examDuration || !examDate || !examTime || !examSemester) {
       toast({
         title: "Missing information",
@@ -343,7 +333,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           description: "The exam has been created and assigned successfully",
         });
         
-        // Reset form
         setExamTitle("");
         setExamSubject("");
         setExamDuration("60");
@@ -355,7 +344,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         setCurrentSection("Section 1");
         setIsCreateExamDialogOpen(false);
         
-        // Refresh exams
         const teacherExams = await getExamsForTeacher(userData.id);
         setExams(teacherExams);
       } else {
@@ -403,24 +391,39 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     return matchesSearch && matchesSemester;
   });
 
-  // Get subject-specific exams for the selected semester
+  const getAvailableSubjects = () => {
+    if (selectedSemester === "All") {
+      const allSubjects = exams.map(e => e.subject);
+      return ["All", ...Array.from(new Set(allSubjects)).filter(Boolean)];
+    } else {
+      const filteredExams = exams.filter(e => e.semester === selectedSemester);
+      const semesterSubjects = filteredExams.map(e => e.subject);
+      return ["All", ...Array.from(new Set(semesterSubjects)).filter(Boolean)];
+    }
+  };
+
+  useEffect(() => {
+    const availableSubjects = getAvailableSubjects();
+    if (!availableSubjects.includes(selectedSubject)) {
+      setSelectedSubject("All");
+    }
+  }, [selectedSemester, exams]);
+
+  const availableSubjects = getAvailableSubjects();
+
   const getSubjectExamsCount = () => {
-    // Filter subjects based on the selected semester
-    return SUBJECTS.slice(1).map(subject => {
+    const groupSubjects = availableSubjects.slice(1);
+    return groupSubjects.map(subject => {
       const count = exams.filter(e => 
         (selectedSemester === "All" || e.semester === selectedSemester) && 
         e.subject === subject
       ).length;
-      
-      return {
-        subject,
-        count
-      };
+      return { subject, count };
     });
   };
 
   const subjectData = getSubjectExamsCount();
-  
+
   const filteredExams = exams.filter((exam) => {
     const bySemester = selectedSemester === "All" || exam.semester === selectedSemester;
     const bySubject = selectedSubject === "All" || exam.subject === selectedSubject;
@@ -432,92 +435,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const totalExams = filteredExams.length;
   const totalAttended = filteredExams.reduce((sum, exam) => sum + (exam.attendance || 0), 0);
   const studentPassed = filteredStudents.filter(s => s.result === "passed").length;
-
-  // --- Panels ---
-  const renderDashboardOverview = () => (
-    <div className="space-y-6">
-      <div className="flex flex-wrap gap-4 items-center">
-        <div>
-          <label className="block mb-1 text-sm font-semibold">Semester</label>
-          <select
-            value={selectedSemester}
-            onChange={e => setSelectedSemester(e.target.value)}
-            className="border rounded px-4 py-2 bg-background"
-          >
-            {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-semibold">Subject</label>
-          <select
-            value={selectedSubject}
-            onChange={e => setSelectedSubject(e.target.value)}
-            className="border rounded px-4 py-2 bg-background"
-          >
-            {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatsCard
-          title="Total Students"
-          value={totalStudents}
-          description={`Registered in ${selectedSemester === "All" ? "all semesters" : selectedSemester}`}
-          icon={<Users className="h-4 w-4" />}
-        />
-        <StatsCard
-          title="Active Students"
-          value={activeStudents}
-          description="Currently active"
-          icon={<Users className="h-4 w-4 text-primary" />}
-        />
-        <StatsCard
-          title="Exams Created"
-          value={totalExams}
-          description={`For ${selectedSubject}`}
-          icon={<FileText className="h-4 w-4" />}
-        />
-        <StatsCard
-          title="Total Attended"
-          value={totalAttended}
-          description="Exam attendances"
-          icon={<Calendar className="h-4 w-4" />}
-        />
-        <StatsCard
-          title="Students Passed"
-          value={studentPassed}
-          description="Out of filtered students"
-          icon={<Users className="h-4 w-4 text-green-600" />}
-        />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="border rounded-lg p-4">
-          <h2 className="text-lg font-bold mb-4">Exams by Subject</h2>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={subjectData} layout="vertical" margin={{ left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" />
-              <YAxis dataKey="subject" type="category" width={100} />
-              <Tooltip />
-              <Bar dataKey="count" fill="#8884d8" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="border rounded-lg p-4">
-          <h2 className="text-lg font-bold mb-4">Subject Distribution</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {subjectData.map(({ subject, count }) => (
-              <div key={subject} className="bg-muted p-3 rounded flex flex-col items-center">
-                <span className="font-semibold">{subject}</span>
-                <span className="text-xl">{count}</span>
-                <span className="text-sm text-muted-foreground">exams</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   const renderManageStudents = () => (
     <div className="space-y-6">
@@ -595,7 +512,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        // Use URL.createObjectURL for preview, actual upload on submit
                         const url = URL.createObjectURL(file);
                         setNewStudent(current => ({ ...current, photo: url }));
                       }
@@ -625,37 +541,98 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           </Dialog>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredStudents.length > 0 ? (
           filteredStudents.map((student) => (
-            <Card key={student.id} className="overflow-hidden">
-              <div className="p-4 flex flex-col items-center">
-                <div className="relative">
+            <div key={student.id}
+                className="rounded-xl shadow-lg relative bg-gradient-to-br from-[#F1F0FB] to-[#E5DEFF] p-6 flex flex-col items-center hover:scale-[1.03] border-2 border-[#9b87f5]/30 transition-all">
+              <div className="relative -mt-10 mb-2">
+                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center border-2 border-[#9b87f5] shadow">
                   {student.photo ? (
-                    <img src={student.photo} alt={student.name} className="h-20 w-20 rounded-full object-cover border-2 border-primary/20" />
+                    <img src={student.photo} alt={student.name} className="w-20 h-20 object-cover rounded-full" />
                   ) : (
-                    <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center">
-                      <Image className="h-10 w-10 text-muted-foreground" />
+                    <div className="w-16 h-16 rounded-full bg-[#E5DEFF] flex items-center justify-center text-[#9b87f5] text-3xl">
+                      {student.name?.charAt(0) ?? "?"}
                     </div>
                   )}
-                  <Badge className="absolute -bottom-1 right-0" variant="outline">{student.semester}</Badge>
-                </div>
-                <h3 className="mt-3 font-bold text-lg">{student.name}</h3>
-                <p className="text-muted-foreground text-sm">{student.email}</p>
-                <p className="text-xs mt-1">{student.regNumber}</p>
-                
-                <div className="mt-4 border-t pt-4 w-full flex justify-center gap-2">
-                  <Button size="sm" onClick={() => handleEditStudent(student.id)}>Edit</Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleDeleteStudent(student.id)}>Delete</Button>
+                  <span className="absolute bottom-0 right-0 bg-[#7E69AB] text-white text-xs px-2 py-0.5 rounded-full shadow" style={{fontWeight: 600}}>{student.semester}</span>
                 </div>
               </div>
-            </Card>
+              <div className="pt-2 text-center w-full">
+                <h3 className="font-bold text-lg text-[#403E43]">{student.name}</h3>
+                <p className="text-[#8A898C] text-sm">{student.email}</p>
+                <p className="text-xs mt-1 text-[#7E69AB]">{student.regNumber}</p>
+              </div>
+              <div className="mt-4 flex justify-center gap-3 w-full">
+                <button className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white text-xs px-4 py-1.5 rounded-lg font-semibold transition"
+                  onClick={() => handleEditStudent(student.id)}>
+                  Edit
+                </button>
+                <button className="bg-[#ea384c] hover:bg-[#cf2840] text-white text-xs px-4 py-1.5 rounded-lg font-semibold transition"
+                  onClick={() => handleDeleteStudent(student.id)}>
+                  Delete
+                </button>
+              </div>
+            </div>
           ))
         ) : (
           <div className="col-span-full text-center py-10">
             <p className="text-muted-foreground">No students found. Add a new student to get started.</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+
+  const renderDashboardOverview = () => (
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-4 items-center">
+        <div>
+          <label className="block mb-1 text-sm font-semibold">Semester</label>
+          <select
+            value={selectedSemester}
+            onChange={e => setSelectedSemester(e.target.value)}
+            className="border rounded px-4 py-2 bg-background"
+          >
+            {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-semibold">Subject</label>
+          <select
+            value={selectedSubject}
+            onChange={e => setSelectedSubject(e.target.value)}
+            className="border rounded px-4 py-2 bg-background"
+          >
+            {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="border rounded-lg p-4">
+          <h2 className="text-lg font-bold mb-4">Exams by Subject</h2>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={subjectData} layout="vertical" margin={{ left: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" />
+              <YAxis dataKey="subject" type="category" width={100} />
+              <Tooltip />
+              <Bar dataKey="count" fill="#9b87f5" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="border rounded-lg p-4">
+          <h2 className="text-lg font-bold mb-4">Subject Distribution</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {subjectData.map(({ subject, count }) => (
+              <div key={subject} className="bg-[#F1F0FB] p-3 rounded flex flex-col items-center">
+                <span className="font-semibold text-[#6E59A5]">{subject}</span>
+                <span className="text-2xl text-[#9b87f5]">{count}</span>
+                <span className="text-xs text-muted-foreground">exams</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1123,14 +1100,11 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     </div>
   );
 
-  // --- Main Section ---
   if (section === "students") {
     return renderManageStudents();
   }
   if (section === "exams") {
     return renderManageExams();
   }
-  // Default/overview
   return renderDashboardOverview();
 }
-
