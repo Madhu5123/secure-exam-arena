@@ -1,4 +1,3 @@
-
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
@@ -84,6 +83,21 @@ export const logoutUser = async () => {
 };
 
 export const getCurrentUser = async (): Promise<User | null> => {
+  // First check if we have the admin user in localStorage
+  const storedUser = localStorage.getItem("examUser");
+  if (storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      if (parsedUser && parsedUser.id && parsedUser.role) {
+        currentUser = parsedUser as User;
+        return currentUser;
+      }
+    } catch (error) {
+      console.error("Error parsing stored user:", error);
+    }
+  }
+
+  // If not admin user in localStorage, check Firebase auth
   return new Promise((resolve) => {
     onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -98,6 +112,10 @@ export const getCurrentUser = async (): Promise<User | null> => {
             email: userData.email,
             role: userData.role,
           };
+          
+          // Store the user in localStorage for future use
+          localStorage.setItem("examUser", JSON.stringify(currentUser));
+          
           resolve(currentUser);
         } else {
           resolve(null);
@@ -145,6 +163,20 @@ export const registerUser = async (
 };
 
 export const checkUserRole = async (): Promise<"admin" | "teacher" | "student" | null> => {
+  // First check if we have a user in localStorage
+  const storedUser = localStorage.getItem("examUser");
+  if (storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      if (parsedUser && parsedUser.role) {
+        return parsedUser.role as "admin" | "teacher" | "student";
+      }
+    } catch (error) {
+      console.error("Error parsing stored user:", error);
+    }
+  }
+  
+  // If not in localStorage, get from Firebase
   const user = await getCurrentUser();
   return user ? user.role : null;
 };

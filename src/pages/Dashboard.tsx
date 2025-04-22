@@ -14,6 +14,22 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchUserRole = async () => {
+      // First check from localStorage for admin user
+      const storedUser = localStorage.getItem("examUser");
+      if (storedUser) {
+        try {
+          const user = JSON.parse(storedUser);
+          if (user && user.role) {
+            setUserRole(user.role);
+            setLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.error("Error parsing stored user:", error);
+        }
+      }
+      
+      // If not found in localStorage or parsing failed, check with the service
       const role = await checkUserRole();
       
       if (!role) {

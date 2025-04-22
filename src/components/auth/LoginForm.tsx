@@ -29,7 +29,11 @@ export function LoginForm() {
           title: "Login successful",
           description: `Welcome back, ${role}!`,
         });
-        navigate("/dashboard");
+        
+        // Add a small delay to ensure the toast appears before navigation
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 100);
       } else {
         toast({
           title: "Login failed",
