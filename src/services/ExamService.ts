@@ -25,17 +25,6 @@ interface Question {
   points: number;
 }
 
-interface ExamSubmission {
-  examId: string;
-  studentId: string;
-  answers: Record<string, string>;
-  startTime: string;
-  endTime: string;
-  score: number;
-  maxScore: number;
-  warningCount: number;
-}
-
 export const getExamsForTeacher = async (teacherId: string) => {
   try {
     const examsRef = ref(db, 'exams');
@@ -63,11 +52,10 @@ export const getExamsForStudent = async (studentId: string) => {
     const snapshot = await get(examsRef);
     
     if (snapshot.exists()) {
-      const exams: any[] = [];
+      const exams: Exam[] = [];
       snapshot.forEach((childSnapshot) => {
         const exam = childSnapshot.val();
         if (exam.assignedStudents && exam.assignedStudents.includes(studentId)) {
-          // Check if student has submitted this exam
           const submission = exam.submissions?.[studentId];
           exams.push({
             ...exam,
@@ -154,7 +142,6 @@ export const submitExam = async (
       };
     }
     
-    // Calculate score
     let score = 0;
     let maxScore = 0;
     
@@ -165,7 +152,7 @@ export const submitExam = async (
       }
     });
     
-    const submission: ExamSubmission = {
+    const submission = {
       examId,
       studentId,
       answers,
@@ -257,3 +244,4 @@ export const getStudentResults = async (studentId: string) => {
     };
   }
 };
+

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Users, Settings, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,13 +7,9 @@ import { StatsCard } from "@/components/common/StatsCard";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-
-// Mock data for initial display
-const mockTeachers = [
-  { id: "1", name: "John Smith", email: "john.smith@example.com", role: "teacher", status: "active", additionalInfo: "Mathematics" },
-  { id: "2", name: "Sarah Jones", email: "sarah.jones@example.com", role: "teacher", status: "active", additionalInfo: "Physics" },
-  { id: "3", name: "David Wilson", email: "david.wilson@example.com", role: "teacher", status: "inactive", additionalInfo: "Chemistry" },
-];
+import { ref, get, push, set } from 'firebase/database';
+import { db } from '@/config/firebase';
+import { registerUser } from "@/services/AuthService";
 
 export function AdminDashboard() {
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -24,12 +19,30 @@ export function AdminDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // In a real app, this would fetch from Firebase
-    setTeachers(mockTeachers);
+    const fetchTeachers = async () => {
+      const teachersRef = ref(db, 'users');
+      const snapshot = await get(teachersRef);
+      
+      if (snapshot.exists()) {
+        const teachersList: any[] = [];
+        snapshot.forEach((childSnapshot) => {
+          const userData = childSnapshot.val();
+          if (userData.role === 'teacher') {
+            teachersList.push({
+              id: childSnapshot.key,
+              ...userData,
+              status: 'active', // Default status
+            });
+          }
+        });
+        setTeachers(teachersList);
+      }
+    };
+
+    fetchTeachers();
   }, []);
 
-  const handleAddTeacher = () => {
-    // Validation
+  const handleAddTeacher = async () => {
     if (!newTeacher.name || !newTeacher.email || !newTeacher.password) {
       toast({
         title: "Missing information",
@@ -39,28 +52,50 @@ export function AdminDashboard() {
       return;
     }
 
-    // In a real app, this would add to Firebase
-    const newId = String(teachers.length + 1);
-    setTeachers([
-      ...teachers,
-      {
-        id: newId,
-        name: newTeacher.name,
-        email: newTeacher.email,
-        role: "teacher",
-        status: "active",
-        additionalInfo: newTeacher.subject,
-      },
-    ]);
+    try {
+      const { success, user, error } = await registerUser(
+        newTeacher.name,
+        newTeacher.email,
+        newTeacher.password,
+        "teacher"
+      );
 
-    toast({
-      title: "Teacher added",
-      description: `${newTeacher.name} has been added successfully.`,
-    });
+      if (success && user) {
+        toast({
+          title: "Teacher added",
+          description: `${newTeacher.name} has been added successfully.`,
+        });
 
-    // Reset form and close dialog
-    setNewTeacher({ name: "", email: "", subject: "", password: "" });
-    setIsAddDialogOpen(false);
+        // Add the new teacher to the list
+        setTeachers([
+          ...teachers,
+          {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: "teacher",
+            status: "active",
+            additionalInfo: newTeacher.subject,
+          },
+        ]);
+
+        // Reset form and close dialog
+        setNewTeacher({ name: "", email: "", subject: "", password: "" });
+        setIsAddDialogOpen(false);
+      } else {
+        toast({
+          title: "Failed to add teacher",
+          description: error || "An error occurred while adding the teacher.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add teacher. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewTeacher = (id: string) => {
@@ -77,12 +112,21 @@ export function AdminDashboard() {
     });
   };
 
-  const handleDeleteTeacher = (id: string) => {
-    setTeachers(teachers.filter((teacher) => teacher.id !== id));
-    toast({
-      title: "Teacher deleted",
-      description: "The teacher has been deleted successfully.",
-    });
+  const handleDeleteTeacher = async (id: string) => {
+    try {
+      await set(ref(db, `users/${id}`), null);
+      setTeachers(teachers.filter((teacher) => teacher.id !== id));
+      toast({
+        title: "Teacher deleted",
+        description: "The teacher has been deleted successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete teacher. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredTeachers = teachers.filter(

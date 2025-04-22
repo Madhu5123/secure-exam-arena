@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileText, Clock, CheckCircle } from "lucide-react";
@@ -8,41 +7,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-
-// Mock data for initial display
-const mockExams = [
-  { 
-    id: "1", 
-    title: "Mid-term Mathematics", 
-    subject: "Mathematics",
-    date: "2025-05-10", 
-    time: "10:00", 
-    duration: 120, 
-    status: "upcoming",
-    teacher: "John Smith"
-  },
-  { 
-    id: "2", 
-    title: "Physics Quiz", 
-    subject: "Physics",
-    date: "2025-05-15", 
-    time: "14:00", 
-    duration: 60, 
-    status: "available",
-    teacher: "Sarah Jones"
-  },
-  { 
-    id: "3", 
-    title: "Final Chemistry Exam", 
-    subject: "Chemistry",
-    date: "2025-04-20", 
-    time: "09:00", 
-    duration: 180, 
-    status: "completed",
-    teacher: "David Wilson",
-    score: 85
-  },
-];
+import { getExamsForStudent } from "@/services/ExamService";
+import { getCurrentUser } from "@/services/AuthService";
 
 export function StudentDashboard() {
   const [exams, setExams] = useState<any[]>([]);
@@ -51,9 +17,16 @@ export function StudentDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // In a real app, this would fetch from Firebase
-    setExams(mockExams);
-    setLoading(false);
+    const fetchExams = async () => {
+      const user = await getCurrentUser();
+      if (user) {
+        const fetchedExams = await getExamsForStudent(user.id);
+        setExams(fetchedExams);
+      }
+      setLoading(false);
+    };
+
+    fetchExams();
   }, []);
 
   const handleStartExam = (examId: string) => {
@@ -61,7 +34,6 @@ export function StudentDashboard() {
       title: "Starting exam",
       description: "Preparing your exam environment...",
     });
-    // In a real app, this would navigate to the exam page
     navigate(`/exam/${examId}`);
   };
 
@@ -70,7 +42,6 @@ export function StudentDashboard() {
       title: "View Results",
       description: `Viewing results for exam ID: ${examId}`,
     });
-    // In a real app, this would navigate to the results page
   };
 
   const upcomingExams = exams.filter(e => e.status === "upcoming");
