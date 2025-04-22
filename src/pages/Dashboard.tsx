@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
 import { TeacherDashboard } from "@/components/dashboard/TeacherDashboard";
@@ -11,6 +11,7 @@ const Dashboard = () => {
   const [userRole, setUserRole] = useState<"admin" | "teacher" | "student" | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { section } = useParams();
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -48,7 +49,7 @@ const Dashboard = () => {
   const renderDashboard = () => {
     switch (userRole) {
       case "admin":
-        return <AdminDashboard />;
+        return <AdminDashboard section={section} />;
       case "teacher":
         return <TeacherDashboard />;
       case "student":

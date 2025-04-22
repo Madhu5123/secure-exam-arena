@@ -95,10 +95,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   {getMenuItems().map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild>
-                        <a href={item.url} className="flex items-center gap-4">
+                        <Link to={item.url} className="flex items-center gap-4">
                           <item.icon className="h-5 w-5" />
                           <span>{item.title}</span>
-                        </a>
+                        </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
