@@ -25,6 +25,7 @@ interface TeacherDashboardProps {
 }
 
 const SEMESTERS = ["All", "Semester 1", "Semester 2", "Semester 3", "Semester 4"];
+const SUBJECTS = ["All", "Mathematics", "Physics", "Chemistry", "Biology", "Computer Science", "English", "History", "Geography"];
 
 export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [students, setStudents] = useState<any[]>([]);
