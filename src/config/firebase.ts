@@ -5,13 +5,14 @@ import { getDatabase } from 'firebase/database';
 
 // Firebase configuration - replace with your actual Firebase project details
 const firebaseConfig = {
-  apiKey: "AIzaSyBExvbaYMXH40VgVzI8qV08QnIOzJ0jFtE",
-  authDomain: "exam-portal-demo.firebaseapp.com",
-  databaseURL: "https://exam-portal-demo-default-rtdb.firebaseio.com",
-  projectId: "exam-portal-demo",
-  storageBucket: "exam-portal-demo.appspot.com",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdef1234567890abcdef"
+  apiKey: "AIzaSyDCLwjLBJPl6R1Z_drxuueNrYFmpH_RUUg",
+  authDomain: "examportal-d4923.firebaseapp.com",
+  databaseURL: "https://examportal-d4923-default-rtdb.firebaseio.com",
+  projectId: "examportal-d4923",
+  storageBucket: "examportal-d4923.firebasestorage.app",
+  messagingSenderId: "322929484275",
+  appId: "1:322929484275:web:5e6a4a3cdf332bacfcb286",
+  measurementId: "G-8KB5642XET"
 };
 
 // Initialize Firebase
