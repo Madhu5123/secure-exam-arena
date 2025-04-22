@@ -204,12 +204,17 @@ export const getExamSubmissions = async (examId: string) => {
     const snapshot = await get(submissionsRef);
     
     if (snapshot.exists()) {
+      const submissions: any[] = [];
+      snapshot.forEach((childSnapshot) => {
+        submissions.push({
+          studentId: childSnapshot.key,
+          ...childSnapshot.val()
+        });
+      });
+      
       return {
         success: true,
-        submissions: Object.entries(snapshot.val()).map(([studentId, submission]) => ({
-          studentId,
-          ...submission,
-        })),
+        submissions,
       };
     }
     
@@ -230,12 +235,16 @@ export const getStudentResults = async (studentId: string) => {
     const exams = await getExamsForStudent(studentId);
     const results = exams
       .filter(exam => exam.status === "completed")
-      .map(exam => ({
-        ...exam.submissions?.[studentId],
-        examTitle: exam.title,
-        examSubject: exam.subject,
-        examDate: exam.date,
-      }));
+      .map(exam => {
+        const submissionData = exam.submissions?.[studentId] || {};
+        return {
+          examId: exam.id,
+          examTitle: exam.title,
+          examSubject: exam.subject,
+          examDate: exam.date,
+          ...submissionData
+        };
+      });
     
     return {
       success: true,
