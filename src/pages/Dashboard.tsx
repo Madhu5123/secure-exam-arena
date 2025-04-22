@@ -51,7 +51,7 @@ const Dashboard = () => {
       case "admin":
         return <AdminDashboard section={section} />;
       case "teacher":
-        return <TeacherDashboard />;
+        return <TeacherDashboard section={section} />;
       case "student":
         return <StudentDashboard />;
       default:
