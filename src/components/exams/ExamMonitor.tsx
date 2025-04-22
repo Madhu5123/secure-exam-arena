@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, CheckCircle, Clock, UserCheck, X } from "lucide-react";
@@ -10,44 +11,53 @@ import { useToast } from "@/hooks/use-toast";
 
 // Mock data
 const mockExamData = {
-  id: "exam1",
-  title: "Advanced Calculus Final Examination",
+  id: "exam-1",
+  title: "Mid-term Mathematics",
   subject: "Mathematics",
-  duration: 180,
+  duration: 120,
   startTime: new Date().toISOString(),
-  endTime: new Date(Date.now() + 180 * 60 * 1000).toISOString(),
+  endTime: new Date(Date.now() + 120 * 60 * 1000).toISOString(),
   status: "in-progress",
   students: [
     { 
-      id: "student1", 
-      name: "Thomas Anderson", 
+      id: "student-1", 
+      name: "Alex Johnson", 
       status: "active", 
-      progress: 65, 
-      cheatingWarnings: 0,
-      lastActivity: "Question 12/15",
-      cameraStatus: "ok"
-    },
-    { 
-      id: "student2", 
-      name: "Sofia Patel", 
-      status: "active", 
-      progress: 80, 
-      cheatingWarnings: 0,
-      lastActivity: "Question 13/15",
-      cameraStatus: "ok"
-    },
-    { 
-      id: "student3", 
-      name: "James Wilson", 
-      status: "disconnected", 
-      progress: 40, 
+      progress: 45, 
       cheatingWarnings: 1,
       lastActivity: "Question 6/15",
+      cameraStatus: "ok"
+    },
+    { 
+      id: "student-2", 
+      name: "Emily Chen", 
+      status: "active", 
+      progress: 60, 
+      cheatingWarnings: 0,
+      lastActivity: "Question 8/15",
+      cameraStatus: "ok"
+    },
+    { 
+      id: "student-3", 
+      name: "Michael Brown", 
+      status: "disconnected", 
+      progress: 20, 
+      cheatingWarnings: 0,
+      lastActivity: "Question 3/15",
       cameraStatus: "disconnected"
     },
     { 
-      id: "student4", 
-      name: "Emma Rodriguez", 
+      id: "student-4", 
+      name: "Sarah Williams", 
+      status: "active", 
+      progress: 30, 
+      cheatingWarnings: 3,
+      lastActivity: "Question 4/15",
+      cameraStatus: "warning"
+    },
+    { 
+      id: "student-5", 
+      name: "James Davis", 
       status: "completed", 
       progress: 100, 
       cheatingWarnings: 0,
