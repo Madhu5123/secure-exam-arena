@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Users, FileText, AlertTriangle, PlusCircle, Calendar, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,15 +13,65 @@ import { useToast } from "@/hooks/use-toast";
 
 // Mock data for initial display
 const mockStudents = [
-  { id: "1", name: "Alex Johnson", email: "alex.j@example.com", role: "student", status: "active", additionalInfo: "Registration #: ST001" },
-  { id: "2", name: "Emily Chen", email: "emily.c@example.com", role: "student", status: "active", additionalInfo: "Registration #: ST002" },
-  { id: "3", name: "Michael Brown", email: "michael.b@example.com", role: "student", status: "inactive", additionalInfo: "Registration #: ST003" },
+  { 
+    id: "student1", 
+    name: "Thomas Anderson", 
+    email: "t.anderson@university.edu", 
+    role: "student", 
+    status: "active", 
+    additionalInfo: "Registration #: UNI2025001" 
+  },
+  { 
+    id: "student2", 
+    name: "Sofia Patel", 
+    email: "s.patel@university.edu", 
+    role: "student", 
+    status: "active", 
+    additionalInfo: "Registration #: UNI2025002" 
+  },
+  { 
+    id: "student3", 
+    name: "James Wilson", 
+    email: "j.wilson@university.edu", 
+    role: "student", 
+    status: "active", 
+    additionalInfo: "Registration #: UNI2025003" 
+  },
+  { 
+    id: "student4", 
+    name: "Emma Rodriguez", 
+    email: "e.rodriguez@university.edu", 
+    role: "student", 
+    status: "active", 
+    additionalInfo: "Registration #: UNI2025004" 
+  }
 ];
 
 const mockExams = [
-  { id: "1", title: "Mid-term Mathematics", date: "2025-05-10", time: "10:00", duration: 120, status: "scheduled" },
-  { id: "2", title: "Physics Quiz", date: "2025-05-15", time: "14:00", duration: 60, status: "active" },
-  { id: "3", title: "Final Chemistry Exam", date: "2025-06-20", time: "09:00", duration: 180, status: "draft" },
+  { 
+    id: "exam1", 
+    title: "Advanced Calculus Final Examination", 
+    date: "2025-05-15", 
+    time: "09:00", 
+    duration: 180, 
+    status: "scheduled" 
+  },
+  { 
+    id: "exam2", 
+    title: "Quantum Physics Mid-term", 
+    date: "2025-05-20", 
+    time: "14:00", 
+    duration: 120, 
+    status: "draft" 
+  },
+  { 
+    id: "exam3", 
+    title: "Organic Chemistry Assessment", 
+    date: "2025-05-25", 
+    time: "10:00", 
+    duration: 150, 
+    status: "active" 
+  }
 ];
 
 export function TeacherDashboard() {

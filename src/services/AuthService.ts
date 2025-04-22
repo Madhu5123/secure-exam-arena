@@ -1,4 +1,3 @@
-
 // This is a mock auth service that simulates Firebase Authentication
 // In a real implementation, this would use Firebase Auth
 
@@ -15,39 +14,53 @@ let currentUser: User | null = null;
 const users = [
   {
     id: "admin1",
-    name: "Admin User",
+    name: "Administrator",
     email: "admin@gmail.com",
     password: "admin",
     role: "admin" as const,
   },
   {
     id: "teacher1",
-    name: "John Smith",
-    email: "john.smith@example.com",
+    name: "Dr. Robert Chen",
+    email: "robert.chen@university.edu",
     password: "password123",
     role: "teacher" as const,
   },
   {
     id: "teacher2",
-    name: "Sarah Jones",
-    email: "sarah.jones@example.com",
+    name: "Prof. Maria Garcia",
+    email: "maria.garcia@university.edu",
     password: "password123",
     role: "teacher" as const,
   },
   {
     id: "student1",
-    name: "Alex Johnson",
-    email: "alex.j@example.com",
+    name: "Thomas Anderson",
+    email: "t.anderson@university.edu",
     password: "password123",
     role: "student" as const,
   },
   {
     id: "student2",
-    name: "Emily Chen",
-    email: "emily.c@example.com",
+    name: "Sofia Patel",
+    email: "s.patel@university.edu",
     password: "password123",
     role: "student" as const,
   },
+  {
+    id: "student3",
+    name: "James Wilson",
+    email: "j.wilson@university.edu",
+    password: "password123",
+    role: "student" as const,
+  },
+  {
+    id: "student4",
+    name: "Emma Rodriguez",
+    email: "e.rodriguez@university.edu",
+    password: "password123",
+    role: "student" as const,
+  }
 ];
 
 export const loginUser = async (email: string, password: string) => {

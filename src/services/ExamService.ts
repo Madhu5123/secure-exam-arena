@@ -1,4 +1,3 @@
-
 // This is a mock exam service that simulates Firebase Realtime Database
 // In a real implementation, this would use Firebase Realtime Database
 
@@ -41,31 +40,136 @@ interface ExamSubmission {
 const exams: Exam[] = [
   {
     id: "exam1",
-    title: "Mid-term Mathematics",
+    title: "Advanced Calculus Final Examination",
     subject: "Mathematics",
     createdBy: "teacher1",
-    date: "2025-05-10",
-    time: "10:00",
-    duration: 120,
+    date: "2025-05-15",
+    time: "09:00",
+    duration: 180,
     status: "scheduled",
     questions: [
       {
         id: "q1",
         type: "multiple-choice",
-        text: "What is the value of x in the equation 2x + 5 = 15?",
-        options: ["x = 3", "x = 5", "x = 7", "x = 10"],
-        correctAnswer: "1",
-        points: 2,
+        text: "What is the derivative of sin(x²) with respect to x?",
+        options: [
+          "2x cos(x²)",
+          "cos(x²)",
+          "2x sin(x²)",
+          "2 sin(x) cos(x)"
+        ],
+        correctAnswer: "0",
+        points: 5,
       },
-      // More questions...
+      {
+        id: "q2",
+        type: "true-false",
+        text: "The chain rule states that the derivative of a composite function is the product of the derivatives of the individual functions.",
+        options: ["True", "False"],
+        correctAnswer: "0",
+        points: 3,
+      },
+      {
+        id: "q3",
+        type: "short-answer",
+        text: "Find the integral of (1/x) dx.",
+        correctAnswer: "ln|x| + C",
+        points: 5,
+      }
     ],
-    assignedStudents: ["student1", "student2"],
+    assignedStudents: ["student1", "student2", "student3"],
   },
-  // More exams...
+  {
+    id: "exam2",
+    title: "Quantum Physics Mid-term",
+    subject: "Physics",
+    createdBy: "teacher2",
+    date: "2025-05-20",
+    time: "14:00",
+    duration: 120,
+    status: "draft",
+    questions: [
+      {
+        id: "q1",
+        type: "multiple-choice",
+        text: "Which quantum number determines the shape of an orbital?",
+        options: [
+          "Angular momentum quantum number (l)",
+          "Principal quantum number (n)",
+          "Magnetic quantum number (m)",
+          "Spin quantum number (s)"
+        ],
+        correctAnswer: "0",
+        points: 4,
+      }
+    ],
+    assignedStudents: [],
+  },
+  {
+    id: "exam3",
+    title: "Organic Chemistry Assessment",
+    subject: "Chemistry",
+    createdBy: "teacher1",
+    date: "2025-05-25",
+    time: "10:00",
+    duration: 150,
+    status: "active",
+    questions: [
+      {
+        id: "q1",
+        type: "multiple-choice",
+        text: "Which of the following is an example of a nucleophile?",
+        options: [
+          "OH⁻",
+          "H⁺",
+          "AlCl₃",
+          "BF₃"
+        ],
+        correctAnswer: "0",
+        points: 4,
+      },
+      {
+        id: "q2",
+        type: "short-answer",
+        text: "Explain the mechanism of SN2 reaction.",
+        correctAnswer: "Nucleophilic attack occurs simultaneously with leaving group departure, resulting in inversion of stereochemistry",
+        points: 6,
+      }
+    ],
+    assignedStudents: ["student1", "student4"],
+  }
 ];
 
 // Mock submissions database
-const submissions: ExamSubmission[] = [];
+const submissions: ExamSubmission[] = [
+  {
+    examId: "exam1",
+    studentId: "student1",
+    answers: {
+      "q1": "0",
+      "q2": "0",
+      "q3": "ln|x| + C"
+    },
+    startTime: "2025-05-15T09:00:00Z",
+    endTime: "2025-05-15T12:00:00Z",
+    score: 13,
+    maxScore: 13,
+    warningCount: 0,
+  },
+  {
+    examId: "exam3",
+    studentId: "student4",
+    answers: {
+      "q1": "1",
+      "q2": "Nucleophile attacks while leaving group departs"
+    },
+    startTime: "2025-05-25T10:00:00Z",
+    endTime: "2025-05-25T12:30:00Z",
+    score: 3,
+    maxScore: 10,
+    warningCount: 2,
+  }
+];
 
 export const getExamsForTeacher = async (teacherId: string) => {
   // Simulate network delay
