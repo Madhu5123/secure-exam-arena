@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, Settings, PlusCircle } from "lucide-react";
+import { Users, Settings, PlusCircle, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserCard } from "@/components/common/UserCard";
@@ -13,37 +13,59 @@ import { registerUser } from "@/services/AuthService";
 
 export function AdminDashboard() {
   const [teachers, setTeachers] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newTeacher, setNewTeacher] = useState({ name: "", email: "", subject: "", password: "" });
+  const [newTeacher, setNewTeacher] = useState({ 
+    name: "", 
+    email: "", 
+    subject: "", 
+    password: "",
+    department: "",
+    semester: "",
+    profileImage: "" 
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchTeachers = async () => {
+    const fetchData = async () => {
       const teachersRef = ref(db, 'users');
-      const snapshot = await get(teachersRef);
+      const departmentsRef = ref(db, 'departments');
       
-      if (snapshot.exists()) {
+      const [teachersSnapshot, departmentsSnapshot] = await Promise.all([
+        get(teachersRef),
+        get(departmentsRef)
+      ]);
+      
+      if (teachersSnapshot.exists()) {
         const teachersList: any[] = [];
-        snapshot.forEach((childSnapshot) => {
+        teachersSnapshot.forEach((childSnapshot) => {
           const userData = childSnapshot.val();
           if (userData.role === 'teacher') {
             teachersList.push({
               id: childSnapshot.key,
               ...userData,
-              status: 'active', // Default status
+              status: 'active',
             });
           }
         });
         setTeachers(teachersList);
       }
+
+      if (departmentsSnapshot.exists()) {
+        const departmentsList = Object.entries(departmentsSnapshot.val()).map(([id, data]: [string, any]) => ({
+          id,
+          ...data,
+        }));
+        setDepartments(departmentsList);
+      }
     };
 
-    fetchTeachers();
+    fetchData();
   }, []);
 
   const handleAddTeacher = async () => {
-    if (!newTeacher.name || !newTeacher.email || !newTeacher.password) {
+    if (!newTeacher.name || !newTeacher.email || !newTeacher.password || !newTeacher.department) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields",
@@ -61,26 +83,35 @@ export function AdminDashboard() {
       );
 
       if (success && user) {
+        const departmentRef = ref(db, `departments/${newTeacher.department}/teachers`);
+        const snapshot = await get(departmentRef);
+        const currentTeachers = snapshot.exists() ? snapshot.val() : [];
+        await set(departmentRef, [...currentTeachers, user.id]);
+
+        await set(ref(db, `users/${user.id}`), {
+          name: user.name,
+          email: user.email,
+          role: "teacher",
+          subject: newTeacher.subject,
+          department: newTeacher.department,
+          semester: newTeacher.semester,
+          profileImage: newTeacher.profileImage,
+        });
+
         toast({
           title: "Teacher added",
           description: `${newTeacher.name} has been added successfully.`,
         });
 
-        // Add the new teacher to the list
-        setTeachers([
-          ...teachers,
-          {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: "teacher",
-            status: "active",
-            additionalInfo: newTeacher.subject,
-          },
-        ]);
-
-        // Reset form and close dialog
-        setNewTeacher({ name: "", email: "", subject: "", password: "" });
+        setNewTeacher({ 
+          name: "", 
+          email: "", 
+          subject: "", 
+          password: "",
+          department: "",
+          semester: "",
+          profileImage: "" 
+        });
         setIsAddDialogOpen(false);
       } else {
         toast({
@@ -189,6 +220,18 @@ export function AdminDashboard() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
+                  <Label htmlFor="profileImage">Profile Image URL</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="profileImage"
+                      value={newTeacher.profileImage}
+                      onChange={(e) => setNewTeacher({ ...newTeacher, profileImage: e.target.value })}
+                      placeholder="https://example.com/image.jpg"
+                    />
+                    <Image className="h-4 w-4" />
+                  </div>
+                </div>
+                <div className="grid gap-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
                     id="name"
@@ -204,6 +247,34 @@ export function AdminDashboard() {
                     value={newTeacher.email}
                     onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })}
                   />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="department">Department</Label>
+                  <select
+                    id="department"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    value={newTeacher.department}
+                    onChange={(e) => setNewTeacher({ ...newTeacher, department: e.target.value })}
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>{dept.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="semester">Semester</Label>
+                  <select
+                    id="semester"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    value={newTeacher.semester}
+                    onChange={(e) => setNewTeacher({ ...newTeacher, semester: e.target.value })}
+                  >
+                    <option value="">Select Semester</option>
+                    {departments.find(d => d.id === newTeacher.department)?.semesters?.map((sem: string) => (
+                      <option key={sem} value={sem}>{sem}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="subject">Subject/Department</Label>
@@ -244,7 +315,10 @@ export function AdminDashboard() {
               email={teacher.email}
               role="teacher"
               status={teacher.status}
-              additionalInfo={teacher.additionalInfo}
+              additionalInfo={teacher.subject}
+              profileImage={teacher.profileImage}
+              department={departments.find(d => d.id === teacher.department)?.name}
+              semester={teacher.semester}
               onView={handleViewTeacher}
               onEdit={handleEditTeacher}
               onDelete={handleDeleteTeacher}

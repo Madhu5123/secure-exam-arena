@@ -11,15 +11,40 @@ interface UserCardProps {
   role: "teacher" | "student";
   status?: "active" | "inactive";
   additionalInfo?: string;
+  profileImage?: string;
+  department?: string;
+  semester?: string;
   onView?: (id: string) => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
 }
 
-export function UserCard({ id, name, email, role, status = "active", additionalInfo, onView, onEdit, onDelete }: UserCardProps) {
+export function UserCard({ 
+  id, 
+  name, 
+  email, 
+  role, 
+  status = "active", 
+  additionalInfo,
+  profileImage,
+  department,
+  semester,
+  onView, 
+  onEdit, 
+  onDelete 
+}: UserCardProps) {
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
       <CardHeader className="pb-2">
+        {profileImage && (
+          <div className="w-16 h-16 rounded-full overflow-hidden mb-4">
+            <img 
+              src={profileImage} 
+              alt={`${name}'s profile`} 
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="text-xl font-bold">{name}</CardTitle>
@@ -34,10 +59,22 @@ export function UserCard({ id, name, email, role, status = "active", additionalI
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-sm">
-          <span className="font-medium capitalize">{role}</span>
-          {additionalInfo && (
-            <p className="text-muted-foreground mt-1">{additionalInfo}</p>
+        <div className="text-sm space-y-2">
+          <div>
+            <span className="font-medium capitalize">{role}</span>
+            {additionalInfo && (
+              <p className="text-muted-foreground mt-1">{additionalInfo}</p>
+            )}
+          </div>
+          {department && (
+            <div className="text-muted-foreground">
+              Department: {department}
+            </div>
+          )}
+          {semester && (
+            <div className="text-muted-foreground">
+              Semester: {semester}
+            </div>
           )}
         </div>
       </CardContent>
