@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Users, FileText, AlertTriangle, PlusCircle, Calendar, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,19 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-
-// Mock data for initial display
-const mockStudents = [
-  { id: "1", name: "Alex Johnson", email: "alex.j@example.com", role: "student", status: "active", additionalInfo: "Registration #: ST001" },
-  { id: "2", name: "Emily Chen", email: "emily.c@example.com", role: "student", status: "active", additionalInfo: "Registration #: ST002" },
-  { id: "3", name: "Michael Brown", email: "michael.b@example.com", role: "student", status: "inactive", additionalInfo: "Registration #: ST003" },
-];
-
-const mockExams = [
-  { id: "1", title: "Mid-term Mathematics", date: "2025-05-10", time: "10:00", duration: 120, status: "scheduled" },
-  { id: "2", title: "Physics Quiz", date: "2025-05-15", time: "14:00", duration: 60, status: "active" },
-  { id: "3", title: "Final Chemistry Exam", date: "2025-06-20", time: "09:00", duration: 180, status: "draft" },
-];
+import { ref, onValue, get, push, set } from 'firebase/database';
+import { db } from '@/config/firebase';
+import { registerUser } from "@/services/AuthService";
+import { getExamsForTeacher } from "@/services/ExamService";
 
 export function TeacherDashboard() {
   const [students, setStudents] = useState<any[]>([]);
@@ -35,13 +25,43 @@ export function TeacherDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // In a real app, this would fetch from Firebase
-    setStudents(mockStudents);
-    setExams(mockExams);
+    // Subscribe to students data
+    const studentsRef = ref(db, 'users');
+    const unsubscribeStudents = onValue(studentsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const studentsList: any[] = [];
+        snapshot.forEach((childSnapshot) => {
+          const userData = childSnapshot.val();
+          if (userData.role === 'student') {
+            studentsList.push({
+              id: childSnapshot.key,
+              ...userData,
+              status: userData.status || 'active',
+            });
+          }
+        });
+        setStudents(studentsList);
+      }
+    });
+
+    // Subscribe to exams data
+    const fetchExams = async () => {
+      const user = localStorage.getItem('examUser');
+      if (user) {
+        const userData = JSON.parse(user);
+        const teacherExams = await getExamsForTeacher(userData.id);
+        setExams(teacherExams);
+      }
+    };
+    fetchExams();
+
+    // Cleanup subscriptions
+    return () => {
+      unsubscribeStudents();
+    };
   }, []);
 
-  const handleAddStudent = () => {
-    // Validation
+  const handleAddStudent = async () => {
     if (!newStudent.name || !newStudent.email || !newStudent.regNumber || !newStudent.password) {
       toast({
         title: "Missing information",
@@ -51,28 +71,50 @@ export function TeacherDashboard() {
       return;
     }
 
-    // In a real app, this would add to Firebase
-    const newId = String(students.length + 1);
-    setStudents([
-      ...students,
-      {
-        id: newId,
-        name: newStudent.name,
-        email: newStudent.email,
-        role: "student",
-        status: "active",
-        additionalInfo: `Registration #: ${newStudent.regNumber}`,
-      },
-    ]);
+    try {
+      const { success, user, error } = await registerUser(
+        newStudent.name,
+        newStudent.email,
+        newStudent.password,
+        "student"
+      );
 
-    toast({
-      title: "Student added",
-      description: `${newStudent.name} has been added successfully.`,
-    });
+      if (success && user) {
+        toast({
+          title: "Student added",
+          description: `${newStudent.name} has been added successfully.`,
+        });
 
-    // Reset form and close dialog
-    setNewStudent({ name: "", email: "", regNumber: "", password: "" });
-    setIsAddStudentDialogOpen(false);
+        // Add the new student to the list
+        setStudents([
+          ...students,
+          {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: "student",
+            status: "active",
+            additionalInfo: `Registration #: ${newStudent.regNumber}`,
+          },
+        ]);
+
+        // Reset form and close dialog
+        setNewStudent({ name: "", email: "", regNumber: "", password: "" });
+        setIsAddStudentDialogOpen(false);
+      } else {
+        toast({
+          title: "Failed to add student",
+          description: error || "An error occurred while adding the student.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add student. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewStudent = (id: string) => {
@@ -89,19 +131,34 @@ export function TeacherDashboard() {
     });
   };
 
-  const handleDeleteStudent = (id: string) => {
-    setStudents(students.filter((student) => student.id !== id));
+  const handleDeleteStudent = async (id: string) => {
+    try {
+      await set(ref(db, `users/${id}`), null);
+      toast({
+        title: "Student deleted",
+        description: "The student has been deleted successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete student. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleMonitorExam = (id: string) => {
     toast({
-      title: "Student deleted",
-      description: "The student has been deleted successfully.",
+      title: "Monitor Exam",
+      description: `Monitoring exam with ID: ${id}`,
     });
   };
 
   const filteredStudents = students.filter(
     (student) =>
-      student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.additionalInfo.toLowerCase().includes(searchQuery.toLowerCase())
+      student.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.additionalInfo?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleCreateExam = () => {
@@ -110,14 +167,6 @@ export function TeacherDashboard() {
       description: "Redirecting to exam creation page",
     });
     // In a real app, this would navigate to the exam creation page
-  };
-
-  const handleMonitorExam = (id: string) => {
-    toast({
-      title: "Monitor Exam",
-      description: `Monitoring exam with ID: ${id}`,
-    });
-    // In a real app, this would navigate to the exam monitoring page
   };
 
   return (

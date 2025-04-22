@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FileText, Clock, CheckCircle } from "lucide-react";
@@ -8,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { getExamsForStudent } from "@/services/ExamService";
-import { getCurrentUser } from "@/services/AuthService";
 
 export function StudentDashboard() {
   const [exams, setExams] = useState<any[]>([]);
@@ -18,12 +18,13 @@ export function StudentDashboard() {
 
   useEffect(() => {
     const fetchExams = async () => {
-      const user = await getCurrentUser();
+      const user = localStorage.getItem('examUser');
       if (user) {
-        const fetchedExams = await getExamsForStudent(user.id);
-        setExams(fetchedExams);
+        const userData = JSON.parse(user);
+        const studentExams = await getExamsForStudent(userData.id);
+        setExams(studentExams);
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchExams();
@@ -44,8 +45,8 @@ export function StudentDashboard() {
     });
   };
 
-  const upcomingExams = exams.filter(e => e.status === "upcoming");
-  const availableExams = exams.filter(e => e.status === "available");
+  const upcomingExams = exams.filter(e => e.status === "scheduled");
+  const availableExams = exams.filter(e => e.status === "active");
   const completedExams = exams.filter(e => e.status === "completed");
 
   return (
