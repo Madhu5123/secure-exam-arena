@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from "react";
-import { Users, Settings, PlusCircle, Upload } from "lucide-react";
+import { Users, Settings, PlusCircle, Upload, BarChart, PieChart, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserCard } from "@/components/common/UserCard";
@@ -20,18 +20,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  ChartContainer, 
+  ChartTooltip, 
+  ChartTooltipContent 
+} from "@/components/ui/chart";
+import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart as RechartsPieChart, Pie, Cell } from "recharts";
 
 export function AdminDashboard() {
   const [teachers, setTeachers] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [exams, setExams] = useState<any[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [newTeacher, setNewTeacher] = useState({ 
     name: "", 
     email: "", 
-    subject: "", 
+    subjects: [] as string[], 
     password: "",
     department: "",
     profileImage: "" 
@@ -41,21 +50,37 @@ export function AdminDashboard() {
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string>("");
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [departmentStats, setDepartmentStats] = useState({
+    teachersBySemester: [],
+    teachersByDepartment: [],
+    studentsBySemester: [],
+    studentsByDepartment: [],
+    examsByDepartment: []
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Colors for charts
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
 
   useEffect(() => {
     const fetchData = async () => {
       const teachersRef = ref(db, 'users');
       const departmentsRef = ref(db, 'departments');
+      const examsRef = ref(db, 'exams');
       
-      const [teachersSnapshot, departmentsSnapshot] = await Promise.all([
+      const [teachersSnapshot, departmentsSnapshot, examsSnapshot] = await Promise.all([
         get(teachersRef),
-        get(departmentsRef)
+        get(departmentsRef),
+        get(examsRef)
       ]);
       
+      // Process teachers data
       if (teachersSnapshot.exists()) {
         const teachersList: any[] = [];
+        const studentsList: any[] = [];
+        
         teachersSnapshot.forEach((childSnapshot) => {
           const userData = childSnapshot.val();
           if (userData.role === 'teacher') {
@@ -64,11 +89,20 @@ export function AdminDashboard() {
               ...userData,
               status: 'active',
             });
+          } else if (userData.role === 'student') {
+            studentsList.push({
+              id: childSnapshot.key,
+              ...userData,
+              status: 'active',
+            });
           }
         });
+        
         setTeachers(teachersList);
+        setStudents(studentsList);
       }
 
+      // Process departments data
       if (departmentsSnapshot.exists()) {
         const departmentsList = Object.entries(departmentsSnapshot.val()).map(([id, data]: [string, any]) => ({
           id,
@@ -76,13 +110,104 @@ export function AdminDashboard() {
         }));
         setDepartments(departmentsList);
       }
+      
+      // Process exams data
+      if (examsSnapshot.exists()) {
+        const examsList = Object.entries(examsSnapshot.val() || {}).map(([id, data]: [string, any]) => ({
+          id,
+          ...data,
+        }));
+        setExams(examsList);
+      }
     };
 
     fetchData();
   }, []);
 
+  useEffect(() => {
+    // Generate statistics when selectedDepartment or data changes
+    if (departments.length > 0) {
+      if (!selectedDepartment && departments[0]) {
+        setSelectedDepartment(departments[0].id);
+      } else if (selectedDepartment) {
+        generateDepartmentStats(selectedDepartment);
+      }
+    }
+  }, [selectedDepartment, departments, teachers, students, exams]);
+
+  const generateDepartmentStats = (departmentId: string) => {
+    const selectedDeptData = departments.find(d => d.id === departmentId);
+    if (!selectedDeptData) return;
+
+    // Teachers by semester
+    const teachersBySemester: any[] = [];
+    const semesters = selectedDeptData.semesters || [];
+    
+    // Initialize with all semesters
+    semesters.forEach(semester => {
+      teachersBySemester.push({
+        name: semester,
+        value: 0
+      });
+    });
+
+    // Count teachers by semester based on their subjects
+    teachers.forEach(teacher => {
+      if (teacher.department === departmentId) {
+        const teacherSubjects = Array.isArray(teacher.subjects) ? teacher.subjects : [teacher.subject];
+        
+        teacherSubjects.forEach(subjectId => {
+          // Find which semester this subject belongs to
+          if (selectedDeptData.subjects) {
+            Object.entries(selectedDeptData.subjects).forEach(([semester, subjectList]: [string, any]) => {
+              if (subjectList.some((s: any) => s.id === subjectId)) {
+                const semesterEntry = teachersBySemester.find(item => item.name === semester);
+                if (semesterEntry) {
+                  semesterEntry.value += 1;
+                }
+              }
+            });
+          }
+        });
+      }
+    });
+
+    // Students by semester
+    const studentsBySemester = semesters.map(semester => ({
+      name: semester,
+      value: students.filter(student => student.department === departmentId && student.semester === semester).length
+    }));
+
+    // Teachers by department (for comparison)
+    const teachersByDepartment = departments.map(dept => ({
+      name: dept.name,
+      value: teachers.filter(teacher => teacher.department === dept.id).length
+    }));
+
+    // Students by department (for comparison)
+    const studentsByDepartment = departments.map(dept => ({
+      name: dept.name,
+      value: students.filter(student => student.department === dept.id).length
+    }));
+
+    // Exams by department
+    const examsByDepartment = departments.map(dept => ({
+      name: dept.name,
+      value: exams.filter(exam => exam.department === dept.id).length
+    }));
+
+    setDepartmentStats({
+      teachersBySemester,
+      teachersByDepartment,
+      studentsBySemester,
+      studentsByDepartment,
+      examsByDepartment
+    });
+  };
+
   const handleDepartmentChange = async (departmentId: string) => {
-    setNewTeacher({ ...newTeacher, department: departmentId, subject: "" });
+    setNewTeacher({ ...newTeacher, department: departmentId, subjects: [] });
+    setSelectedDepartment(departmentId);
     
     if (!departmentId) {
       setSubjects([]);
@@ -144,11 +269,26 @@ export function AdminDashboard() {
     }
   };
 
+  const handleSubjectCheckboxChange = (subjectId: string) => {
+    setNewTeacher(prev => {
+      const current = [...prev.subjects];
+      const index = current.indexOf(subjectId);
+      
+      if (index === -1) {
+        current.push(subjectId);
+      } else {
+        current.splice(index, 1);
+      }
+      
+      return { ...prev, subjects: current };
+    });
+  };
+
   const handleAddTeacher = async () => {
-    if (!newTeacher.name || !newTeacher.email || !newTeacher.password || !newTeacher.department || !newTeacher.subject) {
+    if (!newTeacher.name || !newTeacher.email || !newTeacher.password || !newTeacher.department || newTeacher.subjects.length === 0) {
       toast({
         title: "Missing information",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields and select at least one subject",
         variant: "destructive",
       });
       return;
@@ -172,7 +312,7 @@ export function AdminDashboard() {
           name: user.name,
           email: user.email,
           role: "teacher",
-          subject: newTeacher.subject,
+          subjects: newTeacher.subjects,
           department: newTeacher.department,
           profileImage: newTeacher.profileImage,
         });
@@ -185,7 +325,7 @@ export function AdminDashboard() {
         setNewTeacher({ 
           name: "", 
           email: "", 
-          subject: "", 
+          subjects: [], 
           password: "",
           department: "",
           profileImage: "" 
@@ -227,7 +367,7 @@ export function AdminDashboard() {
       setNewTeacher({
         name: teacher.name,
         email: teacher.email,
-        subject: teacher.subject,
+        subjects: Array.isArray(teacher.subjects) ? teacher.subjects : [teacher.subject],
         password: "",
         department: teacher.department,
         profileImage: teacher.profileImage
@@ -242,10 +382,10 @@ export function AdminDashboard() {
   };
 
   const handleUpdateTeacher = async () => {
-    if (!selectedTeacher || !newTeacher.name || !newTeacher.email || !newTeacher.department || !newTeacher.subject) {
+    if (!selectedTeacher || !newTeacher.name || !newTeacher.email || !newTeacher.department || newTeacher.subjects.length === 0) {
       toast({
         title: "Missing information",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields and select at least one subject",
         variant: "destructive",
       });
       return;
@@ -255,7 +395,7 @@ export function AdminDashboard() {
       const updates: any = {
         name: newTeacher.name,
         email: newTeacher.email,
-        subject: newTeacher.subject,
+        subjects: newTeacher.subjects,
         department: newTeacher.department,
       };
       
@@ -314,7 +454,7 @@ export function AdminDashboard() {
       setNewTeacher({ 
         name: "", 
         email: "", 
-        subject: "", 
+        subjects: [], 
         password: "",
         department: "",
         profileImage: "" 
@@ -366,29 +506,91 @@ export function AdminDashboard() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="dashboard-grid">
+    <div className="flex flex-col space-y-6">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+        <Select
+          value={selectedDepartment}
+          onValueChange={setSelectedDepartment}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Select Department" />
+          </SelectTrigger>
+          <SelectContent>
+            {departments.map((dept) => (
+              <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="dashboard-grid grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatsCard
           title="Total Teachers"
-          value={teachers.length}
-          description="Active faculty members"
+          value={teachers.filter(t => !selectedDepartment || t.department === selectedDepartment).length}
+          description="Faculty members"
           icon={<Users className="h-4 w-4" />}
         />
         <StatsCard
           title="Active Teachers"
-          value={teachers.filter((t) => t.status === "active").length}
+          value={teachers.filter((t) => (t.status === "active") && (!selectedDepartment || t.department === selectedDepartment)).length}
           description="Currently teaching"
           trend="up"
           trendValue="+2 this month"
         />
         <StatsCard
-          title="System Status"
-          value="Operational"
-          description="All systems running"
-          trend="neutral"
-          trendValue="Normal"
-          icon={<Settings className="h-4 w-4" />}
+          title="Total Students"
+          value={students.filter(s => !selectedDepartment || s.department === selectedDepartment).length}
+          description="Enrolled students"
+          icon={<Users className="h-4 w-4" />}
         />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="border rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4 flex items-center">
+            <BarChart className="h-5 w-5 mr-2" />
+            Teachers by Semester
+          </h3>
+          <ChartContainer className="h-64" config={{}}>
+            <RechartsBarChart
+              data={departmentStats.teachersBySemester}
+              margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="value" fill="#8884d8" />
+            </RechartsBarChart>
+          </ChartContainer>
+        </div>
+
+        <div className="border rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4 flex items-center">
+            <PieChart className="h-5 w-5 mr-2" />
+            Teachers by Department
+          </h3>
+          <ChartContainer className="h-64" config={{}}>
+            <RechartsPieChart>
+              <Pie
+                data={departmentStats.teachersByDepartment.filter(item => item.value > 0)}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                label
+              >
+                {departmentStats.teachersByDepartment.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip content={<ChartTooltipContent />} />
+              <Legend />
+            </RechartsPieChart>
+          </ChartContainer>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
@@ -488,23 +690,30 @@ export function AdminDashboard() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="subject">Subject</Label>
-                  <Select
-                    value={newTeacher.subject}
-                    onValueChange={(value) => setNewTeacher({ ...newTeacher, subject: value })}
-                    disabled={!newTeacher.department || subjects.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={subjects.length === 0 ? "No subjects available" : "Select Subject"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subjects.map((subject) => (
-                        <SelectItem key={subject.id} value={subject.id}>
-                          {subject.name} ({subject.semester})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Subjects</Label>
+                  <div className="border rounded-md p-4 max-h-48 overflow-y-auto">
+                    {subjects.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No subjects available for this department</p>
+                    ) : (
+                      <div className="grid gap-3">
+                        {subjects.map((subject) => (
+                          <div key={subject.id} className="flex items-center space-x-2">
+                            <Checkbox 
+                              id={`subject-${subject.id}`} 
+                              checked={newTeacher.subjects.includes(subject.id)}
+                              onCheckedChange={() => handleSubjectCheckboxChange(subject.id)}
+                            />
+                            <label
+                              htmlFor={`subject-${subject.id}`}
+                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {subject.name} ({subject.semester})
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="password">Initial Password</Label>
@@ -537,7 +746,9 @@ export function AdminDashboard() {
               email={teacher.email}
               role="teacher"
               status={teacher.status}
-              additionalInfo={subjects.find(s => s.id === teacher.subject)?.name || teacher.subject}
+              additionalInfo={Array.isArray(teacher.subjects) 
+                ? teacher.subjects.map(sid => subjects.find(s => s.id === sid)?.name).filter(Boolean).join(", ")
+                : subjects.find(s => s.id === teacher.subject)?.name || ""}
               profileImage={teacher.profileImage}
               department={departments.find(d => d.id === teacher.department)?.name}
               onView={handleViewTeacher}
@@ -588,9 +799,14 @@ export function AdminDashboard() {
                 </div>
               </div>
               <div className="grid gap-2">
-                <Label>Subject</Label>
+                <Label>Subjects</Label>
                 <div className="p-2 bg-muted rounded">
-                  {subjects.find(s => s.id === selectedTeacher.subject)?.name || selectedTeacher.subject || "Not assigned"}
+                  {Array.isArray(selectedTeacher.subjects) 
+                    ? selectedTeacher.subjects.map(sid => {
+                        const subject = subjects.find(s => s.id === sid);
+                        return subject ? `${subject.name} (${subject.semester})` : sid;
+                      }).join(", ")
+                    : subjects.find(s => s.id === selectedTeacher.subject)?.name || selectedTeacher.subject || "Not assigned"}
                 </div>
               </div>
             </div>
@@ -673,23 +889,30 @@ export function AdminDashboard() {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-subject">Subject</Label>
-              <Select
-                value={newTeacher.subject}
-                onValueChange={(value) => setNewTeacher({ ...newTeacher, subject: value })}
-                disabled={!newTeacher.department || subjects.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={subjects.length === 0 ? "No subjects available" : "Select Subject"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjects.map((subject) => (
-                    <SelectItem key={subject.id} value={subject.id}>
-                      {subject.name} ({subject.semester})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Subjects</Label>
+              <div className="border rounded-md p-4 max-h-48 overflow-y-auto">
+                {subjects.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No subjects available for this department</p>
+                ) : (
+                  <div className="grid gap-3">
+                    {subjects.map((subject) => (
+                      <div key={subject.id} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`edit-subject-${subject.id}`} 
+                          checked={newTeacher.subjects.includes(subject.id)}
+                          onCheckedChange={() => handleSubjectCheckboxChange(subject.id)}
+                        />
+                        <label
+                          htmlFor={`edit-subject-${subject.id}`}
+                          className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {subject.name} ({subject.semester})
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>
