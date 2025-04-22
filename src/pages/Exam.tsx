@@ -6,11 +6,18 @@ import { ExamMonitor } from "@/components/exams/ExamMonitor";
 import { ExamTaker } from "@/components/exams/ExamTaker";
 import { checkUserRole } from "@/services/AuthService";
 
-const Exam = () => {
+interface ExamProps {
+  action?: "create" | "monitor" | "take";
+}
+
+const Exam = ({ action: propAction }: ExamProps) => {
   const [userRole, setUserRole] = useState<"admin" | "teacher" | "student" | null>(null);
   const [loading, setLoading] = useState(true);
-  const { action, id } = useParams<{ action?: string; id?: string }>();
+  const { action: urlAction, id } = useParams<{ action?: string; id?: string }>();
   const navigate = useNavigate();
+  
+  // Use the action from props or from URL params
+  const action = propAction || urlAction;
 
   useEffect(() => {
     const fetchUserRole = async () => {

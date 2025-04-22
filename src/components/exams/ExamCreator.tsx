@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Trash, Save, ArrowLeft, Calendar } from "lucide-react";
@@ -20,7 +19,7 @@ interface Question {
   type: QuestionType;
   text: string;
   options?: string[];
-  correctAnswer?: string | string[];
+  correctAnswer?: string;
   points: number;
 }
 
@@ -342,7 +341,7 @@ export function ExamCreator() {
                       
                       {question.type === "short-answer" && (
                         <div className="mt-2 text-sm text-muted-foreground">
-                          Answer: {question.correctAnswer as string}
+                          Answer: {question.correctAnswer}
                         </div>
                       )}
                     </CardContent>
@@ -440,7 +439,7 @@ export function ExamCreator() {
                   <Input
                     id="correctAnswer"
                     placeholder="Enter the correct answer"
-                    value={currentQuestion.correctAnswer as string || ""}
+                    value={currentQuestion.correctAnswer || ""}
                     onChange={(e) => setCurrentQuestion({ ...currentQuestion, correctAnswer: e.target.value })}
                   />
                 </div>
