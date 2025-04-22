@@ -6,18 +6,6 @@ import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
 import { TeacherDashboard } from "@/components/dashboard/TeacherDashboard";
 import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
 import { checkUserRole } from "@/services/AuthService";
-import { 
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-} from "@/components/ui/sidebar";
-import { Home, Users, Folder, BookOpen, BarChart } from "lucide-react";
 
 const Dashboard = () => {
   const [userRole, setUserRole] = useState<"admin" | "teacher" | "student" | null>(null);
@@ -74,46 +62,6 @@ const Dashboard = () => {
     }
   };
 
-  const NavSidebar = () => {
-    return (
-      <Sidebar>
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Admin Portal</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <a href="/dashboard" className="flex items-center gap-2">
-                      <Home className="h-4 w-4" />
-                      <span>Dashboard</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <a href="/departments" className="flex items-center gap-2">
-                      <Folder className="h-4 w-4" />
-                      <span>Departments</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <a href="/exam/create" className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4" />
-                      <span>Create Exam</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </SidebarContent>
-      </Sidebar>
-    );
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -124,14 +72,9 @@ const Dashboard = () => {
   }
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        {userRole === "admin" && <NavSidebar />}
-        <main className="flex-1 p-6">
-          {renderDashboard()}
-        </main>
-      </div>
-    </SidebarProvider>
+    <DashboardLayout>
+      {renderDashboard()}
+    </DashboardLayout>
   );
 };
 
