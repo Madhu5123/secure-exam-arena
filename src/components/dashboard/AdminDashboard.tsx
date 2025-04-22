@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Users, Settings, PlusCircle, Image } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Users, Settings, PlusCircle, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserCard } from "@/components/common/UserCard";
@@ -7,9 +7,10 @@ import { StatsCard } from "@/components/common/StatsCard";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ref, get, push, set } from 'firebase/database';
-import { db } from '@/config/firebase';
+import { ref, get, push, set, uploadBytes, getDownloadURL } from 'firebase/database';
+import { db, storage } from '@/config/firebase';
 import { registerUser } from "@/services/AuthService";
+import { ref as storageRef } from 'firebase/storage';
 
 export function AdminDashboard() {
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -21,10 +22,11 @@ export function AdminDashboard() {
     subject: "", 
     password: "",
     department: "",
-    semester: "",
     profileImage: "" 
   });
   const [searchQuery, setSearchQuery] = useState("");
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -64,6 +66,12 @@ export function AdminDashboard() {
     fetchData();
   }, []);
 
+  const handleProfileImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setProfileImageFile(event.target.files[0]);
+    }
+  };
+
   const handleAddTeacher = async () => {
     if (!newTeacher.name || !newTeacher.email || !newTeacher.password || !newTeacher.department) {
       toast({
@@ -75,6 +83,15 @@ export function AdminDashboard() {
     }
 
     try {
+      let imageUrl = "";
+      
+      // Upload profile image if selected
+      if (profileImageFile) {
+        const imageStorageRef = storageRef(storage, `teacher-profiles/${Date.now()}-${profileImageFile.name}`);
+        await uploadBytes(imageStorageRef, profileImageFile);
+        imageUrl = await getDownloadURL(imageStorageRef);
+      }
+
       const { success, user, error } = await registerUser(
         newTeacher.name,
         newTeacher.email,
@@ -94,8 +111,7 @@ export function AdminDashboard() {
           role: "teacher",
           subject: newTeacher.subject,
           department: newTeacher.department,
-          semester: newTeacher.semester,
-          profileImage: newTeacher.profileImage,
+          profileImage: imageUrl,
         });
 
         toast({
@@ -109,9 +125,12 @@ export function AdminDashboard() {
           subject: "", 
           password: "",
           department: "",
-          semester: "",
           profileImage: "" 
         });
+        setProfileImageFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
         setIsAddDialogOpen(false);
       } else {
         toast({
@@ -220,16 +239,30 @@ export function AdminDashboard() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="profileImage">Profile Image URL</Label>
-                  <div className="flex gap-2">
-                    <Input
+                  <Label htmlFor="profileImage">Profile Image</Label>
+                  <div className="flex gap-2 items-center">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full flex items-center justify-center"
+                    >
+                      <Upload className="h-4 w-4 mr-2" /> 
+                      {profileImageFile ? 'Change Image' : 'Upload Image'}
+                    </Button>
+                    <input
+                      ref={fileInputRef}
                       id="profileImage"
-                      value={newTeacher.profileImage}
-                      onChange={(e) => setNewTeacher({ ...newTeacher, profileImage: e.target.value })}
-                      placeholder="https://example.com/image.jpg"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleProfileImageUpload}
                     />
-                    <Image className="h-4 w-4" />
                   </div>
+                  {profileImageFile && (
+                    <div className="text-sm text-muted-foreground">
+                      Selected: {profileImageFile.name}
+                    </div>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="name">Full Name</Label>
@@ -263,21 +296,7 @@ export function AdminDashboard() {
                   </select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="semester">Semester</Label>
-                  <select
-                    id="semester"
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                    value={newTeacher.semester}
-                    onChange={(e) => setNewTeacher({ ...newTeacher, semester: e.target.value })}
-                  >
-                    <option value="">Select Semester</option>
-                    {departments.find(d => d.id === newTeacher.department)?.semesters?.map((sem: string) => (
-                      <option key={sem} value={sem}>{sem}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="subject">Subject/Department</Label>
+                  <Label htmlFor="subject">Subject</Label>
                   <Input
                     id="subject"
                     value={newTeacher.subject}
@@ -318,7 +337,6 @@ export function AdminDashboard() {
               additionalInfo={teacher.subject}
               profileImage={teacher.profileImage}
               department={departments.find(d => d.id === teacher.department)?.name}
-              semester={teacher.semester}
               onView={handleViewTeacher}
               onEdit={handleEditTeacher}
               onDelete={handleDeleteTeacher}

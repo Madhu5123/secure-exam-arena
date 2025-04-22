@@ -1,8 +1,5 @@
 
-import React, { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { ref, get, push, set } from 'firebase/database';
-import { db } from '@/config/firebase';
+import React from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { DepartmentManager } from "@/components/department/DepartmentManager";
 

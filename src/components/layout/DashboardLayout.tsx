@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { LogOut, Menu, Users, Settings, Calendar, BarChart, FileText } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { LogOut, Menu, Users, Settings, Calendar, BarChart, FileText, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -50,6 +50,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     const adminItems = [
       ...commonItems,
       { title: "Manage Teachers", icon: Users, url: "/dashboard/teachers" },
+      { title: "Departments", icon: Building, url: "/departments" },
       { title: "Settings", icon: Settings, url: "/dashboard/settings" },
     ];
     
