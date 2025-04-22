@@ -3,15 +3,15 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
+// Firebase configuration - replace with your actual Firebase project details
 const firebaseConfig = {
-  // Replace with your Firebase config
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  databaseURL: "YOUR_DATABASE_URL",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBExvbaYMXH40VgVzI8qV08QnIOzJ0jFtE",
+  authDomain: "exam-portal-demo.firebaseapp.com",
+  databaseURL: "https://exam-portal-demo-default-rtdb.firebaseio.com",
+  projectId: "exam-portal-demo",
+  storageBucket: "exam-portal-demo.appspot.com",
+  messagingSenderId: "123456789012",
+  appId: "1:123456789012:web:abcdef1234567890abcdef"
 };
 
 // Initialize Firebase

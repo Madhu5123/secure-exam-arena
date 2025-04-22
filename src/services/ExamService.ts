@@ -45,7 +45,7 @@ export const getExamsForTeacher = async (teacherId: string) => {
     if (snapshot.exists()) {
       const exams: Exam[] = [];
       snapshot.forEach((childSnapshot) => {
-        exams.push({ id: childSnapshot.key, ...childSnapshot.val() });
+        exams.push({ id: childSnapshot.key || '', ...childSnapshot.val() });
       });
       return exams;
     }
@@ -66,12 +66,12 @@ export const getExamsForStudent = async (studentId: string) => {
       const exams: any[] = [];
       snapshot.forEach((childSnapshot) => {
         const exam = childSnapshot.val();
-        if (exam.assignedStudents.includes(studentId)) {
+        if (exam.assignedStudents && exam.assignedStudents.includes(studentId)) {
           // Check if student has submitted this exam
           const submission = exam.submissions?.[studentId];
           exams.push({
             ...exam,
-            id: childSnapshot.key,
+            id: childSnapshot.key || '',
             status: submission ? "completed" : exam.status,
             score: submission?.score,
             maxScore: submission?.maxScore,
