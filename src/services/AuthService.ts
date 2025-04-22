@@ -1,8 +1,15 @@
 
-// This is a mock auth service that simulates Firebase Authentication
-// In a real implementation, this would use Firebase Auth
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { ref, set, get } from 'firebase/database';
+import { auth, db } from '../config/firebase';
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
@@ -11,89 +18,77 @@ interface User {
 
 let currentUser: User | null = null;
 
-// Mock users database
-const users = [
-  {
-    id: "admin1",
-    name: "Admin User",
-    email: "admin@gmail.com",
-    password: "admin",
-    role: "admin" as const,
-  },
-  {
-    id: "teacher1",
-    name: "John Smith",
-    email: "john.smith@example.com",
-    password: "password123",
-    role: "teacher" as const,
-  },
-  {
-    id: "teacher2",
-    name: "Sarah Jones",
-    email: "sarah.jones@example.com",
-    password: "password123",
-    role: "teacher" as const,
-  },
-  {
-    id: "student1",
-    name: "Alex Johnson",
-    email: "alex.j@example.com",
-    password: "password123",
-    role: "student" as const,
-  },
-  {
-    id: "student2",
-    name: "Emily Chen",
-    email: "emily.c@example.com",
-    password: "password123",
-    role: "student" as const,
-  },
-];
-
 export const loginUser = async (email: string, password: string) => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  // Find user with matching email and password
-  const user = users.find(u => u.email === email && u.password === password);
-
-  if (user) {
-    // Store user info in localStorage (simulating auth state persistence)
-    const { password: _, ...userWithoutPassword } = user;
-    localStorage.setItem("examUser", JSON.stringify(userWithoutPassword));
-    currentUser = userWithoutPassword;
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const userRef = ref(db, `users/${userCredential.user.uid}`);
+    const snapshot = await get(userRef);
+    
+    if (snapshot.exists()) {
+      const userData = snapshot.val();
+      const user: User = {
+        id: userCredential.user.uid,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+      };
+      
+      localStorage.setItem("examUser", JSON.stringify(user));
+      currentUser = user;
+      
+      return {
+        success: true,
+        role: user.role,
+      };
+    }
     
     return {
-      success: true,
-      role: user.role,
+      success: false,
+      error: "User data not found",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: "Invalid email or password",
     };
   }
-
-  return {
-    success: false,
-    error: "Invalid email or password",
-  };
 };
 
 export const logoutUser = async () => {
-  // Clear user from localStorage
-  localStorage.removeItem("examUser");
-  currentUser = null;
-  
-  return { success: true };
+  try {
+    await signOut(auth);
+    localStorage.removeItem("examUser");
+    currentUser = null;
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: "Failed to logout" };
+  }
 };
 
 export const getCurrentUser = async (): Promise<User | null> => {
-  if (currentUser) return currentUser;
-  
-  // Check if user is stored in localStorage
-  const storedUser = localStorage.getItem("examUser");
-  if (storedUser) {
-    currentUser = JSON.parse(storedUser);
-    return currentUser;
-  }
-  
-  return null;
+  return new Promise((resolve) => {
+    onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const userRef = ref(db, `users/${firebaseUser.uid}`);
+        const snapshot = await get(userRef);
+        
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          currentUser = {
+            id: firebaseUser.uid,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+          };
+          resolve(currentUser);
+        } else {
+          resolve(null);
+        }
+      } else {
+        resolve(null);
+      }
+    });
+  });
 };
 
 export const registerUser = async (
@@ -102,38 +97,33 @@ export const registerUser = async (
   password: string,
   role: "teacher" | "student"
 ) => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    
+    // Store additional user data in Realtime Database
+    await set(ref(db, `users/${user.uid}`), {
+      name,
+      email,
+      role,
+      createdAt: new Date().toISOString(),
+    });
 
-  // Check if email is already in use
-  if (users.some(u => u.email === email)) {
+    return {
+      success: true,
+      user: {
+        id: user.uid,
+        name,
+        email,
+        role,
+      },
+    };
+  } catch (error) {
     return {
       success: false,
-      error: "Email is already in use",
+      error: "Failed to register user",
     };
   }
-
-  // In a real app, this would create a new user in Firebase Auth
-  const newUser = {
-    id: `${role}${users.length + 1}`,
-    name,
-    email,
-    password,
-    role,
-  };
-
-  // Add to mock database
-  users.push(newUser);
-
-  return {
-    success: true,
-    user: {
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-    },
-  };
 };
 
 export const checkUserRole = async (): Promise<"admin" | "teacher" | "student" | null> => {
