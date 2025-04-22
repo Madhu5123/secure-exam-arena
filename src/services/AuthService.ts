@@ -19,6 +19,24 @@ export interface User {
 let currentUser: User | null = null;
 
 export const loginUser = async (email: string, password: string) => {
+  // Special case for admin login
+  if (email === "admin@gmail.com" && password === "admin") {
+    const adminUser: User = {
+      id: "admin-id",
+      name: "Admin User",
+      email: "admin@gmail.com",
+      role: "admin"
+    };
+    
+    localStorage.setItem("examUser", JSON.stringify(adminUser));
+    currentUser = adminUser;
+    
+    return {
+      success: true,
+      role: "admin",
+    };
+  }
+
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const userRef = ref(db, `users/${userCredential.user.uid}`);
