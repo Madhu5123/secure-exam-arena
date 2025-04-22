@@ -1,12 +1,17 @@
-
 import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
+
+interface ExamSection {
+  name: string;
+  timeLimit: number;
+}
 
 interface Exam {
   id: string;
   title: string;
   subject: string;
+  semester?: string;
   createdBy: string;
   date: string;
   time: string;
@@ -14,6 +19,7 @@ interface Exam {
   status: "draft" | "scheduled" | "active" | "completed";
   questions: Question[];
   assignedStudents: string[];
+  sections?: ExamSection[];
   submissions?: Record<string, Submission>;
 }
 
@@ -35,6 +41,8 @@ interface Question {
   options?: string[];
   correctAnswer?: string | string[];
   points: number;
+  section?: string;
+  timeLimit?: number;
 }
 
 export const getExamsForTeacher = async (teacherId: string) => {
@@ -256,4 +264,3 @@ export const getStudentResults = async (studentId: string) => {
     };
   }
 };
-

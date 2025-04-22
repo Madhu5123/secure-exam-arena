@@ -49,9 +49,9 @@ const Dashboard = () => {
   const renderDashboard = () => {
     switch (userRole) {
       case "admin":
-        return <AdminDashboard section={section as string} />;
+        return <AdminDashboard section={section} />;
       case "teacher":
-        return <TeacherDashboard section={section as string | undefined} />;
+        return <TeacherDashboard section={section} />;
       case "student":
         return <StudentDashboard />;
       default:
