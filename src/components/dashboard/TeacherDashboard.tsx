@@ -1,9 +1,8 @@
 
 import { useState, useEffect } from "react";
-import { Users, FileText, AlertTriangle, PlusCircle, Calendar, Search, Image } from "lucide-react";
+import { Users, FileText, Calendar, PlusCircle, Search, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserCard } from "@/components/common/UserCard";
 import { StatsCard } from "@/components/common/StatsCard";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,15 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ref, onValue, get, push, set } from 'firebase/database';
+import { ref, onValue, set } from 'firebase/database';
 import { db } from '@/config/firebase';
 import { registerUser } from "@/services/AuthService";
 import { getExamsForTeacher } from "@/services/ExamService";
+import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
 
-/**
- * Props for TeacherDashboard
- * @param section string | undefined (from route): "dashboard" | "students" | "exams"
- */
 interface TeacherDashboardProps {
   section?: string;
 }
@@ -28,20 +24,14 @@ const SEMESTERS = ["All", "Semester 1", "Semester 2", "Semester 3", "Semester 4"
 const SUBJECTS = ["All", "Mathematics", "Science", "History", "English"];
 
 export function TeacherDashboard({ section }: TeacherDashboardProps) {
-  // Students and Exams state
   const [students, setStudents] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState(section || "dashboard");
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: "", email: "", regNumber: "", password: "", photo: "", semester: SEMESTERS[0] });
+  const [newStudent, setNewStudent] = useState({ name: "", email: "", regNumber: "", password: "", photo: "", semester: SEMESTERS[1] });
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("All");
   const [selectedSubject, setSelectedSubject] = useState("All");
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (section) setActiveTab(section);
-  }, [section]);
 
   // Fetch students and exams
   useEffect(() => {
@@ -56,7 +46,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
               id: childSnapshot.key,
               ...userData,
               status: userData.status || 'active',
-              semester: userData.semester || SEMESTERS[0],
+              semester: userData.semester || SEMESTERS[1],
               photo: userData.photo || "",
             });
           }
@@ -80,7 +70,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     };
   }, []);
 
-  // Add student with photo and semester
+  // Add student with photo and semester; uploads image to Cloudinary
   const handleAddStudent = async () => {
     if (!newStudent.name || !newStudent.email || !newStudent.regNumber || !newStudent.password || !newStudent.semester) {
       toast({
@@ -91,6 +81,15 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
       return;
     }
     try {
+      let uploadedPhotoUrl = newStudent.photo;
+      if (newStudent.photo && newStudent.photo.startsWith("blob:")) {
+        // Upload photo to Cloudinary
+        toast({ title: "Uploading image...", description: "Please wait." });
+        const blob = await fetch(newStudent.photo).then(r => r.blob());
+        const file = new File([blob], "photo.jpg", { type: blob.type });
+        uploadedPhotoUrl = await uploadToCloudinary(file);
+        toast({ title: "Image uploaded!", description: "Saved to Cloudinary." });
+      }
       const { success, user, error } = await registerUser(
         newStudent.name,
         newStudent.email,
@@ -110,10 +109,10 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           regNumber: newStudent.regNumber,
           status: "active",
           additionalInfo: `Registration #: ${newStudent.regNumber}`,
-          photo: newStudent.photo,
+          photo: uploadedPhotoUrl,
           semester: newStudent.semester,
         });
-        setNewStudent({ name: "", email: "", regNumber: "", password: "", photo: "", semester: SEMESTERS[0] });
+        setNewStudent({ name: "", email: "", regNumber: "", password: "", photo: "", semester: SEMESTERS[1] });
         setIsAddStudentDialogOpen(false);
       } else {
         toast({
@@ -131,7 +130,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     }
   };
 
-  // Simulated edit handler (for real app, fetch + set form values)
   const handleEditStudent = (id: string) => {
     const student = students.find(s => s.id === id);
     if (student) {
@@ -141,7 +139,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         regNumber: student.regNumber || "",
         password: "",
         photo: student.photo || "",
-        semester: student.semester || SEMESTERS[0],
+        semester: student.semester || SEMESTERS[1],
       });
       setIsAddStudentDialogOpen(true);
     }
@@ -167,40 +165,33 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     }
   };
 
-  // --- FILTERING & ANALYTICS ---
   const filteredStudents = students.filter((student) => {
-    // Search filter
     const matchesSearch =
       student.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       student.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       student.regNumber?.toLowerCase().includes(searchQuery.toLowerCase());
-    // Semester filter
     const matchesSemester = selectedSemester === "All" || student.semester === selectedSemester;
     return matchesSearch && matchesSemester;
   });
 
-  // Filtered exams by semester+subject
   const filteredExams = exams.filter((exam) => {
     const bySemester = selectedSemester === "All" || exam.semester === selectedSemester;
     const bySubject = selectedSubject === "All" || exam.subject === selectedSubject;
     return bySemester && bySubject;
   });
 
-  // Analytics data
   const totalStudents = selectedSemester === "All" ? students.length : students.filter(s => s.semester === selectedSemester).length;
   const activeStudents = filteredStudents.filter(s => s.status === "active").length;
   const totalExams = filteredExams.length;
   const totalAttended = filteredExams.reduce((sum, exam) => sum + (exam.attendance || 0), 0);
   const studentPassed = filteredStudents.filter(s => s.result === "passed").length;
 
-  // Subject and semester breakdown for "analysis"
-  // Example subjects, will need to update with real data in real app
   const subjectCounts = SUBJECTS.slice(1).map(subject => ({
     subject,
     exams: exams.filter(e => e.subject === subject && (selectedSemester === "All" || e.semester === selectedSemester)).length,
   }));
 
-  // --- ANALYSIS & FILTER PANEL ---
+  // --- Panels ---
   const renderDashboardOverview = () => (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-4 items-center">
@@ -272,7 +263,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     </div>
   );
 
-  // --- STUDENT MANAGEMENT PANEL ---
   const renderManageStudents = () => (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
@@ -349,9 +339,9 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        // Simulate "upload" by using URL.createObjectURL for demo
+                        // Use URL.createObjectURL for preview, actual upload on submit
                         const url = URL.createObjectURL(file);
-                        setNewStudent({ ...newStudent, photo: url });
+                        setNewStudent(current => ({ ...current, photo: url }));
                       }
                     }}
                   />
@@ -415,7 +405,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     </div>
   );
 
-  // --- EXAM MANAGEMENT PANEL ---
   const renderManageExams = () => (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
@@ -428,7 +417,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
             placeholder="Search exams..."
             className="md:w-64"
           />
-          <Button /* onClick={} */>
+          <Button>
             <PlusCircle className="h-4 w-4 mr-2" />
             Create Exam
           </Button>
@@ -457,11 +446,11 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                 </div>
               </CardContent>
               <CardFooter className="flex justify-end gap-2 border-t pt-4">
-                <Button variant="outline" size="sm" /* onClick={} */>
+                <Button variant="outline" size="sm">
                   <FileText className="h-4 w-4 mr-1" />
                   Edit
                 </Button>
-                <Button size="sm" /* onClick={} */>
+                <Button size="sm">
                   <Search className="h-4 w-4 mr-1" />
                   Monitor
                 </Button>
@@ -477,24 +466,14 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     </div>
   );
 
-  // Main: Only show the single active section
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2 mb-2">
-        <Button variant={activeTab === "dashboard" ? "default" : "outline"} onClick={() => setActiveTab("dashboard")}>
-          Dashboard
-        </Button>
-        <Button variant={activeTab === "students" ? "default" : "outline"} onClick={() => setActiveTab("students")}>
-          Students
-        </Button>
-        <Button variant={activeTab === "exams" ? "default" : "outline"} onClick={() => setActiveTab("exams")}>
-          Exams
-        </Button>
-      </div>
-      {activeTab === "dashboard" && renderDashboardOverview()}
-      {activeTab === "students" && renderManageStudents()}
-      {activeTab === "exams" && renderManageExams()}
-    </div>
-  );
+  // --- Main Section ---
+  if (section === "students") {
+    return renderManageStudents();
+  }
+  if (section === "exams") {
+    return renderManageExams();
+  }
+  // Default/overview
+  return renderDashboardOverview();
 }
 // ... end of file
