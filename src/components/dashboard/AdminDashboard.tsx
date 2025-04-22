@@ -7,10 +7,10 @@ import { StatsCard } from "@/components/common/StatsCard";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ref, get, push, set, uploadBytes, getDownloadURL } from 'firebase/database';
+import { ref, get, push, set } from 'firebase/database';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/config/firebase';
 import { registerUser } from "@/services/AuthService";
-import { ref as storageRef } from 'firebase/storage';
 
 export function AdminDashboard() {
   const [teachers, setTeachers] = useState<any[]>([]);
