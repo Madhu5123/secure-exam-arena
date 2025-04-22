@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Users, Settings, PlusCircle, Upload, BarChart, PieChart, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,7 +27,11 @@ import {
 } from "@/components/ui/chart";
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart as RechartsPieChart, Pie, Cell } from "recharts";
 
-export function AdminDashboard() {
+interface AdminDashboardProps {
+  section?: string;
+}
+
+export function AdminDashboard({ section }: AdminDashboardProps) {
   const [teachers, setTeachers] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -64,6 +67,7 @@ export function AdminDashboard() {
   // Colors for charts
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
 
+  // Load data on mount
   useEffect(() => {
     const fetchData = async () => {
       const teachersRef = ref(db, 'users');
@@ -124,6 +128,7 @@ export function AdminDashboard() {
     fetchData();
   }, []);
 
+  // Update stats when department changes
   useEffect(() => {
     // Generate statistics when selectedDepartment or data changes
     if (departments.length > 0) {
@@ -135,6 +140,283 @@ export function AdminDashboard() {
     }
   }, [selectedDepartment, departments, teachers, students, exams]);
 
+  // Handle showing appropriate content based on section
+  const renderContent = () => {
+    // If section is specified, show only that section
+    if (section === "teachers") {
+      return renderTeachersSection();
+    }
+    
+    // Otherwise show the main dashboard with stats
+    return (
+      <>
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <Select
+            value={selectedDepartment}
+            onValueChange={setSelectedDepartment}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select Department" />
+            </SelectTrigger>
+            <SelectContent>
+              {departments.map((dept) => (
+                <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="dashboard-grid grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatsCard
+            title="Total Teachers"
+            value={teachers.filter(t => !selectedDepartment || t.department === selectedDepartment).length}
+            description="Faculty members"
+            icon={<Users className="h-4 w-4" />}
+          />
+          <StatsCard
+            title="Active Teachers"
+            value={teachers.filter((t) => (t.status === "active") && (!selectedDepartment || t.department === selectedDepartment)).length}
+            description="Currently teaching"
+            trend="up"
+            trendValue="+2 this month"
+          />
+          <StatsCard
+            title="Total Students"
+            value={students.filter(s => !selectedDepartment || s.department === selectedDepartment).length}
+            description="Enrolled students"
+            icon={<Users className="h-4 w-4" />}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          <div className="border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-4 flex items-center">
+              <BarChart className="h-5 w-5 mr-2" />
+              Teachers by Semester
+            </h3>
+            <ChartContainer className="h-64" config={{}}>
+              <RechartsBarChart
+                data={departmentStats.teachersBySemester}
+                margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="value" fill="#8884d8" />
+              </RechartsBarChart>
+            </ChartContainer>
+          </div>
+
+          <div className="border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-4 flex items-center">
+              <PieChart className="h-5 w-5 mr-2" />
+              Teachers by Department
+            </h3>
+            <ChartContainer className="h-64" config={{}}>
+              <RechartsPieChart>
+                <Pie
+                  data={departmentStats.teachersByDepartment.filter(item => item.value > 0)}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  label
+                >
+                  {departmentStats.teachersByDepartment.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip content={<ChartTooltipContent />} />
+                <Legend />
+              </RechartsPieChart>
+            </ChartContainer>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  // Teacher management section
+  const renderTeachersSection = () => {
+    return (
+      <>
+        <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
+          <div>
+            <h2 className="text-2xl font-bold">Manage Teachers</h2>
+            <p className="text-muted-foreground">Add, edit or remove teacher accounts</p>
+          </div>
+          <div className="flex gap-2 w-full md:w-auto">
+            <Input
+              placeholder="Search teachers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="md:w-64"
+            />
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Add Teacher
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Teacher</DialogTitle>
+                  <DialogDescription>
+                    Create a new teacher account. They will receive login credentials via email.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="profileImage">Profile Image</Label>
+                    <div className="flex gap-2 items-center">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full flex items-center justify-center"
+                        disabled={uploadingImage}
+                      >
+                        <Upload className="h-4 w-4 mr-2" /> 
+                        {uploadingImage ? 'Uploading...' : profileImageFile ? 'Change Image' : 'Upload Image'}
+                      </Button>
+                      <input
+                        ref={fileInputRef}
+                        id="profileImage"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleProfileImageUpload}
+                      />
+                    </div>
+                    {uploadedImageUrl && (
+                      <div className="mt-2">
+                        <img 
+                          src={uploadedImageUrl} 
+                          alt="Profile preview" 
+                          className="w-16 h-16 rounded-full object-cover"
+                        />
+                      </div>
+                    )}
+                    {profileImageFile && !uploadedImageUrl && (
+                      <div className="text-sm text-muted-foreground">
+                        Selected: {profileImageFile.name}
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      value={newTeacher.name}
+                      onChange={(e) => setNewTeacher({ ...newTeacher, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newTeacher.email}
+                      onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="department">Department</Label>
+                    <Select
+                      value={newTeacher.department}
+                      onValueChange={(value) => handleDepartmentChange(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map((dept) => (
+                          <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Subjects</Label>
+                    <div className="border rounded-md p-4 max-h-48 overflow-y-auto">
+                      {subjects.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No subjects available for this department</p>
+                      ) : (
+                        <div className="grid gap-3">
+                          {subjects.map((subject) => (
+                            <div key={subject.id} className="flex items-center space-x-2">
+                              <Checkbox 
+                                id={`subject-${subject.id}`} 
+                                checked={newTeacher.subjects.includes(subject.id)}
+                                onCheckedChange={() => handleSubjectCheckboxChange(subject.id)}
+                              />
+                              <label
+                                htmlFor={`subject-${subject.id}`}
+                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                              >
+                                {subject.name} ({subject.semester})
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="password">Initial Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={newTeacher.password}
+                      onChange={(e) => setNewTeacher({ ...newTeacher, password: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddTeacher} disabled={uploadingImage}>Add Teacher</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+          {filteredTeachers.length > 0 ? (
+            filteredTeachers.map((teacher) => (
+              <UserCard
+                key={teacher.id}
+                id={teacher.id}
+                name={teacher.name}
+                email={teacher.email}
+                role="teacher"
+                status={teacher.status}
+                additionalInfo={Array.isArray(teacher.subjects) 
+                  ? teacher.subjects.map(sid => subjects.find(s => s.id === sid)?.name).filter(Boolean).join(", ")
+                  : subjects.find(s => s.id === teacher.subject)?.name || ""}
+                profileImage={teacher.profileImage}
+                department={departments.find(d => d.id === teacher.department)?.name}
+                onView={handleViewTeacher}
+                onEdit={handleEditTeacher}
+                onDelete={handleDeleteTeacher}
+              />
+            ))
+          ) : (
+            <div className="col-span-full text-center py-10">
+              <p className="text-muted-foreground">No teachers found. Add a new teacher to get started.</p>
+            </div>
+          )}
+        </div>
+      </>
+    );
+  };
+
+  // Other functions
   const generateDepartmentStats = (departmentId: string) => {
     const selectedDeptData = departments.find(d => d.id === departmentId);
     if (!selectedDeptData) return;
@@ -507,261 +789,7 @@ export function AdminDashboard() {
 
   return (
     <div className="flex flex-col space-y-6">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <Select
-          value={selectedDepartment}
-          onValueChange={setSelectedDepartment}
-        >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Select Department" />
-          </SelectTrigger>
-          <SelectContent>
-            {departments.map((dept) => (
-              <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="dashboard-grid grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatsCard
-          title="Total Teachers"
-          value={teachers.filter(t => !selectedDepartment || t.department === selectedDepartment).length}
-          description="Faculty members"
-          icon={<Users className="h-4 w-4" />}
-        />
-        <StatsCard
-          title="Active Teachers"
-          value={teachers.filter((t) => (t.status === "active") && (!selectedDepartment || t.department === selectedDepartment)).length}
-          description="Currently teaching"
-          trend="up"
-          trendValue="+2 this month"
-        />
-        <StatsCard
-          title="Total Students"
-          value={students.filter(s => !selectedDepartment || s.department === selectedDepartment).length}
-          description="Enrolled students"
-          icon={<Users className="h-4 w-4" />}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="border rounded-lg p-4">
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <BarChart className="h-5 w-5 mr-2" />
-            Teachers by Semester
-          </h3>
-          <ChartContainer className="h-64" config={{}}>
-            <RechartsBarChart
-              data={departmentStats.teachersBySemester}
-              margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="value" fill="#8884d8" />
-            </RechartsBarChart>
-          </ChartContainer>
-        </div>
-
-        <div className="border rounded-lg p-4">
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <PieChart className="h-5 w-5 mr-2" />
-            Teachers by Department
-          </h3>
-          <ChartContainer className="h-64" config={{}}>
-            <RechartsPieChart>
-              <Pie
-                data={departmentStats.teachersByDepartment.filter(item => item.value > 0)}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                label
-              >
-                {departmentStats.teachersByDepartment.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip content={<ChartTooltipContent />} />
-              <Legend />
-            </RechartsPieChart>
-          </ChartContainer>
-        </div>
-      </div>
-
-      <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Manage Teachers</h2>
-          <p className="text-muted-foreground">Add, edit or remove teacher accounts</p>
-        </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <Input
-            placeholder="Search teachers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="md:w-64"
-          />
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Add Teacher
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Add New Teacher</DialogTitle>
-                <DialogDescription>
-                  Create a new teacher account. They will receive login credentials via email.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="profileImage">Profile Image</Label>
-                  <div className="flex gap-2 items-center">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full flex items-center justify-center"
-                      disabled={uploadingImage}
-                    >
-                      <Upload className="h-4 w-4 mr-2" /> 
-                      {uploadingImage ? 'Uploading...' : profileImageFile ? 'Change Image' : 'Upload Image'}
-                    </Button>
-                    <input
-                      ref={fileInputRef}
-                      id="profileImage"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleProfileImageUpload}
-                    />
-                  </div>
-                  {uploadedImageUrl && (
-                    <div className="mt-2">
-                      <img 
-                        src={uploadedImageUrl} 
-                        alt="Profile preview" 
-                        className="w-16 h-16 rounded-full object-cover"
-                      />
-                    </div>
-                  )}
-                  {profileImageFile && !uploadedImageUrl && (
-                    <div className="text-sm text-muted-foreground">
-                      Selected: {profileImageFile.name}
-                    </div>
-                  )}
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    value={newTeacher.name}
-                    onChange={(e) => setNewTeacher({ ...newTeacher, name: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newTeacher.email}
-                    onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="department">Department</Label>
-                  <Select
-                    value={newTeacher.department}
-                    onValueChange={(value) => handleDepartmentChange(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Subjects</Label>
-                  <div className="border rounded-md p-4 max-h-48 overflow-y-auto">
-                    {subjects.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No subjects available for this department</p>
-                    ) : (
-                      <div className="grid gap-3">
-                        {subjects.map((subject) => (
-                          <div key={subject.id} className="flex items-center space-x-2">
-                            <Checkbox 
-                              id={`subject-${subject.id}`} 
-                              checked={newTeacher.subjects.includes(subject.id)}
-                              onCheckedChange={() => handleSubjectCheckboxChange(subject.id)}
-                            />
-                            <label
-                              htmlFor={`subject-${subject.id}`}
-                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {subject.name} ({subject.semester})
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="password">Initial Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={newTeacher.password}
-                    onChange={(e) => setNewTeacher({ ...newTeacher, password: e.target.value })}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleAddTeacher} disabled={uploadingImage}>Add Teacher</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredTeachers.length > 0 ? (
-          filteredTeachers.map((teacher) => (
-            <UserCard
-              key={teacher.id}
-              id={teacher.id}
-              name={teacher.name}
-              email={teacher.email}
-              role="teacher"
-              status={teacher.status}
-              additionalInfo={Array.isArray(teacher.subjects) 
-                ? teacher.subjects.map(sid => subjects.find(s => s.id === sid)?.name).filter(Boolean).join(", ")
-                : subjects.find(s => s.id === teacher.subject)?.name || ""}
-              profileImage={teacher.profileImage}
-              department={departments.find(d => d.id === teacher.department)?.name}
-              onView={handleViewTeacher}
-              onEdit={handleEditTeacher}
-              onDelete={handleDeleteTeacher}
-            />
-          ))
-        ) : (
-          <div className="col-span-full text-center py-10">
-            <p className="text-muted-foreground">No teachers found. Add a new teacher to get started.</p>
-          </div>
-        )}
-      </div>
+      {renderContent()}
 
       {/* View Teacher Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
