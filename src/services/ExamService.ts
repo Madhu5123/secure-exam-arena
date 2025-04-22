@@ -14,6 +14,18 @@ interface Exam {
   status: "draft" | "scheduled" | "active" | "completed";
   questions: Question[];
   assignedStudents: string[];
+  submissions?: Record<string, Submission>;
+}
+
+interface Submission {
+  examId: string;
+  studentId: string;
+  answers: Record<string, string>;
+  startTime: string;
+  endTime: string;
+  score: number;
+  maxScore: number;
+  warningCount: number;
 }
 
 interface Question {
