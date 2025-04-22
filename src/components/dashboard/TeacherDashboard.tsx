@@ -913,7 +913,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           newStudent={newStudent}
           setNewStudent={setNewStudent}
           handleAddStudent={handleAddStudent}
-          semesters={SEMESTERS}
+          SEMESTERS={SEMESTERS}
         />
       ) : (
         renderManageExams()

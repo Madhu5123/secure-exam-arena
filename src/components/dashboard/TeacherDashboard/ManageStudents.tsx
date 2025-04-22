@@ -141,8 +141,8 @@ export function ManageStudents({
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredStudents.length > 0 ? (
-          filteredStudents.map((student) => (
+        {students.length > 0 ? (
+          students.map((student) => (
             <StudentCard
               key={student.id}
               student={student}
