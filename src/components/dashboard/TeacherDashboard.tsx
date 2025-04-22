@@ -392,25 +392,37 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     return matchesSearch && matchesSemester;
   });
 
-  const getAvailableSubjects = () => {
+  const getSubjectsForSemester = () => {
     if (selectedSemester === "All") {
       const allSubjects = exams.map(e => e.subject);
       return ["All", ...Array.from(new Set(allSubjects)).filter(Boolean)];
     } else {
-      const filteredExams = exams.filter(e => e.semester === selectedSemester);
-      const semesterSubjects = filteredExams.map(e => e.subject);
-      return ["All", ...Array.from(new Set(semesterSubjects)).filter(Boolean)];
+      const filtered = exams.filter(e => e.semester === selectedSemester);
+      const subjs = filtered.map(e => e.subject);
+      return ["All", ...Array.from(new Set(subjs)).filter(Boolean)];
     }
   };
+  
+  const availableSubjects = getSubjectsForSemester();
 
   useEffect(() => {
-    const availableSubjects = getAvailableSubjects();
     if (!availableSubjects.includes(selectedSubject)) {
       setSelectedSubject("All");
     }
+    // eslint-disable-next-line
   }, [selectedSemester, exams]);
 
-  const availableSubjects = getAvailableSubjects();
+  const filteredExams = exams.filter((exam) => {
+    const bySemester = selectedSemester === "All" || exam.semester === selectedSemester;
+    const bySubject = selectedSubject === "All" || exam.subject === selectedSubject;
+    return bySemester && bySubject;
+  });
+
+  const totalStudents = selectedSemester === "All" ? students.length : students.filter(s => s.semester === selectedSemester).length;
+  const activeStudents = filteredStudents.filter(s => s.status === "active").length;
+  const totalExams = filteredExams.length;
+  const totalAttended = filteredExams.reduce((sum, exam) => sum + (Array.isArray(exam.submissions) ? exam.submissions.length : exam.attendance || 0), 0);
+  const studentsPassed = filteredStudents.filter(s => s.result === "passed").length;
 
   const getSubjectExamsCount = () => {
     const groupSubjects = availableSubjects.slice(1);
@@ -425,17 +437,74 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
 
   const subjectData = getSubjectExamsCount();
 
-  const filteredExams = exams.filter((exam) => {
-    const bySemester = selectedSemester === "All" || exam.semester === selectedSemester;
-    const bySubject = selectedSubject === "All" || exam.subject === selectedSubject;
-    return bySemester && bySubject;
-  });
+  const renderDashboardOverview = () => (
+    <div className="space-y-6">
+      {/* Analytics row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white rounded-xl p-4 shadow flex flex-col items-center border border-[#E5DEFF]">
+          <div className="text-2xl font-bold text-[#9b87f5]">{totalExams}</div>
+          <div className="text-xs text-muted-foreground">Total Exams Created</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow flex flex-col items-center border border-[#E5DEFF]">
+          <div className="text-2xl font-bold text-[#33C3F0]">{totalAttended}</div>
+          <div className="text-xs text-muted-foreground">Exam Attended</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow flex flex-col items-center border border-[#E5DEFF]">
+          <div className="text-2xl font-bold text-[#7E69AB]">{studentsPassed}</div>
+          <div className="text-xs text-muted-foreground">Students Passed</div>
+        </div>
+      </div>
 
-  const totalStudents = selectedSemester === "All" ? students.length : students.filter(s => s.semester === selectedSemester).length;
-  const activeStudents = filteredStudents.filter(s => s.status === "active").length;
-  const totalExams = filteredExams.length;
-  const totalAttended = filteredExams.reduce((sum, exam) => sum + (exam.attendance || 0), 0);
-  const studentPassed = filteredStudents.filter(s => s.result === "passed").length;
+      <div className="flex flex-wrap gap-4 items-center">
+        <div>
+          <label className="block mb-1 text-sm font-semibold">Semester</label>
+          <select
+            value={selectedSemester}
+            onChange={e => setSelectedSemester(e.target.value)}
+            className="border rounded px-4 py-2 bg-background"
+          >
+            {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-semibold">Subject</label>
+          <select
+            value={selectedSubject}
+            onChange={e => setSelectedSubject(e.target.value)}
+            className="border rounded px-4 py-2 bg-background"
+          >
+            {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="border rounded-lg p-4">
+          <h2 className="text-lg font-bold mb-4">Exams by Subject</h2>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={subjectData} layout="vertical" margin={{ left: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" />
+              <YAxis dataKey="subject" type="category" width={100} />
+              <Tooltip />
+              <Bar dataKey="count" fill="#9b87f5" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="border rounded-lg p-4">
+          <h2 className="text-lg font-bold mb-4">Subject Distribution</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {subjectData.map(({ subject, count }) => (
+              <div key={subject} className="bg-[#F1F0FB] p-3 rounded flex flex-col items-center">
+                <span className="font-semibold text-[#6E59A5]">{subject}</span>
+                <span className="text-2xl text-[#9b87f5]">{count}</span>
+                <span className="text-xs text-muted-foreground">exams</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderManageStudents = () => (
     <div className="space-y-6">
@@ -581,59 +650,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
             <p className="text-muted-foreground">No students found. Add a new student to get started.</p>
           </div>
         )}
-      </div>
-    </div>
-  );
-
-  const renderDashboardOverview = () => (
-    <div className="space-y-6">
-      <div className="flex flex-wrap gap-4 items-center">
-        <div>
-          <label className="block mb-1 text-sm font-semibold">Semester</label>
-          <select
-            value={selectedSemester}
-            onChange={e => setSelectedSemester(e.target.value)}
-            className="border rounded px-4 py-2 bg-background"
-          >
-            {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-semibold">Subject</label>
-          <select
-            value={selectedSubject}
-            onChange={e => setSelectedSubject(e.target.value)}
-            className="border rounded px-4 py-2 bg-background"
-          >
-            {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="border rounded-lg p-4">
-          <h2 className="text-lg font-bold mb-4">Exams by Subject</h2>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={subjectData} layout="vertical" margin={{ left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" />
-              <YAxis dataKey="subject" type="category" width={100} />
-              <Tooltip />
-              <Bar dataKey="count" fill="#9b87f5" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="border rounded-lg p-4">
-          <h2 className="text-lg font-bold mb-4">Subject Distribution</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {subjectData.map(({ subject, count }) => (
-              <div key={subject} className="bg-[#F1F0FB] p-3 rounded flex flex-col items-center">
-                <span className="font-semibold text-[#6E59A5]">{subject}</span>
-                <span className="text-2xl text-[#9b87f5]">{count}</span>
-                <span className="text-xs text-muted-foreground">exams</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
