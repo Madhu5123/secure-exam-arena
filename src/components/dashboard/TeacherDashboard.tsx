@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
-import { TeacherDashboardOverview } from "./TeacherDashboard/TeacherDashboardOverview";
 import { ManageStudents } from "./TeacherDashboard/ManageStudents";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -395,22 +394,19 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     return matchesSearch && matchesSemester;
   });
 
-  // Helper to get the available subjects for selected semester
   const getSubjectsForSemester = () => {
     if (selectedSemester === "All") {
-      // Aggregate unique subjects from all exams across all semesters
       const allSubjects = exams.map(e => e.subject);
       return ["All", ...Array.from(new Set(allSubjects)).filter(Boolean)];
     } else {
-      // Only exams for the selected semester
       const filtered = exams.filter(e => e.semester === selectedSemester);
       const subjs = filtered.map(e => e.subject);
       return ["All", ...Array.from(new Set(subjs)).filter(Boolean)];
     }
   };
+  
   const availableSubjects = getSubjectsForSemester();
 
-  // Update selectedSubject if not available any more
   useEffect(() => {
     if (!availableSubjects.includes(selectedSubject)) {
       setSelectedSubject("All");
@@ -428,18 +424,19 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const activeStudents = filteredStudents.filter(s => s.status === "active").length;
   const totalExams = filteredExams.length;
   const totalAttended = filteredExams.reduce((sum, exam) => sum + (Array.isArray(exam.submissions) ? exam.submissions.length : exam.attendance || 0), 0);
-  const studentsPassed = students.filter(s => (selectedSemester === "All" || s.semester === selectedSemester) && s.result === "passed").length;
+  const studentsPassed = filteredStudents.filter(s => s.result === "passed").length;
 
   const getSubjectExamsCount = () => {
-    const groupSubjects = availableSubjects.slice(1); // Remove "All"
+    const groupSubjects = availableSubjects.slice(1);
     return groupSubjects.map(subject => {
-      const count = exams.filter(e =>
-        (selectedSemester === "All" || e.semester === selectedSemester) &&
+      const count = exams.filter(e => 
+        (selectedSemester === "All" || e.semester === selectedSemester) && 
         e.subject === subject
       ).length;
       return { subject, count };
     });
   };
+
   const subjectData = getSubjectExamsCount();
 
   const renderManageExams = () => (
@@ -877,3 +874,67 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                   {new Date(exam.date).toLocaleDateString()} • {exam.time}
                 </CardDescription>
               </CardHeader>
+              <CardContent>
+                <div className="text-sm text-muted-foreground">
+                  <div>Duration: {exam.duration} minutes</div>
+                  <div>Sections: {exam.sections?.length || 1}</div>
+                  <div>Questions: {exam.questions?.length || 0}</div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-end gap-2 border-t pt-4">
+                <Button variant="outline" size="sm">
+                  <FileText className="h-4 w-4 mr-1" />
+                  Edit
+                </Button>
+                <Button size="sm">
+                  <Search className="h-4 w-4 mr-1" />
+                  Monitor
+                </Button>
+              </CardFooter>
+            </Card>
+          ))
+        ) : (
+          <div className="col-span-full text-center py-10">
+            <p className="text-muted-foreground">No exams found. Create a new exam to get started.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  if (section === "students") {
+    return (
+      <ManageStudents
+        students={filteredStudents}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        isAddStudentDialogOpen={isAddStudentDialogOpen}
+        setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
+        newStudent={newStudent}
+        setNewStudent={setNewStudent}
+        SEMESTERS={SEMESTERS}
+        handleAddStudent={handleAddStudent}
+        handleEditStudent={handleEditStudent}
+        handleDeleteStudent={handleDeleteStudent}
+      />
+    );
+  }
+  if (section === "exams") {
+    return renderManageExams();
+  }
+  
+  return (
+    <DashboardOverview
+      totalExams={totalExams}
+      totalAttended={totalAttended}
+      studentsPassed={studentsPassed}
+      selectedSemester={selectedSemester}
+      selectedSubject={selectedSubject}
+      setSelectedSemester={setSelectedSemester}
+      setSelectedSubject={setSelectedSubject}
+      SEMESTERS={SEMESTERS}
+      availableSubjects={availableSubjects}
+      subjectData={subjectData}
+    />
+  );
+}
