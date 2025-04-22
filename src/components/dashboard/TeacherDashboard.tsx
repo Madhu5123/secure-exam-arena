@@ -395,14 +395,11 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     return matchesSearch && matchesSemester;
   });
 
-  // Helper to get the available subjects for selected semester
   const getSubjectsForSemester = () => {
     if (selectedSemester === "All") {
-      // Aggregate unique subjects from all exams across all semesters
       const allSubjects = exams.map(e => e.subject);
       return ["All", ...Array.from(new Set(allSubjects)).filter(Boolean)];
     } else {
-      // Only exams for the selected semester
       const filtered = exams.filter(e => e.semester === selectedSemester);
       const subjs = filtered.map(e => e.subject);
       return ["All", ...Array.from(new Set(subjs)).filter(Boolean)];
@@ -410,12 +407,10 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   };
   const availableSubjects = getSubjectsForSemester();
 
-  // Update selectedSubject if not available any more
   useEffect(() => {
     if (!availableSubjects.includes(selectedSubject)) {
       setSelectedSubject("All");
     }
-    // eslint-disable-next-line
   }, [selectedSemester, exams]);
 
   const filteredExams = exams.filter((exam) => {
@@ -431,7 +426,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const studentsPassed = students.filter(s => (selectedSemester === "All" || s.semester === selectedSemester) && s.result === "passed").length;
 
   const getSubjectExamsCount = () => {
-    const groupSubjects = availableSubjects.slice(1); // Remove "All"
+    const groupSubjects = availableSubjects.slice(1);
     return groupSubjects.map(subject => {
       const count = exams.filter(e =>
         (selectedSemester === "All" || e.semester === selectedSemester) &&
@@ -877,3 +872,52 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                   {new Date(exam.date).toLocaleDateString()} • {exam.time}
                 </CardDescription>
               </CardHeader>
+              <CardContent>
+                {/* Exam content */}
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <div className="col-span-full text-center py-8 text-muted-foreground">
+            No exams found. Create your first exam to get started.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="container mx-auto py-6 space-y-8">
+      <TeacherDashboardOverview
+        totalExams={totalExams}
+        totalAttended={totalAttended}
+        studentsPassed={studentsPassed}
+        semesters={SEMESTERS}
+        selectedSemester={selectedSemester}
+        setSelectedSemester={setSelectedSemester}
+        subjects={availableSubjects}
+        selectedSubject={selectedSubject}
+        setSelectedSubject={setSelectedSubject}
+        subjectData={subjectData}
+      />
+      
+      {section === "students" ? (
+        <ManageStudents 
+          students={filteredStudents}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          handleEditStudent={handleEditStudent}
+          handleDeleteStudent={handleDeleteStudent}
+          isAddStudentDialogOpen={isAddStudentDialogOpen}
+          setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
+          newStudent={newStudent}
+          setNewStudent={setNewStudent}
+          handleAddStudent={handleAddStudent}
+          semesters={SEMESTERS}
+        />
+      ) : (
+        renderManageExams()
+      )}
+    </div>
+  );
+}
