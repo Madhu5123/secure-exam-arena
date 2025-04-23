@@ -5,7 +5,6 @@ import { db } from '../config/firebase';
 interface AcademicData {
   semesters: string[];
   subjects: string[];
-  subjectsBySemester?: Record<string, string[]>;
 }
 
 export const fetchAcademicData = async (): Promise<AcademicData> => {
@@ -17,7 +16,6 @@ export const fetchAcademicData = async (): Promise<AcademicData> => {
       const departments = snapshot.val();
       let allSemesters = new Set<string>();
       let allSubjects = new Set<string>();
-      let subjectsBySemester: Record<string, string[]> = {};
 
       // Loop through each department
       Object.values(departments).forEach((dept: any) => {
@@ -28,19 +26,11 @@ export const fetchAcademicData = async (): Promise<AcademicData> => {
 
         // Add subjects from each semester
         if (dept.subjects) {
-          Object.entries(dept.subjects).forEach(([semester, semesterSubjects]: [string, any]) => {
-            // Initialize the array for this semester if it doesn't exist
-            if (!subjectsBySemester[semester]) {
-              subjectsBySemester[semester] = [];
-            }
-            
+          Object.values(dept.subjects).forEach((semesterSubjects: any) => {
             if (Array.isArray(semesterSubjects)) {
               semesterSubjects.forEach((subject: any) => {
                 if (subject.name) {
                   allSubjects.add(subject.name);
-                  if (!subjectsBySemester[semester].includes(subject.name)) {
-                    subjectsBySemester[semester].push(subject.name);
-                  }
                 }
               });
             }
@@ -50,23 +40,20 @@ export const fetchAcademicData = async (): Promise<AcademicData> => {
 
       return {
         semesters: Array.from(allSemesters),
-        subjects: Array.from(allSubjects),
-        subjectsBySemester
+        subjects: Array.from(allSubjects)
       };
     }
     
     // If no data exists, return empty arrays
     return {
       semesters: [],
-      subjects: [],
-      subjectsBySemester: {}
+      subjects: []
     };
   } catch (error) {
     console.error('Error fetching academic data:', error);
     return {
       semesters: [],
-      subjects: [],
-      subjectsBySemester: {}
+      subjects: []
     };
   }
 };

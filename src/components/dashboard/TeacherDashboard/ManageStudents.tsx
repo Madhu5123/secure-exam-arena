@@ -6,26 +6,14 @@ import { Label } from "@/components/ui/label";
 import { PlusCircle } from "lucide-react";
 import { StudentCard } from "./StudentCard";
 
-interface StudentType {
-  id?: string;
-  name: string;
-  email: string;
-  regNumber: string;
-  password: string;
-  photo: string;
-  semester: string;
-  status?: string;
-  role?: string;
-}
-
-export interface ManageStudentsProps {
+interface ManageStudentsProps {
   students: any[];
   searchQuery: string;
   setSearchQuery: (v: string) => void;
   isAddStudentDialogOpen: boolean;
   setIsAddStudentDialogOpen: (v: boolean) => void;
-  newStudent: StudentType;
-  setNewStudent: (v: React.SetStateAction<StudentType>) => void;
+  newStudent: any;
+  setNewStudent: (v: any) => void;
   SEMESTERS: string[];
   handleAddStudent: () => void;
   handleEditStudent: (id: string) => void;
@@ -124,7 +112,7 @@ export function ManageStudents({
                       const file = e.target.files?.[0];
                       if (file) {
                         const url = URL.createObjectURL(file);
-                        setNewStudent((curr) => ({ ...curr, photo: url }));
+                        setNewStudent((curr: any) => ({ ...curr, photo: url }));
                       }
                     }}
                   />
