@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
@@ -902,4 +903,57 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                   </Badge>
                 </div>
                 <CardDescription>
-                  {exam.subject} •
+                  {exam.subject} • {exam.semester}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Date: </span> 
+                    {exam.date} at {exam.time}
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Duration: </span> 
+                    {exam.duration} minutes
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Questions: </span> 
+                    {exam.questions?.length || 0}
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <div className="w-full flex justify-between">
+                  <Button variant="outline" size="sm">
+                    <FileText className="h-4 w-4 mr-2" />
+                    View
+                  </Button>
+                  <Button size="sm">
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Monitor
+                  </Button>
+                </div>
+              </CardFooter>
+            </Card>
+          ))
+        ) : (
+          <div className="col-span-3 p-8 text-center text-muted-foreground">
+            No exams found. Click "Create Exam" to add your first exam.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // If a section is specified, show only that section
+  if (section === "students") {
+    return <ManageStudents />;
+  }
+
+  if (section === "exams") {
+    return renderManageExams();
+  }
+
+  // Default view - dashboard overview
+  return <DashboardOverview />;
+}
