@@ -107,7 +107,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     };
   }, []);
 
-  // Add missing handler functions
+  // Handler functions
   const handleSectionTimeLimitChange = (index: number, value: number) => {
     const updatedSections = [...examSections];
     updatedSections[index] = { ...updatedSections[index], timeLimit: value };
@@ -902,3 +902,4 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                 </div>
                 <CardDescription>
                   {exam.subject} • {exam.semester || "All semesters"}
+                </Card
