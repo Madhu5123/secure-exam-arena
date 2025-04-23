@@ -1,4 +1,5 @@
-import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
+
+import { ref, set, get, push, query, orderByChild, equalTo, onValue } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
 
@@ -48,13 +49,15 @@ interface Question {
 export const getExamsForTeacher = async (teacherId: string) => {
   try {
     const examsRef = ref(db, 'exams');
-    const teacherExamsQuery = query(examsRef, orderByChild('createdBy'), equalTo(teacherId));
-    const snapshot = await get(teacherExamsQuery);
+    const snapshot = await get(examsRef);
     
     if (snapshot.exists()) {
       const exams: Exam[] = [];
       snapshot.forEach((childSnapshot) => {
-        exams.push({ id: childSnapshot.key || '', ...childSnapshot.val() });
+        const exam = childSnapshot.val();
+        if (exam.createdBy === teacherId) {
+          exams.push({ id: childSnapshot.key || '', ...exam });
+        }
       });
       return exams;
     }
@@ -138,15 +141,27 @@ export const createExam = async (examData: Omit<Exam, "id">) => {
       };
     }
     
+    // Create a new exam reference in the database
     const examRef = ref(db, 'exams');
     const newExamRef = push(examRef);
+    const examId = newExamRef.key;
+    
+    if (!examId) {
+      return {
+        success: false,
+        error: "Failed to generate exam ID",
+      };
+    }
+    
+    // Save the exam data
     await set(newExamRef, examData);
     
     return {
       success: true,
-      exam: { id: newExamRef.key, ...examData },
+      exam: { id: examId, ...examData },
     };
   } catch (error) {
+    console.error('Error creating exam:', error);
     return {
       success: false,
       error: "Failed to create exam",

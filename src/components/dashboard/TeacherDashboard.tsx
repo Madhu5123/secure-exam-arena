@@ -87,12 +87,35 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
       const user = localStorage.getItem('examUser');
       if (user) {
         const userData = JSON.parse(user);
-        const teacherExams = await getExamsForTeacher(userData.id);
-        setExams(teacherExams);
+        const examsRef = ref(db, 'exams');
+        
+        const unsubscribeExams = onValue(examsRef, async (snapshot) => {
+          if (snapshot.exists()) {
+            const teacherExams: any[] = [];
+            snapshot.forEach((childSnapshot) => {
+              const examData = childSnapshot.val();
+              if (examData.createdBy === userData.id) {
+                teacherExams.push({ 
+                  id: childSnapshot.key, 
+                  ...examData 
+                });
+              }
+            });
+            setExams(teacherExams);
+            console.log("Fetched exams:", teacherExams);
+          } else {
+            setExams([]);
+          }
+        });
+
+        return () => {
+          unsubscribeExams();
+        };
       }
     };
-    fetchExams();
-
+    
+    const examsUnsubscribe = fetchExams();
+    
     const loadAcademicData = async () => {
       const data = await fetchAcademicData();
       setAvailableSemesters(["All", ...data.semesters]);
@@ -104,6 +127,9 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
 
     return () => {
       unsubscribeStudents();
+      if (typeof examsUnsubscribe === 'function') {
+        examsUnsubscribe();
+      }
     };
   }, []);
 
@@ -340,7 +366,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         date: examDate,
         time: examTime,
         duration: Number(examDuration),
-        status: "scheduled" as "draft" | "scheduled" | "active" | "completed",
+        status: "scheduled",
         questions: questions,
         assignedStudents: selectedStudents,
         sections: examSections
@@ -363,9 +389,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         setSelectedStudents([]);
         setExamSections([{ name: "Section 1", timeLimit: 30 }]);
         setIsCreateExamDialogOpen(false);
-        
-        const teacherExams = await getExamsForTeacher(userData.id);
-        setExams(teacherExams);
       } else {
         toast({
           title: "Error",
