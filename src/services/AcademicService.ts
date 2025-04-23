@@ -16,14 +16,11 @@ export const fetchAcademicData = async (): Promise<AcademicData> => {
       return snapshot.val();
     }
     
-    // If no data exists, initialize with default values
-    const defaultData: AcademicData = {
-      semesters: ["Semester 1", "Semester 2", "Semester 3", "Semester 4"],
-      subjects: ["Mathematics", "Physics", "Chemistry", "Biology", "Computer Science", "English", "History", "Geography"]
+    // If no data exists, return empty arrays
+    return {
+      semesters: [],
+      subjects: []
     };
-    
-    await set(academicRef, defaultData);
-    return defaultData;
   } catch (error) {
     console.error('Error fetching academic data:', error);
     return {
