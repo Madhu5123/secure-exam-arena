@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
@@ -885,3 +886,64 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
               <CardContent>
                 <div className="text-sm text-muted-foreground">
                   <div>Duration: {exam.duration} minutes</div>
+                  <div>Sections: {exam.sections?.length || 1}</div>
+                  <div>Questions: {exam.questions?.length || 0}</div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-end gap-2 border-t pt-4">
+                <Button variant="outline" size="sm">
+                  <FileText className="h-4 w-4 mr-1" />
+                  Edit
+                </Button>
+                <Button size="sm">
+                  <Search className="h-4 w-4 mr-1" />
+                  Monitor
+                </Button>
+              </CardFooter>
+            </Card>
+          ))
+        ) : (
+          <div className="col-span-full text-center py-10">
+            <p className="text-muted-foreground">No exams found. Create a new exam to get started.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  if (section === "students") {
+    return (
+      <ManageStudents
+        students={filteredStudents}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        isAddStudentDialogOpen={isAddStudentDialogOpen}
+        setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
+        newStudent={newStudent}
+        setNewStudent={setNewStudent}
+        SEMESTERS={availableSemesters}
+        handleAddStudent={handleAddStudent}
+        handleEditStudent={handleEditStudent}
+        handleDeleteStudent={handleDeleteStudent}
+      />
+    );
+  }
+  if (section === "exams") {
+    return renderManageExams();
+  }
+  
+  return (
+    <DashboardOverview
+      totalExams={totalExams}
+      totalAttended={totalAttended}
+      studentsPassed={studentsPassed}
+      selectedSemester={selectedSemester}
+      selectedSubject={selectedSubject}
+      setSelectedSemester={setSelectedSemester}
+      setSelectedSubject={setSelectedSubject}
+      SEMESTERS={availableSemesters}
+      availableSubjects={availableSubjects}
+      subjectData={subjectData}
+    />
+  );
+}
