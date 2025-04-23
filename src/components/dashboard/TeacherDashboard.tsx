@@ -21,26 +21,24 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { fetchAcademicData } from "@/services/AcademicService";
 
 interface TeacherDashboardProps {
   section?: string;
 }
 
-const SEMESTERS = ["All", "Semester 1", "Semester 2", "Semester 3", "Semester 4"];
-const SUBJECTS = ["All", "Mathematics", "Physics", "Chemistry", "Biology", "Computer Science", "English", "History", "Geography"];
-
 export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [students, setStudents] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: "", email: "", regNumber: "", password: "", photo: "", semester: SEMESTERS[1] });
+  const [newStudent, setNewStudent] = useState({ name: "", email: "", regNumber: "", password: "", photo: "", semester: "Semester 1" });
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("All");
   const [selectedSubject, setSelectedSubject] = useState("All");
   const [activeTab, setActiveTab] = useState("details");
   const [examTitle, setExamTitle] = useState("");
   const [examSubject, setExamSubject] = useState("");
-  const [examSemester, setExamSemester] = useState(SEMESTERS[1]);
+  const [examSemester, setExamSemester] = useState("Semester 1");
   const [examDuration, setExamDuration] = useState("60");
   const [examDate, setExamDate] = useState("");
   const [examTime, setExamTime] = useState("");
@@ -55,10 +53,12 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     correctAnswer: "",
     points: 1,
     section: "Section 1",
-    timeLimit: 5 // minutes
+    timeLimit: 5
   });
   const [examSections, setExamSections] = useState([{ name: "Section 1", timeLimit: 30 }]);
   const [currentSection, setCurrentSection] = useState("Section 1");
+  const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
+  const [availableSubjectsAll, setAvailableSubjectsAll] = useState<string[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
               id: childSnapshot.key,
               ...userData,
               status: userData.status || 'active',
-              semester: userData.semester || SEMESTERS[1],
+              semester: userData.semester || "Semester 1",
               photo: userData.photo || "",
             });
           }
@@ -91,6 +91,14 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
       }
     };
     fetchExams();
+
+    const loadAcademicData = async () => {
+      const data = await fetchAcademicData();
+      setAvailableSemesters(["All", ...data.semesters]);
+      setAvailableSubjectsAll(["All", ...data.subjects]);
+    };
+
+    loadAcademicData();
 
     return () => {
       unsubscribeStudents();
@@ -137,7 +145,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           photo: uploadedPhotoUrl,
           semester: newStudent.semester,
         });
-        setNewStudent({ name: "", email: "", regNumber: "", password: "", photo: "", semester: SEMESTERS[1] });
+        setNewStudent({ name: "", email: "", regNumber: "", password: "", photo: "", semester: "Semester 1" });
         setIsAddStudentDialogOpen(false);
       } else {
         toast({
@@ -244,7 +252,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         regNumber: student.regNumber || "",
         password: "",
         photo: student.photo || "",
-        semester: student.semester || SEMESTERS[1],
+        semester: student.semester || "Semester 1",
       });
       setIsAddStudentDialogOpen(true);
     }
@@ -397,14 +405,14 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const getSubjectsForSemester = () => {
     if (selectedSemester === "All") {
       const allSubjects = exams.map(e => e.subject);
-      return ["All", ...Array.from(new Set(allSubjects)).filter(Boolean)];
+      return ["All", ...Array.from(new Set(allSubjects.filter(Boolean)))];
     } else {
       const filtered = exams.filter(e => e.semester === selectedSemester);
       const subjs = filtered.map(e => e.subject);
-      return ["All", ...Array.from(new Set(subjs)).filter(Boolean)];
+      return ["All", ...Array.from(new Set(subjs.filter(Boolean)))];
     }
   };
-  
+
   const availableSubjects = getSubjectsForSemester();
 
   useEffect(() => {
@@ -491,7 +499,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                           <SelectValue placeholder="Select subject" />
                         </SelectTrigger>
                         <SelectContent>
-                          {SUBJECTS.slice(1).map(subject => (
+                          {availableSubjectsAll.slice(1).map(subject => (
                             <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                           ))}
                         </SelectContent>
@@ -507,7 +515,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                           <SelectValue placeholder="Select semester" />
                         </SelectTrigger>
                         <SelectContent>
-                          {SEMESTERS.slice(1).map(semester => (
+                          {availableSemesters.slice(1).map(semester => (
                             <SelectItem key={semester} value={semester}>{semester}</SelectItem>
                           ))}
                         </SelectContent>
@@ -795,8 +803,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                             <SelectValue placeholder="Filter by semester" />
                           </SelectTrigger>
                           <SelectContent>
-                            {SEMESTERS.map(s => (
-                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            {availableSemesters.slice(1).map(semester => (
+                              <SelectItem key={semester} value={semester}>{semester}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -912,7 +920,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
         newStudent={newStudent}
         setNewStudent={setNewStudent}
-        SEMESTERS={SEMESTERS}
+        SEMESTERS={availableSemesters}
         handleAddStudent={handleAddStudent}
         handleEditStudent={handleEditStudent}
         handleDeleteStudent={handleDeleteStudent}
@@ -932,7 +940,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
       selectedSubject={selectedSubject}
       setSelectedSemester={setSelectedSemester}
       setSelectedSubject={setSelectedSubject}
-      SEMESTERS={SEMESTERS}
+      SEMESTERS={availableSemesters}
       availableSubjects={availableSubjects}
       subjectData={subjectData}
     />
