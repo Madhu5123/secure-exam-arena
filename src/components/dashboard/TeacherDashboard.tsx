@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
@@ -60,6 +59,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [currentSection, setCurrentSection] = useState("Section 1");
   const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
   const [availableSubjectsAll, setAvailableSubjectsAll] = useState<string[]>([]);
+  const [subjectsBySemester, setSubjectsBySemester] = useState<Record<string, string[]>>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -97,6 +97,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
       const data = await fetchAcademicData();
       setAvailableSemesters(["All", ...data.semesters]);
       setAvailableSubjectsAll(["All", ...data.subjects]);
+      setSubjectsBySemester(data.subjectsBySemester || {});
     };
 
     loadAcademicData();
@@ -394,23 +395,19 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     }
   };
 
-  const filteredStudents = students.filter((student) => {
-    const matchesSearch =
-      student.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.regNumber?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSemester = selectedSemester === "All" || student.semester === selectedSemester;
-    return matchesSearch && matchesSemester;
-  });
-
   const getSubjectsForSemester = () => {
     if (selectedSemester === "All") {
-      const allSubjects = exams.map(e => e.subject);
-      return ["All", ...Array.from(new Set(allSubjects.filter(Boolean)))];
+      return ["All", ...availableSubjectsAll.filter(s => s !== "All")];
     } else {
-      const filtered = exams.filter(e => e.semester === selectedSemester);
-      const subjs = filtered.map(e => e.subject);
-      return ["All", ...Array.from(new Set(subjs.filter(Boolean)))];
+      const semesterSubjects = subjectsBySemester[selectedSemester] || [];
+      
+      if (semesterSubjects.length === 0) {
+        const filtered = exams.filter(e => e.semester === selectedSemester);
+        const subjs = filtered.map(e => e.subject).filter(Boolean);
+        return ["All", ...Array.from(new Set(subjs))];
+      }
+      
+      return ["All", ...semesterSubjects];
     }
   };
 
@@ -420,8 +417,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     if (!availableSubjects.includes(selectedSubject)) {
       setSelectedSubject("All");
     }
-    // eslint-disable-next-line
-  }, [selectedSemester, exams]);
+  }, [selectedSemester, availableSubjects, selectedSubject]);
 
   const filteredExams = exams.filter((exam) => {
     const bySemester = selectedSemester === "All" || exam.semester === selectedSemester;
@@ -436,8 +432,11 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const studentsPassed = filteredStudents.filter(s => s.result === "passed").length;
 
   const getSubjectExamsCount = () => {
-    const groupSubjects = availableSubjects.slice(1);
-    return groupSubjects.map(subject => {
+    const subjectsToShow = selectedSemester === "All" 
+      ? availableSubjectsAll.filter(s => s !== "All") 
+      : (subjectsBySemester[selectedSemester] || []);
+    
+    return subjectsToShow.map(subject => {
       const count = exams.filter(e => 
         (selectedSemester === "All" || e.semester === selectedSemester) && 
         e.subject === subject
