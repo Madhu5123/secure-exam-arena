@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
@@ -448,6 +447,25 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
 
   const subjectData = getSubjectExamsCount();
 
+  const getExamSubjects = (semester: string) => {
+    if (!semester) return [];
+    
+    const semesterSubjects = availableSubjectsAll.filter(s => s !== "All");
+    if (semesterSubjects.length > 0) {
+      return semesterSubjects;
+    }
+    
+    // Fallback to subjects from existing exams
+    const filtered = exams.filter(e => e.semester === semester);
+    const subjs = filtered.map(e => e.subject).filter(Boolean);
+    return Array.from(new Set(subjs));
+  };
+
+  // Add effect to reset subject when semester changes
+  useEffect(() => {
+    setExamSubject("");
+  }, [examSemester]);
+
   const renderManageExams = () => (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
@@ -485,31 +503,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                 <TabsContent value="details" className="pt-6 space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="grid gap-2">
-                      <Label htmlFor="examTitle">Exam Title</Label>
-                      <Input
-                        id="examTitle"
-                        value={examTitle}
-                        onChange={(e) => setExamTitle(e.target.value)}
-                        placeholder="e.g. Mid-term Mathematics"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="examSubject">Subject</Label>
-                      <Select value={examSubject} onValueChange={setExamSubject}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select subject" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableSubjectsAll.slice(1).map(subject => (
-                            <SelectItem key={subject} value={subject}>{subject}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="grid gap-2">
                       <Label htmlFor="examSemester">Semester</Label>
                       <Select value={examSemester} onValueChange={setExamSemester}>
                         <SelectTrigger>
@@ -521,6 +514,31 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="examSubject">Subject</Label>
+                      <Select value={examSubject} onValueChange={setExamSubject}>
+                        <SelectTrigger disabled={!examSemester}>
+                          <SelectValue placeholder={examSemester ? "Select subject" : "Select semester first"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getExamSubjects(examSemester).map(subject => (
+                            <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="examTitle">Exam Title</Label>
+                      <Input
+                        id="examTitle"
+                        value={examTitle}
+                        onChange={(e) => setExamTitle(e.target.value)}
+                        placeholder="e.g. Mid-term Mathematics"
+                      />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="examDuration">Total Duration (minutes)</Label>
@@ -867,83 +885,4 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         {exams.length > 0 ? (
           exams.map((exam) => (
             <Card key={exam.id} className="overflow-hidden hover:shadow-md transition-all">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle>{exam.title}</CardTitle>
-                  <Badge 
-                    variant={exam.status === "active" ? "default" : "secondary"}
-                  >
-                    {exam.status}
-                  </Badge>
-                </div>
-                <CardDescription>
-                  {exam.subject} • {exam.semester || "All semesters"}
-                </CardDescription>
-                <CardDescription>
-                  {new Date(exam.date).toLocaleDateString()} • {exam.time}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-muted-foreground">
-                  <div>Duration: {exam.duration} minutes</div>
-                  <div>Sections: {exam.sections?.length || 1}</div>
-                  <div>Questions: {exam.questions?.length || 0}</div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end gap-2 border-t pt-4">
-                <Button variant="outline" size="sm">
-                  <FileText className="h-4 w-4 mr-1" />
-                  Edit
-                </Button>
-                <Button size="sm">
-                  <Search className="h-4 w-4 mr-1" />
-                  Monitor
-                </Button>
-              </CardFooter>
-            </Card>
-          ))
-        ) : (
-          <div className="col-span-full text-center py-10">
-            <p className="text-muted-foreground">No exams found. Create a new exam to get started.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  if (section === "students") {
-    return (
-      <ManageStudents
-        students={filteredStudents}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        isAddStudentDialogOpen={isAddStudentDialogOpen}
-        setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
-        newStudent={newStudent}
-        setNewStudent={setNewStudent}
-        SEMESTERS={availableSemesters}
-        handleAddStudent={handleAddStudent}
-        handleEditStudent={handleEditStudent}
-        handleDeleteStudent={handleDeleteStudent}
-      />
-    );
-  }
-  if (section === "exams") {
-    return renderManageExams();
-  }
-  
-  return (
-    <DashboardOverview
-      totalExams={totalExams}
-      totalAttended={totalAttended}
-      studentsPassed={studentsPassed}
-      selectedSemester={selectedSemester}
-      selectedSubject={selectedSubject}
-      setSelectedSemester={setSelectedSemester}
-      setSelectedSubject={setSelectedSubject}
-      SEMESTERS={availableSemesters}
-      availableSubjects={availableSubjects}
-      subjectData={subjectData}
-    />
-  );
-}
+              <CardHeader className="pb
