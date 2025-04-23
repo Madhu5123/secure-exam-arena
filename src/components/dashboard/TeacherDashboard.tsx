@@ -107,6 +107,290 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     };
   }, []);
 
+  // Add missing handler functions
+  const handleSectionTimeLimitChange = (index: number, value: number) => {
+    const updatedSections = [...examSections];
+    updatedSections[index] = { ...updatedSections[index], timeLimit: value };
+    setExamSections(updatedSections);
+  };
+
+  const handleAddSection = () => {
+    const sectionNumber = examSections.length + 1;
+    setExamSections([...examSections, { name: `Section ${sectionNumber}`, timeLimit: 30 }]);
+  };
+
+  const handleQuestionTypeChange = (type: "multiple-choice" | "short-answer") => {
+    let newQuestion = { ...currentQuestion, type };
+    
+    if (type === "multiple-choice") {
+      newQuestion.options = ["", "", "", ""];
+      newQuestion.correctAnswer = "";
+    } else {
+      delete newQuestion.options;
+      newQuestion.correctAnswer = "";
+    }
+    
+    setCurrentQuestion(newQuestion);
+  };
+
+  const handleOptionChange = (index: number, value: string) => {
+    const newOptions = [...(currentQuestion.options || [])];
+    newOptions[index] = value;
+    setCurrentQuestion({ ...currentQuestion, options: newOptions });
+  };
+
+  const handleAddQuestion = () => {
+    // Validate question
+    if (!currentQuestion.text) {
+      toast({
+        title: "Incomplete question",
+        description: "Please add question text",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate based on question type
+    if (currentQuestion.type === "multiple-choice") {
+      if (!currentQuestion.options?.every(option => option.trim())) {
+        toast({
+          title: "Incomplete options",
+          description: "Please fill in all options",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (!currentQuestion.correctAnswer) {
+        toast({
+          title: "Missing correct answer",
+          description: "Please select the correct answer",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    // Add question to list
+    setQuestions([...questions, { ...currentQuestion }]);
+    
+    // Reset current question
+    const newId = String(questions.length + 2);
+    setCurrentQuestion({
+      id: newId,
+      type: "multiple-choice",
+      text: "",
+      options: ["", "", "", ""],
+      correctAnswer: "",
+      points: 1,
+      section: currentSection,
+      timeLimit: 5
+    });
+
+    toast({
+      title: "Question added",
+      description: `Question ${questions.length + 1} added successfully`,
+    });
+  };
+
+  const handleSaveExam = async () => {
+    try {
+      // Validate required fields
+      if (!examTitle || !examSubject || !examDuration || !examDate || !examTime) {
+        toast({
+          title: "Missing information",
+          description: "Please fill in all required exam details",
+          variant: "destructive"
+        });
+        setActiveTab("details");
+        return;
+      }
+
+      if (questions.length === 0) {
+        toast({
+          title: "No questions",
+          description: "Please add at least one question to the exam",
+          variant: "destructive"
+        });
+        setActiveTab("questions");
+        return;
+      }
+
+      if (selectedStudents.length === 0) {
+        toast({
+          title: "No students assigned",
+          description: "Please assign this exam to at least one student",
+          variant: "destructive"
+        });
+        setActiveTab("students");
+        return;
+      }
+
+      const user = localStorage.getItem('examUser');
+      if (!user) {
+        toast({
+          title: "Authentication error",
+          description: "Please login again",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const userData = JSON.parse(user);
+      
+      const examData = {
+        title: examTitle,
+        subject: examSubject,
+        semester: examSemester,
+        duration: Number(examDuration),
+        date: examDate,
+        time: examTime,
+        sections: examSections,
+        questions,
+        assignedStudents: selectedStudents,
+        teacherId: userData.id,
+        status: 'scheduled',
+        createdAt: new Date().toISOString()
+      };
+
+      await createExam(examData);
+
+      toast({
+        title: "Exam created",
+        description: "The exam has been created and assigned successfully",
+      });
+      
+      // Reset form and close dialog
+      setExamTitle("");
+      setExamSubject("");
+      setExamDuration("60");
+      setExamDate("");
+      setExamTime("");
+      setQuestions([]);
+      setSelectedStudents([]);
+      setExamSections([{ name: "Section 1", timeLimit: 30 }]);
+      setIsCreateExamDialogOpen(false);
+      
+      // Refresh exams list
+      const teacherExams = await getExamsForTeacher(userData.id);
+      setExams(teacherExams);
+      
+    } catch (error) {
+      console.error("Error creating exam:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create exam. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleAddStudent = async () => {
+    try {
+      if (!newStudent.name || !newStudent.email || !newStudent.regNumber || !newStudent.password) {
+        toast({
+          title: "Missing information",
+          description: "Please fill in all required fields",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // If editing an existing student
+      if (newStudent.id) {
+        const studentRef = ref(db, `users/${newStudent.id}`);
+        const updatedStudent = {
+          name: newStudent.name,
+          email: newStudent.email,
+          regNumber: newStudent.regNumber,
+          photo: newStudent.photo,
+          semester: newStudent.semester
+        };
+        
+        await set(studentRef, {
+          ...updatedStudent,
+          role: 'student',
+          updatedAt: new Date().toISOString()
+        });
+
+        toast({
+          title: "Student updated",
+          description: "Student information has been updated successfully",
+        });
+      } else {
+        // Create a new student account
+        const result = await registerUser(newStudent.email, newStudent.password, {
+          name: newStudent.name,
+          regNumber: newStudent.regNumber,
+          role: 'student',
+          semester: newStudent.semester,
+          photo: newStudent.photo,
+          status: 'active'
+        });
+
+        if (result && result.success) {
+          toast({
+            title: "Student added",
+            description: "New student account has been created successfully",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: result.error || "Failed to create student account",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
+      // Reset form and close dialog
+      setNewStudent({ name: "", email: "", regNumber: "", password: "", photo: "", semester: "Semester 1" });
+      setIsAddStudentDialogOpen(false);
+      
+    } catch (error) {
+      console.error("Error adding student:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleEditStudent = (id: string) => {
+    const student = students.find(s => s.id === id);
+    if (student) {
+      setNewStudent({
+        id: student.id,
+        name: student.name,
+        email: student.email,
+        regNumber: student.regNumber,
+        password: "",
+        photo: student.photo || "",
+        semester: student.semester || "Semester 1"
+      });
+      setIsAddStudentDialogOpen(true);
+    }
+  };
+
+  const handleDeleteStudent = async (id: string) => {
+    try {
+      const studentRef = ref(db, `users/${id}`);
+      await set(studentRef, null);
+      
+      toast({
+        title: "Student deleted",
+        description: "Student has been removed successfully",
+      });
+    } catch (error) {
+      console.error("Error deleting student:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete student. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleStudentSelection = (studentId: string) => {
     setSelectedStudents(
       selectedStudents.includes(studentId)
@@ -618,72 +902,3 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                 </div>
                 <CardDescription>
                   {exam.subject} • {exam.semester || "All semesters"}
-                </CardDescription>
-                <CardDescription>
-                  {new Date(exam.date).toLocaleDateString()} • {exam.time}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-muted-foreground">
-                  <div>Duration: {exam.duration} minutes</div>
-                  <div>Sections: {exam.sections?.length || 1}</div>
-                  <div>Questions: {exam.questions?.length || 0}</div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end gap-2 border-t pt-4">
-                <Button variant="outline" size="sm">
-                  <FileText className="h-4 w-4 mr-1" />
-                  Edit
-                </Button>
-                <Button size="sm">
-                  <Search className="h-4 w-4 mr-1" />
-                  Monitor
-                </Button>
-              </CardFooter>
-            </Card>
-          ))
-        ) : (
-          <div className="col-span-full text-center py-10">
-            <p className="text-muted-foreground">No exams found. Create a new exam to get started.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  if (section === "students") {
-    return (
-      <ManageStudents
-        students={filteredStudents}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        isAddStudentDialogOpen={isAddStudentDialogOpen}
-        setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
-        newStudent={newStudent}
-        setNewStudent={setNewStudent}
-        SEMESTERS={availableSemesters}
-        handleAddStudent={handleAddStudent}
-        handleEditStudent={handleEditStudent}
-        handleDeleteStudent={handleDeleteStudent}
-      />
-    );
-  }
-  if (section === "exams") {
-    return renderManageExams();
-  }
-  
-  return (
-    <DashboardOverview
-      totalExams={totalExams}
-      totalAttended={totalAttended}
-      studentsPassed={studentsPassed}
-      selectedSemester={selectedSemester}
-      selectedSubject={selectedSubject}
-      setSelectedSemester={setSelectedSemester}
-      setSelectedSubject={setSelectedSubject}
-      SEMESTERS={availableSemesters}
-      availableSubjects={availableSubjects}
-      subjectData={subjectData}
-    />
-  );
-}
