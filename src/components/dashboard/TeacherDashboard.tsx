@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
@@ -902,4 +903,57 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                 </div>
                 <CardDescription>
                   {exam.subject} • {exam.semester || "All semesters"}
-                </Card
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ))
+        ) : (
+          <div className="col-span-3 text-center py-8 text-muted-foreground">
+            No exams found. Create your first exam using the button above.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="container mx-auto p-4 space-y-6">
+      <DashboardOverview 
+        students={filteredStudents}
+        exams={filteredExams}
+        totalStudents={totalStudents} 
+        activeStudents={activeStudents}
+        totalExams={totalExams}
+        totalAttended={totalAttended}
+        studentsPassed={studentsPassed}
+        subjectData={subjectData}
+        selectedSemester={selectedSemester}
+        setSelectedSemester={setSelectedSemester}
+        selectedSubject={selectedSubject}
+        setSelectedSubject={setSelectedSubject}
+        availableSemesters={availableSemesters}
+        availableSubjects={availableSubjects}
+      />
+      
+      {section === "students" ? (
+        <ManageStudents 
+          students={filteredStudents}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          selectedSemester={selectedSemester}
+          setSelectedSemester={setSelectedSemester}
+          availableSemesters={availableSemesters}
+          handleEditStudent={handleEditStudent}
+          handleDeleteStudent={handleDeleteStudent}
+          isAddStudentDialogOpen={isAddStudentDialogOpen}
+          setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
+          newStudent={newStudent}
+          setNewStudent={setNewStudent}
+          handleAddStudent={handleAddStudent}
+        />
+      ) : section === "exams" ? (
+        renderManageExams()
+      ) : null}
+    </div>
+  );
+}
