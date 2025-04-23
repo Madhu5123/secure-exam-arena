@@ -108,10 +108,9 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           }
         });
 
-        return () => {
-          unsubscribeExams();
-        };
+        return unsubscribeExams;
       }
+      return () => {};
     };
     
     const examsUnsubscribe = fetchExams();
@@ -127,7 +126,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
 
     return () => {
       unsubscribeStudents();
-      if (typeof examsUnsubscribe === 'function') {
+      if (examsUnsubscribe) {
         examsUnsubscribe();
       }
     };
@@ -366,7 +365,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         date: examDate,
         time: examTime,
         duration: Number(examDuration),
-        status: "scheduled",
+        status: "scheduled" as "draft" | "scheduled" | "active" | "completed",
         questions: questions,
         assignedStudents: selectedStudents,
         sections: examSections
