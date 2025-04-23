@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
-import { ManageStudents } from "./TeacherDashboard/ManageStudents";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatsCard } from "@/components/common/StatsCard";
@@ -28,11 +27,23 @@ interface TeacherDashboardProps {
   section?: string;
 }
 
+interface StudentType {
+  id?: string;
+  name: string;
+  email: string;
+  regNumber: string;
+  password: string;
+  photo: string;
+  semester: string;
+  status?: string;
+  role?: string;
+}
+
 export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [students, setStudents] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: "", email: "", regNumber: "", password: "", photo: "", semester: "Semester 1" });
+  const [newStudent, setNewStudent] = useState<StudentType>({ name: "", email: "", regNumber: "", password: "", photo: "", semester: "Semester 1" });
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("All");
   const [selectedSubject, setSelectedSubject] = useState("All");
@@ -247,7 +258,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         sections: examSections,
         questions,
         assignedStudents: selectedStudents,
-        teacherId: userData.id,
+        createdBy: userData.id, // Fixed: Adding createdBy property which was missing
         status: 'scheduled',
         createdAt: new Date().toISOString()
       };
@@ -318,6 +329,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         });
       } else {
         // Create a new student account
+        // Fixed: Added the required fourth argument (null) to match the function signature
         const result = await registerUser(newStudent.email, newStudent.password, {
           name: newStudent.name,
           regNumber: newStudent.regNumber,
@@ -325,7 +337,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           semester: newStudent.semester,
           photo: newStudent.photo,
           status: 'active'
-        });
+        }, null);
 
         if (result && result.success) {
           toast({
@@ -359,6 +371,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const handleEditStudent = (id: string) => {
     const student = students.find(s => s.id === id);
     if (student) {
+      // Fixed: Using type assertion to handle the id property properly
       setNewStudent({
         id: student.id,
         name: student.name,
@@ -947,7 +960,19 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
 
   // If a section is specified, show only that section
   if (section === "students") {
-    return <ManageStudents />;
+    return <ManageStudents 
+      students={filteredStudents}
+      searchQuery={searchQuery}
+      setSearchQuery={setSearchQuery}
+      isAddStudentDialogOpen={isAddStudentDialogOpen}
+      setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
+      newStudent={newStudent}
+      setNewStudent={setNewStudent}
+      SEMESTERS={availableSemesters}
+      handleAddStudent={handleAddStudent}
+      handleEditStudent={handleEditStudent}
+      handleDeleteStudent={handleDeleteStudent}
+    />;
   }
 
   if (section === "exams") {
@@ -955,5 +980,19 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   }
 
   // Default view - dashboard overview
-  return <DashboardOverview />;
+  return <DashboardOverview 
+    totalExams={totalExams}
+    totalAttended={totalAttended}
+    studentsPassed={studentsPassed}
+    selectedSemester={selectedSemester}
+    totalStudents={totalStudents}
+    activeStudents={activeStudents}
+    exams={filteredExams}
+    subjectData={subjectData}
+    availableSemesters={availableSemesters}
+    setSelectedSemester={setSelectedSemester}
+    selectedSubject={selectedSubject}
+    setSelectedSubject={setSelectedSubject}
+    availableSubjects={availableSubjects}
+  />;
 }
