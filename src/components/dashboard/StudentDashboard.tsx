@@ -28,6 +28,12 @@ export function StudentDashboard() {
     };
 
     fetchExams();
+    
+    // Set up an interval to refresh exam status every minute
+    const intervalId = setInterval(fetchExams, 60000);
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleStartExam = (examId: string) => {
@@ -45,9 +51,42 @@ export function StudentDashboard() {
     });
   };
 
-  const upcomingExams = exams.filter(e => e.status === "scheduled");
-  const availableExams = exams.filter(e => e.status === "active");
-  const completedExams = exams.filter(e => e.status === "completed");
+  // Check if an exam is currently active based on date and time
+  const isExamActive = (exam: any) => {
+    if (exam.status === "completed") return false;
+    
+    const currentDate = new Date();
+    const [year, month, day] = exam.date.split('-').map(Number);
+    const [hours, minutes] = exam.time.split(':').map(Number);
+    const examDate = new Date(year, month - 1, day, hours, minutes);
+    
+    const examEndDate = new Date(examDate);
+    examEndDate.setMinutes(examEndDate.getMinutes() + exam.duration);
+    
+    return currentDate >= examDate && currentDate < examEndDate;
+  };
+
+  // Sort exams by their status and date
+  const sortedExams = [...exams].sort((a, b) => {
+    // First by status priority
+    const statusPriority: Record<string, number> = { 
+      active: 0, 
+      scheduled: 1, 
+      completed: 2 
+    };
+    
+    // Then by date (for scheduled exams)
+    if (statusPriority[a.status] === statusPriority[b.status]) {
+      return new Date(a.date + ' ' + a.time).getTime() - new Date(b.date + ' ' + b.time).getTime();
+    }
+    
+    return statusPriority[a.status] - statusPriority[b.status];
+  });
+
+  // Filter exams by status
+  const upcomingExams = sortedExams.filter(e => e.status === "scheduled");
+  const availableExams = sortedExams.filter(e => e.status === "active" || isExamActive(e));
+  const completedExams = sortedExams.filter(e => e.status === "completed");
 
   return (
     <div className="space-y-6">

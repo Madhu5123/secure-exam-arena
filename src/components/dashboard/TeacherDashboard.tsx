@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
@@ -60,6 +59,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [currentSection, setCurrentSection] = useState("Section 1");
   const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
   const [availableSubjectsAll, setAvailableSubjectsAll] = useState<string[]>([]);
+  const [subjectsBySemester, setSubjectsBySemester] = useState({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -97,6 +97,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
       const data = await fetchAcademicData();
       setAvailableSemesters(["All", ...data.semesters]);
       setAvailableSubjectsAll(["All", ...data.subjects]);
+      setSubjectsBySemester(data.subjectsBySemester || {});
     };
 
     loadAcademicData();
@@ -107,59 +108,67 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   }, []);
 
   const handleAddStudent = async () => {
-    if (!newStudent.name || !newStudent.email || !newStudent.regNumber || !newStudent.password || !newStudent.semester) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
     try {
-      let uploadedPhotoUrl = newStudent.photo;
-      if (newStudent.photo && newStudent.photo.startsWith("blob:")) {
-        toast({ title: "Uploading image...", description: "Please wait." });
-        const blob = await fetch(newStudent.photo).then(r => r.blob());
-        const file = new File([blob], "photo.jpg", { type: blob.type });
-        uploadedPhotoUrl = await uploadToCloudinary(file);
-        toast({ title: "Image uploaded!", description: "Saved to Cloudinary." });
+      if (!newStudent.name || !newStudent.email || !newStudent.regNumber || !newStudent.password) {
+        toast({
+          title: "Missing information",
+          description: "Please fill in all required fields",
+          variant: "destructive"
+        });
+        return;
       }
+
+      const studentData = {
+        name: newStudent.name,
+        email: newStudent.email,
+        password: newStudent.password,
+        role: "student",
+        regNumber: newStudent.regNumber,
+        semester: newStudent.semester,
+        photo: newStudent.photo,
+        status: "active"
+      };
+      
       const { success, user, error } = await registerUser(
-        newStudent.name,
-        newStudent.email,
-        newStudent.password,
+        studentData.name,
+        studentData.email,
+        studentData.password,
         "student"
       );
+      
       if (success && user) {
         toast({
           title: "Student added",
-          description: `${newStudent.name} has been added successfully.`,
+          description: "New student account has been created successfully",
         });
+        
         await set(ref(db, `users/${user.id}`), {
           id: user.id,
-          name: newStudent.name,
-          email: newStudent.email,
+          name: studentData.name,
+          email: studentData.email,
           role: "student",
-          regNumber: newStudent.regNumber,
-          status: "active",
-          additionalInfo: `Registration #: ${newStudent.regNumber}`,
-          photo: uploadedPhotoUrl,
-          semester: newStudent.semester,
+          regNumber: studentData.regNumber,
+          semester: studentData.semester,
+          photo: studentData.photo,
+          status: "active"
         });
-        setNewStudent({ name: "", email: "", regNumber: "", password: "", photo: "", semester: "Semester 1" });
-        setIsAddStudentDialogOpen(false);
       } else {
         toast({
-          title: "Failed to add student",
-          description: error || "An error occurred while adding the student.",
-          variant: "destructive",
+          title: "Error",
+          description: error || "Failed to create student account",
+          variant: "destructive"
         });
+        return;
       }
+
+      setNewStudent({ name: "", email: "", regNumber: "", password: "", photo: "", semester: "Semester 1" });
+      setIsAddStudentDialogOpen(false);
     } catch (error) {
+      console.error("Error adding student:", error);
       toast({
         title: "Error",
-        description: "Failed to add student. Please try again.",
-        variant: "destructive",
+        description: "An error occurred. Please try again.",
+        variant: "destructive"
       });
     }
   };
@@ -247,20 +256,20 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const handleEditStudent = (id: string) => {
     const student = students.find(s => s.id === id);
     if (student) {
-      setNewStudent({
+      const studentWithId = {
+        ...newStudent,
+        id: student.id,
         name: student.name,
         email: student.email,
         regNumber: student.regNumber || "",
         password: "",
         photo: student.photo || "",
-        semester: student.semester || "Semester 1",
-      });
+        semester: student.semester || "Semester 1"
+      };
+      
+      setNewStudent(studentWithId);
       setIsAddStudentDialogOpen(true);
     }
-    toast({
-      title: "Edit Student",
-      description: `Editing student with ID: ${id}`,
-    });
   };
 
   const handleDeleteStudent = async (id: string) => {
@@ -280,49 +289,49 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   };
 
   const handleSaveExam = async () => {
-    if (!examTitle || !examSubject || !examDuration || !examDate || !examTime || !examSemester) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all required exam details",
-        variant: "destructive"
-      });
-      setActiveTab("details");
-      return;
-    }
-
-    if (questions.length === 0) {
-      toast({
-        title: "No questions",
-        description: "Please add at least one question to the exam",
-        variant: "destructive"
-      });
-      setActiveTab("questions");
-      return;
-    }
-
-    if (selectedStudents.length === 0) {
-      toast({
-        title: "No students assigned",
-        description: "Please assign this exam to at least one student",
-        variant: "destructive"
-      });
-      setActiveTab("students");
-      return;
-    }
-
     try {
+      if (!examTitle || !examSubject || !examDuration || !examDate || !examTime) {
+        toast({
+          title: "Missing information",
+          description: "Please fill in all required exam details",
+          variant: "destructive"
+        });
+        setActiveTab("details");
+        return;
+      }
+
+      if (questions.length === 0) {
+        toast({
+          title: "No questions",
+          description: "Please add at least one question to the exam",
+          variant: "destructive"
+        });
+        setActiveTab("questions");
+        return;
+      }
+
+      if (selectedStudents.length === 0) {
+        toast({
+          title: "No students assigned",
+          description: "Please assign this exam to at least one student",
+          variant: "destructive"
+        });
+        setActiveTab("students");
+        return;
+      }
+
       const user = localStorage.getItem('examUser');
       if (!user) {
         toast({
           title: "Authentication error",
-          description: "You must be logged in to create an exam",
+          description: "Please login again",
           variant: "destructive"
         });
         return;
       }
 
       const userData = JSON.parse(user);
-
+      
       const examData = {
         title: examTitle,
         subject: examSubject,
@@ -330,15 +339,15 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         createdBy: userData.id,
         date: examDate,
         time: examTime,
-        duration: parseInt(examDuration),
-        status: "scheduled" as const,
+        duration: Number(examDuration),
+        status: "scheduled" as "draft" | "scheduled" | "active" | "completed",
         questions: questions,
         assignedStudents: selectedStudents,
         sections: examSections
       };
 
       const result = await createExam(examData);
-
+      
       if (result.success) {
         toast({
           title: "Exam created",
@@ -353,19 +362,19 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         setQuestions([]);
         setSelectedStudents([]);
         setExamSections([{ name: "Section 1", timeLimit: 30 }]);
-        setCurrentSection("Section 1");
         setIsCreateExamDialogOpen(false);
         
         const teacherExams = await getExamsForTeacher(userData.id);
         setExams(teacherExams);
       } else {
         toast({
-          title: "Failed to create exam",
-          description: result.error || "An error occurred while creating the exam",
+          title: "Error",
+          description: result.error || "Failed to create exam",
           variant: "destructive"
         });
       }
     } catch (error) {
+      console.error("Error creating exam:", error);
       toast({
         title: "Error",
         description: "Failed to create exam. Please try again.",

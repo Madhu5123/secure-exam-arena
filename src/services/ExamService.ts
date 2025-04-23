@@ -73,14 +73,36 @@ export const getExamsForStudent = async (studentId: string) => {
     
     if (snapshot.exists()) {
       const exams: Exam[] = [];
+      const currentDate = new Date();
+      
       snapshot.forEach((childSnapshot) => {
         const exam = childSnapshot.val();
         if (exam.assignedStudents && exam.assignedStudents.includes(studentId)) {
           const submission = exam.submissions?.[studentId];
+          
+          // Parse exam date and time into a Date object
+          const [year, month, day] = exam.date.split('-').map(Number);
+          const [hours, minutes] = exam.time.split(':').map(Number);
+          const examStartTime = new Date(year, month - 1, day, hours, minutes);
+          
+          // Calculate exam end time
+          const examEndTime = new Date(examStartTime);
+          examEndTime.setMinutes(examEndTime.getMinutes() + exam.duration);
+          
+          // Determine the current status based on time
+          let currentStatus = exam.status;
+          if (currentStatus === "scheduled") {
+            if (currentDate >= examStartTime && currentDate < examEndTime) {
+              currentStatus = "active";
+              // Update the exam status in the database
+              updateExamStatus(childSnapshot.key || '', "active");
+            }
+          }
+          
           exams.push({
             ...exam,
             id: childSnapshot.key || '',
-            status: submission ? "completed" : exam.status,
+            status: submission ? "completed" : currentStatus,
             score: submission?.score,
             maxScore: submission?.maxScore,
           });
@@ -93,6 +115,16 @@ export const getExamsForStudent = async (studentId: string) => {
   } catch (error) {
     console.error('Error fetching student exams:', error);
     return [];
+  }
+};
+
+// Helper function to update exam status
+const updateExamStatus = async (examId: string, status: "draft" | "scheduled" | "active" | "completed") => {
+  try {
+    const examRef = ref(db, `exams/${examId}/status`);
+    await set(examRef, status);
+  } catch (error) {
+    console.error('Error updating exam status:', error);
   }
 };
 

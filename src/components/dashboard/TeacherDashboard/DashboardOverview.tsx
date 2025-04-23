@@ -16,6 +16,7 @@ type Props = {
   availableSubjects: string[];
   subjectData: { subject: string; count: number }[];
 };
+
 export function DashboardOverview({
   totalExams,
   totalAttended,
