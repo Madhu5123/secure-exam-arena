@@ -41,7 +41,7 @@ export function StudentDashboard() {
       title: "Starting exam",
       description: "Preparing your exam environment...",
     });
-    navigate(`/exam/${examId}`);
+    navigate(`/exam/take/${examId}`);
   };
 
   const handleViewResults = (examId: string) => {

@@ -4,8 +4,10 @@ import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
 
 interface ExamSection {
+  id: string;
   name: string;
   timeLimit: number;
+  questions: Question[];
 }
 
 interface Exam {
@@ -18,9 +20,10 @@ interface Exam {
   time: string;
   duration: number;
   status: "draft" | "scheduled" | "active" | "completed";
-  questions: Question[];
-  assignedStudents: string[];
+  questions?: Question[];
   sections?: ExamSection[];
+  instructions?: string[];
+  assignedStudents: string[];
   submissions?: Record<string, Submission>;
 }
 
@@ -33,6 +36,11 @@ interface Submission {
   score: number;
   maxScore: number;
   warningCount: number;
+  sectionScores?: {
+    sectionId: string;
+    score: number;
+    maxScore: number;
+  }[];
 }
 
 interface Question {
@@ -211,13 +219,40 @@ export const submitExam = async (
     
     let score = 0;
     let maxScore = 0;
+    let sectionScores: { sectionId: string; score: number; maxScore: number }[] = [];
     
-    exam.questions.forEach(question => {
-      maxScore += question.points;
-      if (answers[question.id] === question.correctAnswer) {
-        score += question.points;
-      }
-    });
+    // Calculate scores for exams with sections
+    if (exam.sections) {
+      exam.sections.forEach(section => {
+        let sectionScore = 0;
+        let sectionMaxScore = 0;
+        
+        section.questions.forEach(question => {
+          sectionMaxScore += question.points;
+          if (answers[question.id] === question.correctAnswer) {
+            sectionScore += question.points;
+          }
+        });
+        
+        sectionScores.push({
+          sectionId: section.id,
+          score: sectionScore,
+          maxScore: sectionMaxScore
+        });
+        
+        score += sectionScore;
+        maxScore += sectionMaxScore;
+      });
+    } 
+    // Calculate scores for exams without sections
+    else if (exam.questions) {
+      exam.questions.forEach(question => {
+        maxScore += question.points;
+        if (answers[question.id] === question.correctAnswer) {
+          score += question.points;
+        }
+      });
+    }
     
     const submission = {
       examId,
@@ -228,6 +263,7 @@ export const submitExam = async (
       score,
       maxScore,
       warningCount,
+      sectionScores: sectionScores.length > 0 ? sectionScores : undefined,
     };
     
     await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
@@ -237,6 +273,7 @@ export const submitExam = async (
       submission,
     };
   } catch (error) {
+    console.error("Error submitting exam:", error);
     return {
       success: false,
       error: "Failed to submit exam",
@@ -308,6 +345,76 @@ export const getStudentResults = async (studentId: string) => {
     return {
       success: false,
       error: "Failed to fetch results",
+    };
+  }
+};
+
+export const getTopStudentsBySubject = async (subject: string) => {
+  try {
+    const examsRef = ref(db, 'exams');
+    let snapshot;
+    
+    if (subject === "All") {
+      snapshot = await get(examsRef);
+    } else {
+      const subjectQuery = query(examsRef, orderByChild('subject'), equalTo(subject));
+      snapshot = await get(subjectQuery);
+    }
+    
+    if (!snapshot.exists()) {
+      return {
+        success: true,
+        topStudents: []
+      };
+    }
+    
+    // Collect all student submissions across exams
+    const studentScores: Record<string, { totalScore: number, totalMaxScore: number, examCount: number, name: string }> = {};
+    
+    snapshot.forEach((examSnapshot) => {
+      const exam = examSnapshot.val();
+      const submissions = exam.submissions || {};
+      
+      Object.entries(submissions).forEach(([studentId, submission]: [string, any]) => {
+        if (!studentScores[studentId]) {
+          studentScores[studentId] = {
+            totalScore: 0,
+            totalMaxScore: 0,
+            examCount: 0,
+            name: submission.studentName || `Student ${studentId.slice(-4)}`
+          };
+        }
+        
+        studentScores[studentId].totalScore += submission.score || 0;
+        studentScores[studentId].totalMaxScore += submission.maxScore || 0;
+        studentScores[studentId].examCount += 1;
+      });
+    });
+    
+    // Calculate average scores and sort
+    const topStudents = Object.entries(studentScores)
+      .map(([studentId, data]) => ({
+        id: studentId,
+        name: data.name,
+        averageScore: data.totalMaxScore > 0 
+          ? Math.round((data.totalScore / data.totalMaxScore) * 100) 
+          : 0,
+        examCount: data.examCount
+      }))
+      .sort((a, b) => b.averageScore - a.averageScore)
+      .slice(0, 3);
+    
+    return {
+      success: true,
+      topStudents
+    };
+    
+  } catch (error) {
+    console.error('Error fetching top students:', error);
+    return {
+      success: false,
+      error: "Failed to fetch top students",
+      topStudents: []
     };
   }
 };

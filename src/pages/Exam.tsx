@@ -78,9 +78,9 @@ const Exam = ({ action: propAction }: ExamProps) => {
       case "create":
         return <ExamCreator />;
       case "monitor":
-        return <ExamMonitor />;
+        return <ExamMonitor examId={id} />;
       case "take":
-        return <ExamTaker />;
+        return <ExamTaker examId={id} />;
       default:
         // Redirect to dashboard if action is invalid
         navigate("/dashboard");

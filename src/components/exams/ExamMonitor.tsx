@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, CheckCircle, Clock, UserCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { getExamById } from "@/services/ExamService";
+
+interface ExamMonitorProps {
+  examId?: string;
+}
 
 // Mock data
 const mockExamData = {
@@ -67,25 +71,38 @@ const mockExamData = {
   ]
 };
 
-export function ExamMonitor() {
+export function ExamMonitor({ examId }: ExamMonitorProps) {
   const [exam, setExam] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [remainingTime, setRemainingTime] = useState<string>("00:00:00");
   const [activeTab, setActiveTab] = useState("overview");
-  const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Mock the fetch exam data
+  // Fetch exam data
   useEffect(() => {
     const fetchExam = async () => {
-      // In a real app, this would fetch from Firebase
-      setExam(mockExamData);
+      if (examId) {
+        try {
+          const result = await getExamById(examId);
+          if (result.success) {
+            setExam(result.exam);
+          } else {
+            // Fallback to mock data
+            setExam(mockExamData);
+          }
+        } catch (error) {
+          console.error("Error fetching exam:", error);
+          setExam(mockExamData);
+        }
+      } else {
+        setExam(mockExamData);
+      }
       setLoading(false);
     };
 
     fetchExam();
-  }, [id]);
+  }, [examId]);
 
   // Calculate and update remaining time
   useEffect(() => {

@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AlertTriangle, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,107 +10,222 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { getExamById, submitExam } from "@/services/ExamService";
 
-// Mock exam data
+interface ExamTakerProps {
+  examId?: string;
+}
+
+// Mock exam data structure with sections
 const mockExamData = {
   id: "exam-1",
   title: "Mid-term Mathematics",
   subject: "Mathematics",
   duration: 120, // minutes
   totalQuestions: 15,
-  questions: [
+  sections: [
     {
-      id: "q1",
-      type: "multiple-choice",
-      text: "What is the value of x in the equation 2x + 5 = 15?",
-      options: [
-        "x = 3",
-        "x = 5",
-        "x = 7",
-        "x = 10"
+      id: "section-1",
+      name: "Basic Concepts",
+      timeLimit: 30, // minutes
+      questions: [
+        {
+          id: "q1",
+          type: "multiple-choice",
+          text: "What is the value of x in the equation 2x + 5 = 15?",
+          options: [
+            "x = 3",
+            "x = 5",
+            "x = 7",
+            "x = 10"
+          ],
+          points: 5
+        },
+        {
+          id: "q2",
+          type: "multiple-choice",
+          text: "Which of the following is a prime number?",
+          options: [
+            "15",
+            "21",
+            "23",
+            "27"
+          ],
+          points: 5
+        },
+        {
+          id: "q3",
+          type: "true-false",
+          text: "The sum of angles in a triangle is 180 degrees.",
+          options: ["True", "False"],
+          points: 5
+        }
       ]
     },
     {
-      id: "q2",
-      type: "multiple-choice",
-      text: "Which of the following is a prime number?",
-      options: [
-        "15",
-        "21",
-        "23",
-        "27"
+      id: "section-2",
+      name: "Advanced Concepts",
+      timeLimit: 90, // minutes
+      questions: [
+        {
+          id: "q4",
+          type: "short-answer",
+          text: "What is the derivative of f(x) = x²?",
+          points: 10
+        },
+        {
+          id: "q5",
+          type: "multiple-choice",
+          text: "Solve for y: 3y - 7 = 14",
+          options: [
+            "y = 5",
+            "y = 7",
+            "y = 9",
+            "y = 21"
+          ],
+          points: 10
+        }
       ]
-    },
-    {
-      id: "q3",
-      type: "true-false",
-      text: "The sum of angles in a triangle is 180 degrees.",
-      options: ["True", "False"]
-    },
-    {
-      id: "q4",
-      type: "short-answer",
-      text: "What is the derivative of f(x) = x²?",
-    },
-    {
-      id: "q5",
-      type: "multiple-choice",
-      text: "Solve for y: 3y - 7 = 14",
-      options: [
-        "y = 5",
-        "y = 7",
-        "y = 9",
-        "y = 21"
-      ]
-    },
-    // More questions would be here in a real exam
+    }
+  ],
+  instructions: [
+    "Complete all sections within the allocated time.",
+    "You must complete each section before moving to the next.",
+    "Do not refresh or close the browser during the exam.",
+    "Webcam monitoring is enabled throughout the exam.",
+    "Switching tabs or applications is not allowed.",
+    "If you experience technical issues, contact support immediately.",
+    "Read all questions carefully before answering."
   ]
 };
 
-export function ExamTaker() {
+export function ExamTaker({ examId }: ExamTakerProps) {
   const [exam, setExam] = useState<any>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [remainingTime, setRemainingTime] = useState<string>("00:00:00");
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
+  const [sectionRemainingSeconds, setSectionRemainingSeconds] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(true);
+  const [isSectionIntroOpen, setIsSectionIntroOpen] = useState(false);
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [isCameraError, setIsCameraError] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const [warningCount, setWarningCount] = useState(0);
+  const [faceCount, setFaceCount] = useState(1); // Default to 1 face
   const [loading, setLoading] = useState(true);
+  const [examComplete, setExamComplete] = useState(false);
+  const [examResult, setExamResult] = useState<any>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   // Mock fetch exam data
   useEffect(() => {
     const fetchExam = async () => {
-      // In a real app, this would fetch from Firebase
-      setExam(mockExamData);
-      
-      // Initialize answers object
-      const initialAnswers: Record<string, string> = {};
-      mockExamData.questions.forEach(question => {
-        initialAnswers[question.id] = "";
-      });
-      setAnswers(initialAnswers);
+      if (examId) {
+        try {
+          const result = await getExamById(examId);
+          if (result.success) {
+            setExam(result.exam);
+            
+            // Initialize answers object
+            const initialAnswers: Record<string, string> = {};
+            // Flatten questions from all sections
+            const allQuestions = result.exam.sections 
+              ? result.exam.sections.flatMap((section: any) => section.questions)
+              : result.exam.questions;
+              
+            allQuestions.forEach((question: any) => {
+              initialAnswers[question.id] = "";
+            });
+            setAnswers(initialAnswers);
 
-      // Set remaining time
-      setRemainingSeconds(mockExamData.duration * 60);
+            // Set remaining time
+            setRemainingSeconds(result.exam.duration * 60);
+            
+            // Set section time if sections exist
+            if (result.exam.sections && result.exam.sections.length > 0) {
+              setSectionRemainingSeconds(result.exam.sections[0].timeLimit * 60);
+            }
+            
+          } else {
+            // Fallback to mock data
+            setExam(mockExamData);
+            
+            // Initialize answers for mock data
+            const initialAnswers: Record<string, string> = {};
+            // Flatten questions from all sections
+            mockExamData.sections.forEach(section => {
+              section.questions.forEach(question => {
+                initialAnswers[question.id] = "";
+              });
+            });
+            setAnswers(initialAnswers);
+
+            // Set remaining time
+            setRemainingSeconds(mockExamData.duration * 60);
+            
+            // Set section time
+            setSectionRemainingSeconds(mockExamData.sections[0].timeLimit * 60);
+          }
+        } catch (error) {
+          console.error("Error fetching exam:", error);
+          
+          // Fallback to mock data
+          setExam(mockExamData);
+          
+          // Initialize answers for mock data
+          const initialAnswers: Record<string, string> = {};
+          // Flatten questions from all sections
+          mockExamData.sections.forEach(section => {
+            section.questions.forEach(question => {
+              initialAnswers[question.id] = "";
+            });
+          });
+          setAnswers(initialAnswers);
+
+          // Set remaining time
+          setRemainingSeconds(mockExamData.duration * 60);
+          
+          // Set section time
+          setSectionRemainingSeconds(mockExamData.sections[0].timeLimit * 60);
+        }
+      } else {
+        // Fallback to mock data if no examId
+        setExam(mockExamData);
+        
+        // Initialize answers for mock data
+        const initialAnswers: Record<string, string> = {};
+        // Flatten questions from all sections
+        mockExamData.sections.forEach(section => {
+          section.questions.forEach(question => {
+            initialAnswers[question.id] = "";
+          });
+        });
+        setAnswers(initialAnswers);
+
+        // Set remaining time
+        setRemainingSeconds(mockExamData.duration * 60);
+        
+        // Set section time
+        setSectionRemainingSeconds(mockExamData.sections[0].timeLimit * 60);
+      }
+      
       setLoading(false);
     };
 
     fetchExam();
-  }, [id]);
+  }, [examId]);
 
-  // Update remaining time
+  // Update remaining exam time
   useEffect(() => {
-    if (!exam || isInstructionsOpen) return;
+    if (!exam || isInstructionsOpen || isSectionIntroOpen) return;
 
     const interval = setInterval(() => {
       setRemainingSeconds(prev => {
@@ -124,7 +239,25 @@ export function ExamTaker() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [exam, isInstructionsOpen]);
+  }, [exam, isInstructionsOpen, isSectionIntroOpen]);
+
+  // Update remaining section time
+  useEffect(() => {
+    if (!exam || isInstructionsOpen || isSectionIntroOpen || !exam.sections) return;
+
+    const interval = setInterval(() => {
+      setSectionRemainingSeconds(prev => {
+        if (prev <= 0) {
+          clearInterval(interval);
+          handleSectionTimeUp();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [exam, currentSectionIndex, isInstructionsOpen, isSectionIntroOpen]);
 
   // Format remaining time
   useEffect(() => {
@@ -150,6 +283,19 @@ export function ExamTaker() {
       });
     }
   }, [remainingSeconds, toast]);
+
+  // Format section remaining time
+  const formatSectionTime = () => {
+    if (sectionRemainingSeconds <= 0) {
+      return "00:00:00";
+    }
+
+    const hours = Math.floor(sectionRemainingSeconds / 3600);
+    const minutes = Math.floor((sectionRemainingSeconds % 3600) / 60);
+    const seconds = sectionRemainingSeconds % 60;
+
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  };
 
   // Monitor when user attempts to leave fullscreen
   useEffect(() => {
@@ -181,7 +327,7 @@ export function ExamTaker() {
   // Handle visibilitychange event (tab switching)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && !isInstructionsOpen) {
+      if (document.visibilityState === 'hidden' && !isInstructionsOpen && !isSectionIntroOpen) {
         setWarningCount(prev => prev + 1);
         toast({
           title: "Warning",
@@ -193,7 +339,7 @@ export function ExamTaker() {
     
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [isInstructionsOpen, toast]);
+  }, [isInstructionsOpen, isSectionIntroOpen, toast]);
 
   // Initialize camera
   const initializeCamera = async () => {
@@ -206,6 +352,34 @@ export function ExamTaker() {
       }
       
       setIsCameraError(false);
+      
+      // Mock face detection
+      // In a real app, this would use a face detection API
+      const faceDetectionInterval = setInterval(() => {
+        const randomFaces = Math.random() > 0.9 ? 2 : Math.random() > 0.05 ? 1 : 0;
+        setFaceCount(randomFaces);
+        
+        if (randomFaces === 0) {
+          setWarningCount(prev => prev + 1);
+          setShowWarning(true);
+          toast({
+            title: "Warning",
+            description: "No face detected! Please ensure your face is visible.",
+            variant: "destructive",
+          });
+        } else if (randomFaces > 1) {
+          setWarningCount(prev => prev + 1);
+          setShowWarning(true);
+          toast({
+            title: "Warning",
+            description: "Multiple faces detected! Only you should be visible.",
+            variant: "destructive",
+          });
+        }
+      }, 30000); // Check every 30 seconds
+      
+      return () => clearInterval(faceDetectionInterval);
+      
     } catch (error) {
       console.error("Error accessing camera:", error);
       setIsCameraError(true);
@@ -227,7 +401,7 @@ export function ExamTaker() {
   }, [cameraStream]);
 
   const handleStartExam = async () => {
-    await initializeCamera();
+    const cleanupFn = await initializeCamera();
     
     try {
       await document.documentElement.requestFullscreen();
@@ -243,6 +417,19 @@ export function ExamTaker() {
     }
     
     setIsInstructionsOpen(false);
+    
+    // Show section introduction
+    if (exam?.sections && exam.sections.length > 0) {
+      setIsSectionIntroOpen(true);
+    }
+    
+    return cleanupFn;
+  };
+
+  const handleStartSection = () => {
+    setIsSectionIntroOpen(false);
+    // Reset question index when starting a new section
+    setCurrentQuestionIndex(0);
   };
 
   const handleAnswerChange = (questionId: string, value: string) => {
@@ -250,22 +437,62 @@ export function ExamTaker() {
   };
 
   const handleNavigation = (direction: 'prev' | 'next') => {
+    const currentSection = exam.sections ? exam.sections[currentSectionIndex] : { questions: exam.questions };
+    const questions = currentSection.questions;
+    
     if (direction === 'prev' && currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
-    } else if (direction === 'next' && currentQuestionIndex < exam.questions.length - 1) {
+    } else if (direction === 'next' && currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     }
   };
 
   const handleJumpToQuestion = (index: number) => {
-    if (index >= 0 && index < exam.questions.length) {
+    const currentSection = exam.sections ? exam.sections[currentSectionIndex] : { questions: exam.questions };
+    const questions = currentSection.questions;
+    
+    if (index >= 0 && index < questions.length) {
       setCurrentQuestionIndex(index);
     }
   };
 
+  const handleMoveToNextSection = () => {
+    if (exam.sections && currentSectionIndex < exam.sections.length - 1) {
+      setCurrentSectionIndex(currentSectionIndex + 1);
+      setCurrentQuestionIndex(0);
+      setSectionRemainingSeconds(exam.sections[currentSectionIndex + 1].timeLimit * 60);
+      setIsSectionIntroOpen(true);
+    } else {
+      // If this is the last section, show submit dialog
+      setIsSubmitDialogOpen(true);
+    }
+  };
+
+  const handleSectionTimeUp = () => {
+    toast({
+      title: "Section time's up!",
+      description: "Moving to the next section.",
+      variant: "destructive",
+    });
+    
+    handleMoveToNextSection();
+  };
+
   const handleSubmitExam = () => {
     // Check if all questions are answered
-    const unansweredQuestions = Object.values(answers).filter(answer => answer === "").length;
+    let unansweredQuestions = 0;
+    
+    if (exam.sections) {
+      // For sectioned exams, check all questions across all sections
+      exam.sections.forEach((section: any) => {
+        section.questions.forEach((question: any) => {
+          if (!answers[question.id]) unansweredQuestions++;
+        });
+      });
+    } else {
+      // For non-sectioned exams
+      unansweredQuestions = Object.values(answers).filter(answer => answer === "").length;
+    }
     
     if (unansweredQuestions > 0) {
       toast({
@@ -284,39 +511,23 @@ export function ExamTaker() {
     }
   };
 
-  const handleConfirmSubmit = () => {
+  const handleConfirmSubmit = async () => {
     // In a real app, this would submit answers to Firebase
-    
-    // Exit fullscreen
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(err => {
-        console.error("Error exiting fullscreen:", err);
-      });
-    }
-    
-    // Stop camera
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
-    }
-    
-    toast({
-      title: "Exam submitted",
-      description: "Your exam has been submitted successfully",
-    });
-    
-    navigate("/dashboard");
-  };
-  
-  const handleTimeUp = () => {
-    toast({
-      title: "Time's up!",
-      description: "Your exam time has ended. Your answers will be automatically submitted.",
-      variant: "destructive",
-    });
-    
-    // In a real app, this would submit answers to Firebase
-    
-    setTimeout(() => {
+    try {
+      if (examId) {
+        const user = localStorage.getItem('examUser');
+        if (user) {
+          const userData = JSON.parse(user);
+          const result = await submitExam(examId, userData.id, answers, warningCount);
+          
+          if (result.success) {
+            setExamResult(result.submission);
+          }
+        }
+      }
+      
+      setExamComplete(true);
+      
       // Exit fullscreen
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(err => {
@@ -329,8 +540,33 @@ export function ExamTaker() {
         cameraStream.getTracks().forEach(track => track.stop());
       }
       
-      navigate("/dashboard");
-    }, 3000);
+      toast({
+        title: "Exam submitted",
+        description: "Your exam has been submitted successfully",
+      });
+      
+    } catch (error) {
+      console.error("Error submitting exam:", error);
+      toast({
+        title: "Error",
+        description: "There was an error submitting your exam. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleTimeUp = () => {
+    toast({
+      title: "Time's up!",
+      description: "Your exam time has ended. Your answers will be automatically submitted.",
+      variant: "destructive",
+    });
+    
+    handleConfirmSubmit();
+  };
+
+  const handleFinishReview = () => {
+    navigate("/dashboard");
   };
 
   if (loading) {
@@ -353,6 +589,66 @@ export function ExamTaker() {
     );
   }
 
+  // Display exam results if completed
+  if (examComplete) {
+    return (
+      <div className="max-w-3xl mx-auto p-4">
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">{exam.title} - Results</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="bg-muted p-6 rounded-lg text-center">
+              <CheckCircle className="h-12 w-12 text-exam-success mx-auto mb-2" />
+              <h3 className="text-xl font-semibold">Exam Completed</h3>
+              <p className="text-muted-foreground">Your answers have been submitted successfully</p>
+            </div>
+            
+            {examResult ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground">Score</div>
+                    <div className="text-3xl font-bold">{examResult.score}/{examResult.maxScore}</div>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground">Warnings</div>
+                    <div className="text-3xl font-bold text-exam-warning">{examResult.warningCount}</div>
+                  </Card>
+                </div>
+                
+                <div>
+                  <div className="text-sm font-medium mb-1">Performance</div>
+                  <Progress value={(examResult.score / examResult.maxScore) * 100} className="h-2" />
+                  <div className="text-xs text-right mt-1">
+                    {Math.round((examResult.score / examResult.maxScore) * 100)}%
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground">
+                Results will be available soon.
+              </div>
+            )}
+            
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Feedback</AlertTitle>
+              <AlertDescription>
+                Your exam has been submitted. You can view your detailed results later from your dashboard.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+          <CardFooter>
+            <Button className="w-full" onClick={handleFinishReview}>
+              Return to Dashboard
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
   // Render instructions dialog
   if (isInstructionsOpen) {
     return (
@@ -365,15 +661,25 @@ export function ExamTaker() {
             <div>
               <h3 className="text-lg font-semibold mb-2">Exam Instructions</h3>
               <ul className="list-disc pl-6 space-y-2">
-                <li>This exam contains {exam.totalQuestions} questions and has a time limit of {exam.duration} minutes.</li>
-                <li>You must complete the exam in one session - do not close the browser or refresh the page.</li>
-                <li>The exam will be in fullscreen mode. Attempts to exit fullscreen will be recorded.</li>
-                <li>Your webcam will be active during the exam for proctoring purposes.</li>
-                <li>Do not switch tabs or open other applications during the exam.</li>
-                <li>Ensure you have a stable internet connection and a charged device.</li>
-                <li>Use the navigation buttons to move between questions.</li>
-                <li>Use the question panel to quickly jump to specific questions.</li>
-                <li>You can submit your exam before the time expires.</li>
+                {exam.instructions ? (
+                  exam.instructions.map((instruction: string, index: number) => (
+                    <li key={index}>{instruction}</li>
+                  ))
+                ) : (
+                  <>
+                    <li>This exam contains {exam.sections 
+                      ? exam.sections.reduce((total: number, section: any) => total + section.questions.length, 0) 
+                      : exam.totalQuestions} questions and has a time limit of {exam.duration} minutes.</li>
+                    <li>You must complete the exam in one session - do not close the browser or refresh the page.</li>
+                    <li>The exam will be in fullscreen mode. Attempts to exit fullscreen will be recorded.</li>
+                    <li>Your webcam will be active during the exam for proctoring purposes.</li>
+                    <li>Do not switch tabs or open other applications during the exam.</li>
+                    <li>Ensure you have a stable internet connection and a charged device.</li>
+                    <li>Use the navigation buttons to move between questions.</li>
+                    <li>Use the question panel to quickly jump to specific questions.</li>
+                    <li>You can submit your exam before the time expires.</li>
+                  </>
+                )}
               </ul>
             </div>
 
@@ -402,8 +708,54 @@ export function ExamTaker() {
     );
   }
 
-  // Get current question
-  const currentQuestion = exam.questions[currentQuestionIndex];
+  // Render section introduction
+  if (isSectionIntroOpen) {
+    const currentSection = exam.sections[currentSectionIndex];
+    
+    return (
+      <div className="max-w-3xl mx-auto p-4">
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle>Section {currentSectionIndex + 1}: {currentSection.name}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <p><strong>Time Limit:</strong> {currentSection.timeLimit} minutes</p>
+              <p><strong>Questions:</strong> {currentSection.questions.length}</p>
+              
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Section Information</AlertTitle>
+                <AlertDescription>
+                  You must complete this section within the allocated time. Once you move to the next section, you cannot return to this section.
+                </AlertDescription>
+              </Alert>
+            </div>
+            
+            <div className="text-center space-y-2">
+              <p>Are you ready to begin this section?</p>
+              <div className="flex justify-center space-x-2">
+                <Button onClick={handleStartSection}>
+                  Start Section
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Get current section and question
+  const currentSection = exam.sections ? exam.sections[currentSectionIndex] : { questions: exam.questions };
+  const currentQuestion = currentSection.questions[currentQuestionIndex];
+
+  // Calculate progress
+  const calculateSectionProgress = () => {
+    if (!currentSection) return 0;
+    const answered = currentSection.questions.filter((q: any) => answers[q.id] && answers[q.id] !== "").length;
+    return (answered / currentSection.questions.length) * 100;
+  };
 
   return (
     <div className="fullscreen-exam flex flex-col h-screen">
@@ -411,7 +763,16 @@ export function ExamTaker() {
       <div className="bg-card p-3 border-b flex justify-between items-center">
         <div>
           <h1 className="font-bold">{exam.title}</h1>
-          <p className="text-sm text-muted-foreground">{currentQuestionIndex + 1} of {exam.questions.length} questions</p>
+          <div className="flex items-center text-sm text-muted-foreground">
+            <span>
+              Section {currentSectionIndex + 1}/{exam.sections ? exam.sections.length : 1}:
+              {" "}{currentSection.name || "Questions"}
+            </span>
+            <span className="mx-2">•</span>
+            <span>
+              Question {currentQuestionIndex + 1}/{currentSection.questions.length}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {showWarning && (
@@ -424,9 +785,16 @@ export function ExamTaker() {
             </Alert>
           )}
           
-          <div className="flex items-center gap-1 text-lg font-semibold">
-            <Clock className="h-5 w-5 text-exam-primary" />
-            <span>{remainingTime}</span>
+          <div className="flex flex-col items-end">
+            <div className="flex items-center gap-1 text-lg font-semibold">
+              <Clock className="h-5 w-5 text-exam-primary" />
+              <span>{remainingTime}</span>
+            </div>
+            {exam.sections && (
+              <div className="text-xs text-muted-foreground">
+                Section: {formatSectionTime()}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -437,11 +805,18 @@ export function ExamTaker() {
         <div className="order-2 lg:order-1 lg:col-span-1">
           <Card className="sticky top-4">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Questions</CardTitle>
+              <CardTitle className="text-base flex justify-between items-center">
+                <span>Questions</span>
+                {exam.sections && (
+                  <Badge variant="outline">
+                    Section {currentSectionIndex + 1}: {currentSection.name || "Questions"}
+                  </Badge>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex flex-wrap gap-2">
-                {exam.questions.map((q: any, index: number) => (
+                {currentSection.questions.map((q: any, index: number) => (
                   <Button
                     key={q.id}
                     variant="outline"
@@ -473,16 +848,22 @@ export function ExamTaker() {
               </div>
               
               <div className="mt-4">
-                <div className="text-sm mb-1">Progress</div>
-                <Progress value={Object.values(answers).filter(a => a !== "").length / exam.questions.length * 100} className="h-2" />
+                <div className="text-sm mb-1">Section Progress</div>
+                <Progress value={calculateSectionProgress()} className="h-2" />
                 <div className="text-xs text-muted-foreground mt-1">
-                  {Object.values(answers).filter(a => a !== "").length} of {exam.questions.length} answered
+                  {currentSection.questions.filter((q: any) => answers[q.id] && answers[q.id] !== "").length} 
+                  {" "}of{" "}
+                  {currentSection.questions.length} answered
                 </div>
               </div>
               
               <div className="camera-container mt-4">
+                <div className="mb-2 text-sm font-semibold flex items-center justify-between">
+                  <span>Camera Feed</span>
+                  <div className={`h-2 w-2 rounded-full ${faceCount === 1 ? 'bg-green-500 animate-pulse' : 'bg-red-500 animate-pulse'}`}></div>
+                </div>
                 {isCameraError ? (
-                  <div className="flex items-center justify-center h-full bg-muted">
+                  <div className="flex items-center justify-center h-32 bg-muted rounded-lg">
                     <Alert className="p-2">
                       <AlertTriangle className="h-4 w-4 text-exam-warning" />
                       <AlertTitle className="text-exam-warning">Camera Error</AlertTitle>
@@ -497,7 +878,7 @@ export function ExamTaker() {
                     autoPlay
                     muted
                     playsInline
-                    className="w-full h-full object-cover"
+                    className="w-full h-40 object-cover rounded-lg"
                   />
                 )}
               </div>
@@ -575,10 +956,16 @@ export function ExamTaker() {
                 </Button>
               </div>
               <div>
-                {currentQuestionIndex === exam.questions.length - 1 ? (
-                  <Button onClick={handleSubmitExam}>
-                    Submit Exam
-                  </Button>
+                {currentQuestionIndex === currentSection.questions.length - 1 ? (
+                  exam.sections && currentSectionIndex < exam.sections.length - 1 ? (
+                    <Button onClick={handleMoveToNextSection}>
+                      Next Section
+                    </Button>
+                  ) : (
+                    <Button onClick={handleSubmitExam}>
+                      Submit Exam
+                    </Button>
+                  )
                 ) : (
                   <Button onClick={() => handleNavigation('next')}>
                     Next
@@ -603,7 +990,11 @@ export function ExamTaker() {
             <div className="flex items-center justify-center gap-2 text-exam-primary">
               <CheckCircle className="h-6 w-6" />
               <span className="text-lg font-medium">
-                {Object.values(answers).filter(a => a !== "").length} of {exam.questions.length} questions answered
+                {Object.values(answers).filter(a => a !== "").length} of {
+                  exam.sections 
+                    ? exam.sections.reduce((total: number, section: any) => total + section.questions.length, 0)
+                    : exam.questions ? exam.questions.length : exam.totalQuestions
+                } questions answered
               </span>
             </div>
             
