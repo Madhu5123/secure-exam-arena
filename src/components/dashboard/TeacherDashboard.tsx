@@ -919,4 +919,93 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                               <div key={student.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
                                 <Checkbox 
                                   id={`student-${student.id}`}
-                                  checked={selected
+                                  checked={selectedStudents.includes(student.id)}
+                                  onCheckedChange={() => handleStudentSelection(student.id)}
+                                />
+                                <Label htmlFor={`student-${student.id}`} className="flex-1 cursor-pointer">
+                                  {student.name}
+                                </Label>
+                                <Badge>{student.semester}</Badge>
+                              </div>
+                            ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <div className="flex justify-between gap-2 pt-4">
+                      <Button variant="outline" onClick={() => setActiveTab("questions")}>
+                        Back to Questions
+                      </Button>
+                      <Button 
+                        onClick={handleSaveExam}
+                        disabled={selectedStudents.length === 0}
+                      >
+                        Create Exam
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredExams.map(exam => (
+            <Card key={exam.id}>
+              <CardHeader>
+                <CardTitle className="text-lg">{exam.title}</CardTitle>
+                <CardDescription>
+                  <Badge variant="outline" className="mr-2">{exam.subject}</Badge>
+                  <Badge variant="outline">{exam.semester}</Badge>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Date:</span>
+                    <span>{exam.date}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Time:</span>
+                    <span>{exam.time}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Duration:</span>
+                    <span>{exam.duration} minutes</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Status:</span>
+                    <Badge 
+                      variant={exam.status === "completed" ? "secondary" : 
+                              exam.status === "active" ? "destructive" : 
+                              exam.status === "scheduled" ? "outline" : "default"}
+                    >
+                      {exam.status}
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  variant="outline" 
+                  className="w-full" 
+                  onClick={() => handleMonitorExam(exam.id)}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  {exam.status === "completed" ? "View Results" : "Monitor Exam"}
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-8">
+      {section === "exams" && renderManageExams()}
+    </div>
+  );
+}
