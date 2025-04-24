@@ -337,16 +337,29 @@ export const getStudentResults = async (studentId: string) => {
 export const getTopStudentsBySubject = async (subject: string) => {
   try {
     const examsRef = ref(db, 'exams');
-    let snapshot;
+    const studentsRef = ref(db, 'users');
+    let examSnapshot, studentSnapshot;
     
-    if (subject === "All") {
-      snapshot = await get(examsRef);
-    } else {
-      const subjectQuery = query(examsRef, orderByChild('subject'), equalTo(subject));
-      snapshot = await get(subjectQuery);
+    // Get student data first
+    studentSnapshot = await get(studentsRef);
+    const students = {};
+    if (studentSnapshot.exists()) {
+      studentSnapshot.forEach((childSnapshot) => {
+        const student = childSnapshot.val();
+        if (student.role === 'student') {
+          students[childSnapshot.key] = student;
+        }
+      });
     }
     
-    if (!snapshot.exists()) {
+    if (subject === "All") {
+      examSnapshot = await get(examsRef);
+    } else {
+      const subjectQuery = query(examsRef, orderByChild('subject'), equalTo(subject));
+      examSnapshot = await get(subjectQuery);
+    }
+    
+    if (!examSnapshot.exists()) {
       return {
         success: true,
         topStudents: []
@@ -354,19 +367,27 @@ export const getTopStudentsBySubject = async (subject: string) => {
     }
     
     // Collect all student submissions across exams
-    const studentScores: Record<string, { totalScore: number, totalMaxScore: number, examCount: number, name: string }> = {};
+    const studentScores: Record<string, { 
+      totalScore: number, 
+      totalMaxScore: number, 
+      examCount: number, 
+      name: string,
+      photo: string
+    }> = {};
     
-    snapshot.forEach((examSnapshot) => {
+    examSnapshot.forEach((examSnapshot) => {
       const exam = examSnapshot.val();
       const submissions = exam.submissions || {};
       
       Object.entries(submissions).forEach(([studentId, submission]: [string, any]) => {
         if (!studentScores[studentId]) {
+          const studentData = students[studentId] || {};
           studentScores[studentId] = {
             totalScore: 0,
             totalMaxScore: 0,
             examCount: 0,
-            name: submission.studentName || `Student ${studentId.slice(-4)}`
+            name: studentData.name || `Unknown Student`,
+            photo: studentData.photo || ""
           };
         }
         
@@ -381,6 +402,7 @@ export const getTopStudentsBySubject = async (subject: string) => {
       .map(([studentId, data]) => ({
         id: studentId,
         name: data.name,
+        photo: data.photo,
         averageScore: data.totalMaxScore > 0 
           ? Math.round((data.totalScore / data.totalMaxScore) * 100) 
           : 0,
