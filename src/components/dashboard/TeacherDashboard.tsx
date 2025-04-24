@@ -89,7 +89,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         const studentsList: any[] = [];
         snapshot.forEach((childSnapshot) => {
           const userData = childSnapshot.val();
-          if (userData.role === 'student' && userData.department === teacherDepartment) {
+          if (userData.role === 'student') {
             studentsList.push({
               id: childSnapshot.key,
               ...userData,
@@ -122,6 +122,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
               }
             });
             setExams(teacherExams);
+            console.log("Fetched exams:", teacherExams);
           } else {
             setExams([]);
           }
@@ -139,11 +140,13 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     })();
     
     const loadAcademicData = async () => {
-      const data = await fetchAcademicData(teacherDepartment);
+      const data = await fetchAcademicData();
       setAvailableSemesters(["All", ...data.semesters]);
       setAvailableSubjectsAll(["All", ...data.subjects]);
       setSubjectsBySemester(data.subjectsBySemester || {});
     };
+
+    loadAcademicData();
 
     const fetchTeacherDepartment = async () => {
       const user = localStorage.getItem('examUser');
@@ -154,10 +157,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           if (snapshot.exists()) {
             const teacherData = snapshot.val();
             setTeacherDepartment(teacherData.department || '');
-            // Load academic data after getting department
-            if (teacherData.department) {
-              loadAcademicData();
-            }
           }
         });
       }
@@ -498,10 +497,12 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
 
   const getSubjectsForSemester = () => {
     if (selectedSemester === "All") {
-      return ["All", ...availableSubjectsAll];
+      const allSubjects = exams.map(e => e.subject);
+      return ["All", ...Array.from(new Set(allSubjects.filter(Boolean)))];
     } else {
-      const semesterSubjects = subjectsBySemester[selectedSemester] || [];
-      return ["All", ...semesterSubjects];
+      const filtered = exams.filter(e => e.semester === selectedSemester);
+      const subjs = filtered.map(e => e.subject);
+      return ["All", ...Array.from(new Set(subjs.filter(Boolean)))];
     }
   };
 
@@ -922,27 +923,35 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                                   checked={selectedStudents.includes(student.id)}
                                   onCheckedChange={() => handleStudentSelection(student.id)}
                                 />
-                                <Label htmlFor={`student-${student.id}`} className="flex-1 cursor-pointer">
-                                  {student.name}
-                                </Label>
-                                <Badge>{student.semester}</Badge>
+                                <div className="flex items-center flex-grow gap-3">
+                                  {student.photo ? (
+                                    <img src={student.photo} alt={student.name} className="h-8 w-8 rounded-full object-cover" />
+                                  ) : (
+                                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                      <Image className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                  <Label htmlFor={`student-${student.id}`} className="cursor-pointer flex-grow">
+                                    {student.name}
+                                  </Label>
+                                  <span className="text-xs text-muted-foreground">{student.semester}</span>
+                                </div>
                               </div>
                             ))}
                         </div>
                       </CardContent>
+                      <CardFooter className="flex justify-between pt-4 px-6">
+                        <Button variant="outline" onClick={() => setActiveTab("questions")}>
+                          Back to Questions
+                        </Button>
+                        <Button 
+                          onClick={handleSaveExam}
+                          disabled={selectedStudents.length === 0}
+                        >
+                          Create Exam
+                        </Button>
+                      </CardFooter>
                     </Card>
-                    
-                    <div className="flex justify-between gap-2 pt-4">
-                      <Button variant="outline" onClick={() => setActiveTab("questions")}>
-                        Back to Questions
-                      </Button>
-                      <Button 
-                        onClick={handleSaveExam}
-                        disabled={selectedStudents.length === 0}
-                      >
-                        Create Exam
-                      </Button>
-                    </div>
                   </TabsContent>
                 </Tabs>
               </DialogContent>
@@ -950,62 +959,142 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredExams.map(exam => (
-            <Card key={exam.id}>
-              <CardHeader>
-                <CardTitle className="text-lg">{exam.title}</CardTitle>
-                <CardDescription>
-                  <Badge variant="outline" className="mr-2">{exam.subject}</Badge>
-                  <Badge variant="outline">{exam.semester}</Badge>
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Date:</span>
-                    <span>{exam.date}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Time:</span>
-                    <span>{exam.time}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Duration:</span>
-                    <span>{exam.duration} minutes</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Status:</span>
-                    <Badge 
-                      variant={exam.status === "completed" ? "secondary" : 
-                              exam.status === "active" ? "destructive" : 
-                              exam.status === "scheduled" ? "outline" : "default"}
-                    >
-                      {exam.status}
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
-                  onClick={() => handleMonitorExam(exam.id)}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  {exam.status === "completed" ? "View Results" : "Monitor Exam"}
-                </Button>
-              </CardFooter>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatsCard
+            title="Total Exams"
+            value={exams.length}
+            description={`${exams.filter(e => e.status === 'active').length} active`}
+            icon={<FileText className="h-8 w-8 text-primary" />}
+          />
+          <StatsCard
+            title="Subjects"
+            value={availableSubjects.length - 1}
+            description="Across all semesters"
+            icon={<BookOpen className="h-8 w-8 text-primary" />}
+          />
+          <StatsCard
+            title="Active Students"
+            value={activeStudents}
+            description={`${totalStudents} total students`}
+            icon={<Users className="h-8 w-8 text-primary" />}
+          />
+        </div>
+        
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-lg">Upcoming Exams</h3>
+            <div className="flex items-center gap-2">
+              <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder="Semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSemesters.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder="Subject" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSubjects.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          {filteredExams.length > 0 ? (
+            <div className="grid gap-4">
+              {filteredExams.map(exam => (
+                <Card key={exam.id}>
+                  <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
+                    <div className="flex-grow">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-lg">{exam.title}</h3>
+                        <Badge className={`${
+                          exam.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          exam.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {exam.status}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-1 mt-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Subject</p>
+                          <p className="text-sm font-medium">{exam.subject}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Semester</p>
+                          <p className="text-sm font-medium">{exam.semester}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Date & Time</p>
+                          <p className="text-sm font-medium">{exam.date} {exam.time}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Duration</p>
+                          <p className="text-sm font-medium">{exam.duration} min</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 self-end md:self-auto w-full md:w-auto">
+                      <Button variant="outline" className="flex-1 md:flex-none" onClick={() => handleMonitorExam(exam.id)}>
+                        Monitor
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="p-6 text-center text-muted-foreground">
+              <p>No exams found for the selected filters.</p>
             </Card>
-          ))}
+          )}
         </div>
       </div>
     );
   };
 
   return (
-    <div className="space-y-8">
-      {section === "exams" && renderManageExams()}
+    <div className="space-y-8 p-6">
+      {section === "students" ? (
+        <ManageStudents 
+          students={students}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          isAddStudentDialogOpen={isAddStudentDialogOpen}
+          setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
+          newStudent={newStudent}
+          setNewStudent={setNewStudent}
+          SEMESTERS={availableSemesters}
+          handleAddStudent={handleAddStudent}
+          handleEditStudent={handleEditStudent}
+          handleDeleteStudent={handleDeleteStudent}
+          teacherDepartment={teacherDepartment}
+        />
+      ) : section === "exams" ? (
+        renderManageExams()
+      ) : (
+        <DashboardOverview
+          totalExams={totalExams}
+          totalAttended={totalAttended}
+          studentsPassed={studentsPassed}
+          selectedSemester={selectedSemester}
+          selectedSubject={selectedSubject}
+          setSelectedSemester={setSelectedSemester}
+          setSelectedSubject={setSelectedSubject}
+          SEMESTERS={availableSemesters}
+          availableSubjects={availableSubjects}
+          subjectData={subjectData}
+        />
+      )}
+      
     </div>
   );
 }
