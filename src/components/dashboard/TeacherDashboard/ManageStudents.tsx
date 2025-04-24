@@ -1,4 +1,3 @@
-
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -21,6 +20,7 @@ interface ManageStudentsProps {
   handleAddStudent: () => void;
   handleEditStudent: (id: string) => void;
   handleDeleteStudent: (id: string) => void;
+  teacherDepartment: string;
 }
 
 export function ManageStudents({
@@ -34,11 +34,19 @@ export function ManageStudents({
   SEMESTERS,
   handleAddStudent,
   handleEditStudent,
-  handleDeleteStudent
+  handleDeleteStudent,
+  teacherDepartment
 }: ManageStudentsProps) {
   const [uploadingImage, setUploadingImage] = useState(false);
   const { toast } = useToast();
-  const filteredStudents = students;
+  
+  // Filter students to only show those from teacher's department
+  const filteredStudents = students.filter(student => 
+    student.department === teacherDepartment &&
+    (student.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    student.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    student.regNumber?.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
