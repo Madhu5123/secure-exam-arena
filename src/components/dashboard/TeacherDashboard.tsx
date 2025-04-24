@@ -1075,7 +1075,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         />
       )}
       
-      <Dialog open={isAddStudentDialogOpen} onOpenChange={setIsAddStudentDialogOpen}>
+      {/* <Dialog open={isAddStudentDialogOpen} onOpenChange={setIsAddStudentDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{newStudent.id ? "Edit Student" : "Add New Student"}</DialogTitle>
@@ -1142,7 +1142,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
             <Button onClick={handleAddStudent}>{newStudent.id ? "Update Student" : "Add Student"}</Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
     </div>
   );
 }
