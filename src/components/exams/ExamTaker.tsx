@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, AlertCircle, CheckCircle, Clock } from "lucide-react";
@@ -19,89 +18,6 @@ interface ExamTakerProps {
   examId?: string;
 }
 
-// Mock exam data structure with sections
-const mockExamData = {
-  id: "exam-1",
-  title: "Mid-term Mathematics",
-  subject: "Mathematics",
-  duration: 120, // minutes
-  totalQuestions: 15,
-  sections: [
-    {
-      id: "section-1",
-      name: "Basic Concepts",
-      timeLimit: 30, // minutes
-      questions: [
-        {
-          id: "q1",
-          type: "multiple-choice",
-          text: "What is the value of x in the equation 2x + 5 = 15?",
-          options: [
-            "x = 3",
-            "x = 5",
-            "x = 7",
-            "x = 10"
-          ],
-          points: 5
-        },
-        {
-          id: "q2",
-          type: "multiple-choice",
-          text: "Which of the following is a prime number?",
-          options: [
-            "15",
-            "21",
-            "23",
-            "27"
-          ],
-          points: 5
-        },
-        {
-          id: "q3",
-          type: "true-false",
-          text: "The sum of angles in a triangle is 180 degrees.",
-          options: ["True", "False"],
-          points: 5
-        }
-      ]
-    },
-    {
-      id: "section-2",
-      name: "Advanced Concepts",
-      timeLimit: 90, // minutes
-      questions: [
-        {
-          id: "q4",
-          type: "short-answer",
-          text: "What is the derivative of f(x) = x²?",
-          points: 10
-        },
-        {
-          id: "q5",
-          type: "multiple-choice",
-          text: "Solve for y: 3y - 7 = 14",
-          options: [
-            "y = 5",
-            "y = 7",
-            "y = 9",
-            "y = 21"
-          ],
-          points: 10
-        }
-      ]
-    }
-  ],
-  instructions: [
-    "Complete all sections within the allocated time.",
-    "You must complete each section before moving to the next.",
-    "Do not refresh or close the browser during the exam.",
-    "Webcam monitoring is enabled throughout the exam.",
-    "Switching tabs or applications is not allowed.",
-    "If you experience technical issues, contact support immediately.",
-    "Read all questions carefully before answering."
-  ]
-};
-
 export function ExamTaker({ examId }: ExamTakerProps) {
   const [exam, setExam] = useState<any>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -118,7 +34,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   const [isCameraError, setIsCameraError] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const [warningCount, setWarningCount] = useState(0);
-  const [faceCount, setFaceCount] = useState(1); // Default to 1 face
+  const [faceCount, setFaceCount] = useState(1);
   const [loading, setLoading] = useState(true);
   const [examComplete, setExamComplete] = useState(false);
   const [examResult, setExamResult] = useState<any>(null);
@@ -126,7 +42,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Mock fetch exam data
   useEffect(() => {
     const fetchExam = async () => {
       if (examId) {
@@ -135,96 +50,35 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           if (result.success) {
             setExam(result.exam);
             
-            // Initialize answers object
             const initialAnswers: Record<string, string> = {};
-            // Flatten questions from all sections
-            const allQuestions = result.exam.sections 
-              ? result.exam.sections.flatMap((section: any) => section.questions)
-              : result.exam.questions;
-              
+            const allQuestions = result.exam.questions || [];
             allQuestions.forEach((question: any) => {
               initialAnswers[question.id] = "";
             });
             setAnswers(initialAnswers);
 
-            // Set remaining time
             setRemainingSeconds(result.exam.duration * 60);
             
-            // Set section time if sections exist
             if (result.exam.sections && result.exam.sections.length > 0) {
               setSectionRemainingSeconds(result.exam.sections[0].timeLimit * 60);
             }
-            
-          } else {
-            // Fallback to mock data
-            setExam(mockExamData);
-            
-            // Initialize answers for mock data
-            const initialAnswers: Record<string, string> = {};
-            // Flatten questions from all sections
-            mockExamData.sections.forEach(section => {
-              section.questions.forEach(question => {
-                initialAnswers[question.id] = "";
-              });
-            });
-            setAnswers(initialAnswers);
-
-            // Set remaining time
-            setRemainingSeconds(mockExamData.duration * 60);
-            
-            // Set section time
-            setSectionRemainingSeconds(mockExamData.sections[0].timeLimit * 60);
           }
         } catch (error) {
           console.error("Error fetching exam:", error);
-          
-          // Fallback to mock data
-          setExam(mockExamData);
-          
-          // Initialize answers for mock data
-          const initialAnswers: Record<string, string> = {};
-          // Flatten questions from all sections
-          mockExamData.sections.forEach(section => {
-            section.questions.forEach(question => {
-              initialAnswers[question.id] = "";
-            });
+          toast({
+            title: "Error",
+            description: "Failed to load exam data",
+            variant: "destructive",
           });
-          setAnswers(initialAnswers);
-
-          // Set remaining time
-          setRemainingSeconds(mockExamData.duration * 60);
-          
-          // Set section time
-          setSectionRemainingSeconds(mockExamData.sections[0].timeLimit * 60);
+          navigate("/dashboard");
         }
-      } else {
-        // Fallback to mock data if no examId
-        setExam(mockExamData);
-        
-        // Initialize answers for mock data
-        const initialAnswers: Record<string, string> = {};
-        // Flatten questions from all sections
-        mockExamData.sections.forEach(section => {
-          section.questions.forEach(question => {
-            initialAnswers[question.id] = "";
-          });
-        });
-        setAnswers(initialAnswers);
-
-        // Set remaining time
-        setRemainingSeconds(mockExamData.duration * 60);
-        
-        // Set section time
-        setSectionRemainingSeconds(mockExamData.sections[0].timeLimit * 60);
       }
-      
       setLoading(false);
     };
 
     fetchExam();
-  }, [examId]);
+  }, [examId, navigate, toast]);
 
-  // Update remaining exam time
   useEffect(() => {
     if (!exam || isInstructionsOpen || isSectionIntroOpen) return;
 
@@ -242,7 +96,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     return () => clearInterval(interval);
   }, [exam, isInstructionsOpen, isSectionIntroOpen]);
 
-  // Update remaining section time
   useEffect(() => {
     if (!exam || isInstructionsOpen || isSectionIntroOpen || !exam.sections) return;
 
@@ -260,7 +113,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     return () => clearInterval(interval);
   }, [exam, currentSectionIndex, isInstructionsOpen, isSectionIntroOpen]);
 
-  // Format remaining time
   useEffect(() => {
     if (remainingSeconds <= 0) {
       setRemainingTime("00:00:00");
@@ -275,7 +127,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
     );
 
-    // Show time warning when 5 minutes remain
     if (remainingSeconds === 300) {
       toast({
         title: "Time warning",
@@ -285,7 +136,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     }
   }, [remainingSeconds, toast]);
 
-  // Format section remaining time
   const formatSectionTime = () => {
     if (sectionRemainingSeconds <= 0) {
       return "00:00:00";
@@ -298,15 +148,12 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  // Monitor when user attempts to leave fullscreen
   useEffect(() => {
     const handleFullscreenChange = () => {
       if (document.fullscreenElement === null && isFullscreen) {
-        // User has attempted to exit fullscreen
         setShowWarning(true);
         setWarningCount(prev => prev + 1);
         
-        // Attempt to go back to fullscreen
         document.documentElement.requestFullscreen().catch(err => {
           console.error("Error attempting to re-enable fullscreen:", err);
         });
@@ -325,7 +172,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, [isFullscreen, toast]);
 
-  // Handle visibilitychange event (tab switching)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && !isInstructionsOpen && !isSectionIntroOpen) {
@@ -342,7 +188,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [isInstructionsOpen, isSectionIntroOpen, toast]);
 
-  // Initialize camera
   const initializeCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -354,8 +199,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       
       setIsCameraError(false);
       
-      // Mock face detection
-      // In a real app, this would use a face detection API
       const faceDetectionInterval = setInterval(() => {
         const randomFaces = Math.random() > 0.9 ? 2 : Math.random() > 0.05 ? 1 : 0;
         setFaceCount(randomFaces);
@@ -377,7 +220,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
             variant: "destructive",
           });
         }
-      }, 30000); // Check every 30 seconds
+      }, 30000);
       
       return () => clearInterval(faceDetectionInterval);
       
@@ -392,7 +235,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     }
   };
 
-  // Stop camera when component unmounts
   useEffect(() => {
     return () => {
       if (cameraStream) {
@@ -419,7 +261,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     
     setIsInstructionsOpen(false);
     
-    // Show section introduction
     if (exam?.sections && exam.sections.length > 0) {
       setIsSectionIntroOpen(true);
     }
@@ -429,7 +270,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
 
   const handleStartSection = () => {
     setIsSectionIntroOpen(false);
-    // Reset question index when starting a new section
     setCurrentQuestionIndex(0);
   };
 
@@ -464,7 +304,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       setSectionRemainingSeconds(exam.sections[currentSectionIndex + 1].timeLimit * 60);
       setIsSectionIntroOpen(true);
     } else {
-      // If this is the last section, show submit dialog
       setIsSubmitDialogOpen(true);
     }
   };
@@ -480,18 +319,15 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleSubmitExam = () => {
-    // Check if all questions are answered
     let unansweredQuestions = 0;
     
     if (exam.sections) {
-      // For sectioned exams, check all questions across all sections
       exam.sections.forEach((section: any) => {
         section.questions.forEach((question: any) => {
           if (!answers[question.id]) unansweredQuestions++;
         });
       });
     } else {
-      // For non-sectioned exams
       unansweredQuestions = Object.values(answers).filter(answer => answer === "").length;
     }
     
@@ -513,7 +349,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleConfirmSubmit = async () => {
-    // In a real app, this would submit answers to Firebase
     try {
       if (examId) {
         const user = localStorage.getItem('examUser');
@@ -523,29 +358,25 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           
           if (result.success) {
             setExamResult(result.submission);
+            setExamComplete(true);
+            
+            if (document.fullscreenElement) {
+              document.exitFullscreen().catch(err => {
+                console.error("Error exiting fullscreen:", err);
+              });
+            }
+            
+            if (cameraStream) {
+              cameraStream.getTracks().forEach(track => track.stop());
+            }
+            
+            toast({
+              title: "Exam submitted",
+              description: "Your exam has been submitted successfully",
+            });
           }
         }
       }
-      
-      setExamComplete(true);
-      
-      // Exit fullscreen
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(err => {
-          console.error("Error exiting fullscreen:", err);
-        });
-      }
-      
-      // Stop camera
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-      }
-      
-      toast({
-        title: "Exam submitted",
-        description: "Your exam has been submitted successfully",
-      });
-      
     } catch (error) {
       console.error("Error submitting exam:", error);
       toast({
@@ -555,7 +386,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       });
     }
   };
-  
+
   const handleTimeUp = () => {
     toast({
       title: "Time's up!",
@@ -590,7 +421,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     );
   }
 
-  // Display exam results if completed
   if (examComplete) {
     return (
       <div className="max-w-3xl mx-auto p-4">
@@ -650,7 +480,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     );
   }
 
-  // Render instructions dialog
   if (isInstructionsOpen) {
     return (
       <div className="max-w-3xl mx-auto p-4">
@@ -709,7 +538,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     );
   }
 
-  // Render section introduction
   if (isSectionIntroOpen) {
     const currentSection = exam.sections[currentSectionIndex];
     
@@ -747,11 +575,9 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     );
   }
 
-  // Get current section and question
   const currentSection = exam.sections ? exam.sections[currentSectionIndex] : { questions: exam.questions };
   const currentQuestion = currentSection.questions[currentQuestionIndex];
 
-  // Calculate progress
   const calculateSectionProgress = () => {
     if (!currentSection) return 0;
     const answered = currentSection.questions.filter((q: any) => answers[q.id] && answers[q.id] !== "").length;
@@ -760,7 +586,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
 
   return (
     <div className="fullscreen-exam flex flex-col h-screen">
-      {/* Top bar with timer and information */}
       <div className="bg-card p-3 border-b flex justify-between items-center">
         <div>
           <h1 className="font-bold">{exam.title}</h1>
@@ -800,9 +625,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         </div>
       </div>
       
-      {/* Main content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 p-4 overflow-auto">
-        {/* Question list sidebar */}
         <div className="order-2 lg:order-1 lg:col-span-1">
           <Card className="sticky top-4">
             <CardHeader className="pb-2">
@@ -887,7 +710,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           </Card>
         </div>
         
-        {/* Question content */}
         <div className="order-1 lg:order-2 lg:col-span-3">
           <Card className="h-full">
             <CardHeader>
@@ -978,7 +800,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         </div>
       </div>
 
-      {/* Submit dialog */}
       <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
         <DialogContent>
           <DialogHeader>

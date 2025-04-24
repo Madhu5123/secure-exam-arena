@@ -1,5 +1,4 @@
-
-import { ref, set, get, push, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
 
@@ -74,6 +73,96 @@ export const getExamsForTeacher = async (teacherId: string) => {
   } catch (error) {
     console.error('Error fetching teacher exams:', error);
     return [];
+  }
+};
+
+export const getExamById = async (examId: string) => {
+  try {
+    const examRef = ref(db, `exams/${examId}`);
+    const snapshot = await get(examRef);
+    
+    if (snapshot.exists()) {
+      const examData = snapshot.val();
+      return {
+        success: true,
+        exam: { 
+          id: examId,
+          ...examData,
+          sections: examData.sections.map((section: any, index: number) => ({
+            ...section,
+            id: `section-${index + 1}`,
+            questions: examData.questions.filter((q: any) => q.section === section.name)
+          }))
+        },
+      };
+    }
+    
+    return {
+      success: false,
+      error: "Exam not found",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: "Failed to fetch exam",
+    };
+  }
+};
+
+export const submitExam = async (
+  examId: string,
+  studentId: string,
+  answers: Record<string, string>,
+  warningCount: number
+) => {
+  try {
+    const { success, exam } = await getExamById(examId);
+    
+    if (!success || !exam) {
+      return {
+        success: false,
+        error: "Exam not found",
+      };
+    }
+    
+    let score = 0;
+    let maxScore = 0;
+    
+    exam.questions.forEach(question => {
+      maxScore += question.points;
+      if (answers[question.id] === question.correctAnswer) {
+        score += question.points;
+      }
+    });
+    
+    const submission = {
+      examId,
+      studentId,
+      answers,
+      startTime: new Date().toISOString(),
+      endTime: new Date().toISOString(),
+      score,
+      maxScore,
+      warningCount,
+      percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
+    };
+    
+    // Update exam submission in Firebase
+    await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
+    
+    // Update student's exam status to completed
+    await set(ref(db, `students/${studentId}/exams/${examId}/status`), "completed");
+    
+    return {
+      success: true,
+      submission,
+    };
+  } catch (error) {
+    console.error("Error submitting exam:", error);
+    return {
+      success: false,
+      error: "Failed to submit exam",
+    };
   }
 };
 
@@ -173,115 +262,6 @@ export const createExam = async (examData: Omit<Exam, "id">) => {
     return {
       success: false,
       error: "Failed to create exam",
-    };
-  }
-};
-
-export const getExamById = async (examId: string) => {
-  try {
-    const examRef = ref(db, `exams/${examId}`);
-    const snapshot = await get(examRef);
-    
-    if (snapshot.exists()) {
-      return {
-        success: true,
-        exam: { id: examId, ...snapshot.val() },
-      };
-    }
-    
-    return {
-      success: false,
-      error: "Exam not found",
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: "Failed to fetch exam",
-    };
-  }
-};
-
-export const submitExam = async (
-  examId: string,
-  studentId: string,
-  answers: Record<string, string>,
-  warningCount: number
-) => {
-  try {
-    const { success, exam } = await getExamById(examId);
-    
-    if (!success || !exam) {
-      return {
-        success: false,
-        error: "Exam not found",
-      };
-    }
-    
-    let score = 0;
-    let maxScore = 0;
-    let sectionScores: { sectionId: string; score: number; maxScore: number }[] = [];
-    
-    // Calculate scores for exams with sections
-    if (exam.sections) {
-      exam.sections.forEach(section => {
-        let sectionScore = 0;
-        let sectionMaxScore = 0;
-        
-        section.questions.forEach(question => {
-          sectionMaxScore += question.points;
-          if (answers[question.id] === question.correctAnswer) {
-            sectionScore += question.points;
-          }
-        });
-        
-        sectionScores.push({
-          sectionId: section.id,
-          score: sectionScore,
-          maxScore: sectionMaxScore
-        });
-        
-        score += sectionScore;
-        maxScore += sectionMaxScore;
-      });
-    } 
-    // Calculate scores for exams without sections
-    else if (exam.questions) {
-      exam.questions.forEach(question => {
-        maxScore += question.points;
-        if (answers[question.id] === question.correctAnswer) {
-          score += question.points;
-        }
-      });
-    }
-    
-    const submission = {
-      examId,
-      studentId,
-      answers,
-      startTime: new Date().toISOString(),
-      endTime: new Date().toISOString(),
-      score,
-      maxScore,
-      warningCount,
-      sectionScores: sectionScores.length > 0 ? sectionScores : undefined,
-      percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
-    };
-    
-    // Update exam status to completed for this student
-    await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
-    
-    // Update student's exam status to completed
-    await set(ref(db, `students/${studentId}/exams/${examId}/status`), "completed");
-    
-    return {
-      success: true,
-      submission,
-    };
-  } catch (error) {
-    console.error("Error submitting exam:", error);
-    return {
-      success: false,
-      error: "Failed to submit exam",
     };
   }
 };
