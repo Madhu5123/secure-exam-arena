@@ -1,4 +1,3 @@
-
 import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
@@ -18,8 +17,10 @@ interface Exam {
   createdBy: string;
   date: string;
   time: string;
+  startDate: string;
+  endDate: string;
   duration: number;
-  status: "draft" | "scheduled" | "active" | "completed";
+  status: "draft" | "scheduled" | "active" | "completed" | "expired";
   questions?: Question[];
   sections?: ExamSection[];
   instructions?: string[];
@@ -128,7 +129,6 @@ export const submitExam = async (
       };
     }
     
-    // Get student profile information for the submission
     const studentRef = ref(db, `users/${studentId}`);
     const studentSnapshot = await get(studentRef);
     const studentData = studentSnapshot.exists() ? studentSnapshot.val() : null;
@@ -159,10 +159,8 @@ export const submitExam = async (
       percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
     };
     
-    // Update exam submission in Firebase
     await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
     
-    // Update student's exam status to completed
     await set(ref(db, `students/${studentId}/exams/${examId}/status`), "completed");
     
     return {
@@ -192,21 +190,16 @@ export const getExamsForStudent = async (studentId: string) => {
         if (exam.assignedStudents && exam.assignedStudents.includes(studentId)) {
           const submission = exam.submissions?.[studentId];
           
-          // Parse exam date and time into a Date object
-          const [year, month, day] = exam.date.split('-').map(Number);
-          const [hours, minutes] = exam.time.split(':').map(Number);
-          const examStartTime = new Date(year, month - 1, day, hours, minutes);
-          
-          // Calculate exam end time
-          const examEndTime = new Date(examStartTime);
-          examEndTime.setMinutes(examEndTime.getMinutes() + exam.duration);
-          
-          // Determine the current status based on time
+          const examEndDate = new Date(exam.endDate);
           let currentStatus = exam.status;
-          if (currentStatus === "scheduled") {
-            if (currentDate >= examStartTime && currentDate < examEndTime) {
+          
+          if (currentDate > examEndDate) {
+            currentStatus = "expired";
+            updateExamStatus(childSnapshot.key || '', "expired");
+          } else if (currentStatus === "scheduled") {
+            const examStartDate = new Date(exam.startDate);
+            if (currentDate >= examStartDate && currentDate <= examEndDate) {
               currentStatus = "active";
-              // Update the exam status in the database
               updateExamStatus(childSnapshot.key || '', "active");
             }
           }
@@ -230,8 +223,7 @@ export const getExamsForStudent = async (studentId: string) => {
   }
 };
 
-// Helper function to update exam status
-const updateExamStatus = async (examId: string, status: "draft" | "scheduled" | "active" | "completed") => {
+const updateExamStatus = async (examId: string, status: "draft" | "scheduled" | "active" | "completed" | "expired") => {
   try {
     const examRef = ref(db, `exams/${examId}/status`);
     await set(examRef, status);
@@ -250,7 +242,6 @@ export const createExam = async (examData: Omit<Exam, "id">) => {
       };
     }
     
-    // Create a new exam reference in the database
     const examRef = ref(db, 'exams');
     const newExamRef = push(examRef);
     const examId = newExamRef.key;
@@ -262,7 +253,6 @@ export const createExam = async (examData: Omit<Exam, "id">) => {
       };
     }
     
-    // Save the exam data
     await set(newExamRef, examData);
     
     return {
@@ -294,7 +284,6 @@ export const getExamSubmissions = async (examId: string) => {
     if (snapshot.exists()) {
       const submissions: any[] = [];
       
-      // Get user data for submissions that don't have student info
       const usersRef = ref(db, 'users');
       const usersSnapshot = await get(usersRef);
       const users: Record<string, any> = {};
@@ -315,12 +304,10 @@ export const getExamSubmissions = async (examId: string) => {
         const submissionData = childSnapshot.val();
         const studentId = childSnapshot.key as string;
         
-        // Ensure submission has student name/photo from users data
         if (!submissionData.studentName || !submissionData.studentPhoto) {
           submissionData.studentName = users[studentId]?.name || `Student ${studentId.slice(-4)}`;
           submissionData.studentPhoto = users[studentId]?.photo || "";
           
-          // Update the submission with student info in the database
           set(ref(db, `exams/${examId}/submissions/${studentId}/studentName`), submissionData.studentName);
           set(ref(db, `exams/${examId}/submissions/${studentId}/studentPhoto`), submissionData.studentPhoto);
         }
@@ -383,7 +370,6 @@ export const getTopStudentsBySubject = async (subject: string) => {
     const studentsRef = ref(db, 'users');
     let examSnapshot, studentSnapshot;
     
-    // Get student data first
     studentSnapshot = await get(studentsRef);
     const students: Record<string, any> = {};
     
@@ -416,7 +402,6 @@ export const getTopStudentsBySubject = async (subject: string) => {
       };
     }
     
-    // Collect all student submissions across exams
     const studentScores: Record<string, { 
       totalScore: number, 
       totalMaxScore: number, 
@@ -447,7 +432,6 @@ export const getTopStudentsBySubject = async (subject: string) => {
       });
     });
     
-    // Calculate average scores and sort
     const topStudents = Object.entries(studentScores)
       .map(([studentId, data]) => ({
         id: studentId,

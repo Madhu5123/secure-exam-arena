@@ -60,6 +60,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [examDuration, setExamDuration] = useState("60");
   const [examDate, setExamDate] = useState("");
   const [examTime, setExamTime] = useState("");
+  const [examStartDate, setExamStartDate] = useState("");
+  const [examEndDate, setExamEndDate] = useState("");
   const [questions, setQuestions] = useState<any[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [isCreateExamDialogOpen, setIsCreateExamDialogOpen] = useState(false);
@@ -79,6 +81,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [availableSubjectsAll, setAvailableSubjectsAll] = useState<string[]>([]);
   const [subjectsBySemester, setSubjectsBySemester] = useState({});
   const [teacherDepartment, setTeacherDepartment] = useState("");
+  const [availableSubjectsForSemester, setAvailableSubjectsForSemester] = useState<string[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -140,10 +143,13 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     })();
     
     const loadAcademicData = async () => {
-      const data = await fetchAcademicData();
-      setAvailableSemesters(["All", ...data.semesters]);
-      setAvailableSubjectsAll(["All", ...data.subjects]);
-      setSubjectsBySemester(data.subjectsBySemester || {});
+      const user = localStorage.getItem('examUser');
+      if (user) {
+        const userData = JSON.parse(user);
+        const data = await fetchAcademicData(teacherDepartment);
+        setAvailableSemesters(["All", ...data.semesters]);
+        setSubjectsBySemester(data.subjectsBySemester || {});
+      }
     };
 
     loadAcademicData();
@@ -168,7 +174,16 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
       unsubscribeStudents();
       examsCleanup();
     };
-  }, []);
+  }, [teacherDepartment]);
+
+  useEffect(() => {
+    if (examSemester && subjectsBySemester[examSemester]) {
+      setAvailableSubjectsForSemester(subjectsBySemester[examSemester]);
+      setExamSubject(""); // Reset subject when semester changes
+    } else {
+      setAvailableSubjectsForSemester([]);
+    }
+  }, [examSemester, subjectsBySemester]);
 
   const handleAddStudent = async () => {
     try {
@@ -376,6 +391,27 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         return;
       }
 
+      if (!examStartDate || !examEndDate) {
+        toast({
+          title: "Missing dates",
+          description: "Please set both start and end dates for the exam",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const startDate = new Date(examStartDate);
+      const endDate = new Date(examEndDate);
+      
+      if (startDate >= endDate) {
+        toast({
+          title: "Invalid dates",
+          description: "End date must be after start date",
+          variant: "destructive"
+        });
+        return;
+      }
+
       if (questions.length === 0) {
         toast({
           title: "No questions",
@@ -429,7 +465,10 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         status: "scheduled" as "draft" | "scheduled" | "active" | "completed",
         questions: questions,
         assignedStudents: selectedStudents,
-        sections: formattedSections
+        sections: formattedSections,
+        startDate: examStartDate,
+        endDate: examEndDate,
+        department: teacherDepartment
       };
 
       const result = await createExam(examData);
@@ -445,6 +484,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         setExamDuration("60");
         setExamDate("");
         setExamTime("");
+        setExamStartDate("");
+        setExamEndDate("");
         setQuestions([]);
         setSelectedStudents([]);
         setExamSections([{ id: "section-1", name: "Section 1", timeLimit: 30, questions: [] }]);
@@ -648,6 +689,27 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                           type="time"
                           value={examTime}
                           onChange={(e) => setExamTime(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-2">
+                        <Label htmlFor="examStartDate">Start Date</Label>
+                        <Input
+                          id="examStartDate"
+                          type="datetime-local"
+                          value={examStartDate}
+                          onChange={(e) => setExamStartDate(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="examEndDate">End Date</Label>
+                        <Input
+                          id="examEndDate"
+                          type="datetime-local"
+                          value={examEndDate}
+                          onChange={(e) => setExamEndDate(e.target.value)}
                         />
                       </div>
                     </div>
@@ -897,12 +959,12 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                             value={selectedSemester} 
                             onValueChange={setSelectedSemester}
                           >
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-[130px]">
                               <SelectValue placeholder="Filter by semester" />
                             </SelectTrigger>
                             <SelectContent>
-                              {availableSemesters.slice(1).map(semester => (
-                                <SelectItem key={semester} value={semester}>{semester}</SelectItem>
+                              {availableSemesters.map(s => (
+                                <SelectItem key={s} value={s}>{s}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -915,7 +977,10 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                         
                         <div className="space-y-3">
                           {students
-                            .filter(student => selectedSemester === "All" || student.semester === selectedSemester)
+                            .filter(student => 
+                              student.department === teacherDepartment &&
+                              (selectedSemester === "All" || student.semester === selectedSemester)
+                            )
                             .map((student) => (
                               <div key={student.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
                                 <Checkbox 

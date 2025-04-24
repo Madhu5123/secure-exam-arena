@@ -8,53 +8,46 @@ interface AcademicData {
   subjectsBySemester: Record<string, string[]>;
 }
 
-export const fetchAcademicData = async (): Promise<AcademicData> => {
+export const fetchAcademicData = async (departmentId: string): Promise<AcademicData> => {
   try {
-    const departmentsRef = ref(db, 'departments');
-    const snapshot = await get(departmentsRef);
+    const departmentRef = ref(db, `departments/${departmentId}`);
+    const snapshot = await get(departmentRef);
     
     if (snapshot.exists()) {
-      const departments = snapshot.val();
+      const department = snapshot.val();
       let allSemesters = new Set<string>();
       let allSubjects = new Set<string>();
       const subjectsBySemester: Record<string, string[]> = {};
 
-      // Loop through each department
-      Object.values(departments).forEach((dept: any) => {
-        // Add semesters
-        if (Array.isArray(dept.semesters)) {
-          dept.semesters.forEach((semester: string) => {
-            allSemesters.add(semester);
-            
-            // Initialize the subjects array for this semester if it doesn't exist
+      // Add semesters
+      if (Array.isArray(department.semesters)) {
+        department.semesters.forEach((semester: string) => {
+          allSemesters.add(semester);
+          if (!subjectsBySemester[semester]) {
+            subjectsBySemester[semester] = [];
+          }
+        });
+      }
+
+      // Add subjects from each semester
+      if (department.subjects) {
+        Object.entries(department.subjects).forEach(([semester, semesterSubjects]: [string, any]) => {
+          if (Array.isArray(semesterSubjects)) {
             if (!subjectsBySemester[semester]) {
               subjectsBySemester[semester] = [];
             }
-          });
-        }
-
-        // Add subjects from each semester
-        if (dept.subjects) {
-          Object.entries(dept.subjects).forEach(([semester, semesterSubjects]: [string, any]) => {
-            if (Array.isArray(semesterSubjects)) {
-              // Initialize the semester's subject array if it doesn't exist
-              if (!subjectsBySemester[semester]) {
-                subjectsBySemester[semester] = [];
-              }
-              
-              semesterSubjects.forEach((subject: any) => {
-                if (subject.name) {
-                  allSubjects.add(subject.name);
-                  // Add to the semester's subjects if not already present
-                  if (!subjectsBySemester[semester].includes(subject.name)) {
-                    subjectsBySemester[semester].push(subject.name);
-                  }
+            
+            semesterSubjects.forEach((subject: any) => {
+              if (subject.name) {
+                allSubjects.add(subject.name);
+                if (!subjectsBySemester[semester].includes(subject.name)) {
+                  subjectsBySemester[semester].push(subject.name);
                 }
-              });
-            }
-          });
-        }
-      });
+              }
+            });
+          }
+        });
+      }
 
       return {
         semesters: Array.from(allSemesters),
@@ -63,7 +56,6 @@ export const fetchAcademicData = async (): Promise<AcademicData> => {
       };
     }
     
-    // If no data exists, return empty arrays
     return {
       semesters: [],
       subjects: [],
