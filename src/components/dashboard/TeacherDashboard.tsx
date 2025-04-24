@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen, Users } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
@@ -86,36 +85,34 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Get current teacher's department
     const user = localStorage.getItem('examUser');
     if (user) {
       const userData = JSON.parse(user);
       const teacherId = userData.id;
 
-      // Fetch teacher's department
       const teacherRef = ref(db, `users/${teacherId}`);
       get(teacherRef).then((snapshot) => {
         if (snapshot.exists()) {
           const teacherData = snapshot.val();
           setCurrentTeacherDepartment(teacherData.department || "");
           
-          // Now fetch students after we know the teacher's department
           fetchStudents(teacherData.department || "");
         }
       });
 
-      // Fetch exams for this teacher
-      fetchExams(teacherId);
+      const loadAcademicData = async () => {
+        const data = await fetchAcademicData();
+        setAvailableSemesters(["All", ...data.semesters]);
+        setAvailableSubjectsAll(["All", ...data.subjects]);
+        setSubjectsBySemester(data.subjectsBySemester || {});
+      };
+
+      loadAcademicData();
     }
 
-    const loadAcademicData = async () => {
-      const data = await fetchAcademicData();
-      setAvailableSemesters(["All", ...data.semesters]);
-      setAvailableSubjectsAll(["All", ...data.subjects]);
-      setSubjectsBySemester(data.subjectsBySemester || {});
+    return () => {
+      // Cleanup code if needed
     };
-
-    loadAcademicData();
   }, []);
 
   const fetchStudents = (teacherDepartment: string) => {
@@ -125,7 +122,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         const studentsList: any[] = [];
         snapshot.forEach((childSnapshot) => {
           const userData = childSnapshot.val();
-          // Only include students from the teacher's department
           if (userData.role === 'student' && 
               (!teacherDepartment || userData.department === teacherDepartment)) {
             studentsList.push({
@@ -187,7 +183,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         semester: newStudent.semester,
         photo: newStudent.photo,
         status: "active",
-        department: currentTeacherDepartment // Assign the student to the teacher's department
+        department: currentTeacherDepartment
       };
       
       const { success, user, error } = await registerUser(
@@ -973,7 +969,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
             value={totalAttended}
             description="Total exam submissions"
             trend="up"
-            percentage={totalExams > 0 ? Math.round((totalAttended / (totalExams * totalStudents || 1)) * 100) : 0}
+            trendValue={totalExams > 0 ? `${Math.round((totalAttended / (totalExams * totalStudents || 1)) * 100)}%` : "0%"}
             icon={<BookOpen className="text-amber-500" />}
           />
           <StatsCard
@@ -986,7 +982,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
               return examDate >= now && examDate <= weekAhead;
             }).length}
             description="Upcoming exams"
-            trend="same"
+            trend="neutral"
             icon={<Image className="text-purple-500" />}
           />
         </div>
@@ -1079,7 +1075,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
             <TabsTrigger value="students">Students</TabsTrigger>
           </TabsList>
           <TabsContent value="overview">
-            <DashboardOverview exams={exams} students={students} />
+            <DashboardOverview />
           </TabsContent>
           <TabsContent value="exams">
             {renderManageExams()}
@@ -1089,6 +1085,15 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
               showHeader={true}
               students={students}
               currentTeacherDepartment={currentTeacherDepartment}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              isAddStudentDialogOpen={isAddStudentDialogOpen}
+              setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
+              newStudent={newStudent}
+              setNewStudent={setNewStudent}
+              handleAddStudent={handleAddStudent}
+              handleEditStudent={handleEditStudent}
+              handleDeleteStudent={handleDeleteStudent}
             />
           </TabsContent>
         </Tabs>
@@ -1099,6 +1104,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           showHeader={false}
           students={students}
           currentTeacherDepartment={currentTeacherDepartment}
+          handleEditStudent={handleEditStudent}
+          handleDeleteStudent={handleDeleteStudent}
         />
       )}
 
