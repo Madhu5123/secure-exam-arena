@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
@@ -900,3 +901,226 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                                   {student.name}
                                 </Label>
                                 <span className="text-xs text-muted-foreground">{student.semester}</span>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </CardContent>
+                    <CardFooter className="flex justify-between pt-4 px-6">
+                      <Button variant="outline" onClick={() => setActiveTab("questions")}>
+                        Back to Questions
+                      </Button>
+                      <Button 
+                        onClick={handleSaveExam}
+                        disabled={selectedStudents.length === 0}
+                      >
+                        Create Exam
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatsCard
+          title="Total Exams"
+          value={exams.length}
+          description={`${exams.filter(e => e.status === 'active').length} active`}
+          icon={<FileText className="h-8 w-8 text-primary" />}
+        />
+        <StatsCard
+          title="Subjects"
+          value={availableSubjects.length - 1}
+          description="Across all semesters"
+          icon={<BookOpen className="h-8 w-8 text-primary" />}
+        />
+        <StatsCard
+          title="Active Students"
+          value={activeStudents}
+          description={`${totalStudents} total students`}
+          icon={<Users className="h-8 w-8 text-primary" />}
+        />
+      </div>
+      
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-lg">Upcoming Exams</h3>
+          <div className="flex items-center gap-2">
+            <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="Semester" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableSemesters.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="Subject" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableSubjects.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        
+        {filteredExams.length > 0 ? (
+          <div className="grid gap-4">
+            {filteredExams.map(exam => (
+              <Card key={exam.id}>
+                <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
+                  <div className="flex-grow">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-lg">{exam.title}</h3>
+                      <Badge className={`${
+                        exam.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        exam.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {exam.status}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-1 mt-2">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Subject</p>
+                        <p className="text-sm font-medium">{exam.subject}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Semester</p>
+                        <p className="text-sm font-medium">{exam.semester}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Date & Time</p>
+                        <p className="text-sm font-medium">{exam.date} {exam.time}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Duration</p>
+                        <p className="text-sm font-medium">{exam.duration} min</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 self-end md:self-auto w-full md:w-auto">
+                    <Button variant="outline" className="flex-1 md:flex-none" onClick={() => handleMonitorExam(exam.id)}>
+                      Monitor
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="p-6 text-center text-muted-foreground">
+            <p>No exams found for the selected filters.</p>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-8 p-6">
+      {section === "students" ? (
+        <ManageStudents 
+          students={students}
+          onAddStudent={() => setIsAddStudentDialogOpen(true)}
+          onEditStudent={handleEditStudent}
+          onDeleteStudent={handleDeleteStudent}
+        />
+      ) : section === "exams" ? (
+        renderManageExams()
+      ) : (
+        <DashboardOverview
+          totalExams={totalExams}
+          totalAttended={totalAttended}
+          studentsPassed={studentsPassed}
+          selectedSemester={selectedSemester}
+          selectedSubject={selectedSubject}
+          setSelectedSemester={setSelectedSemester}
+          setSelectedSubject={setSelectedSubject}
+          SEMESTERS={availableSemesters}
+          availableSubjects={availableSubjects}
+          subjectData={subjectData}
+          topStudents={[]} // This will be replaced with real data
+        />
+      )}
+      
+      <Dialog open={isAddStudentDialogOpen} onOpenChange={setIsAddStudentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{newStudent.id ? "Edit Student" : "Add New Student"}</DialogTitle>
+            <DialogDescription>
+              {newStudent.id ? "Update student information" : "Add a new student to the system"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                value={newStudent.name}
+                onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={newStudent.email}
+                onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="regNumber">Registration Number</Label>
+              <Input
+                id="regNumber"
+                value={newStudent.regNumber}
+                onChange={(e) => setNewStudent({ ...newStudent, regNumber: e.target.value })}
+              />
+            </div>
+            {!newStudent.id && (
+              <div className="grid gap-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={newStudent.password}
+                  onChange={(e) => setNewStudent({ ...newStudent, password: e.target.value })}
+                />
+              </div>
+            )}
+            <div className="grid gap-2">
+              <Label htmlFor="semester">Semester</Label>
+              <Select
+                value={newStudent.semester}
+                onValueChange={(value) => setNewStudent({ ...newStudent, semester: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSemesters.slice(1).map(semester => (
+                    <SelectItem key={semester} value={semester}>{semester}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddStudentDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddStudent}>{newStudent.id ? "Update Student" : "Add Student"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
