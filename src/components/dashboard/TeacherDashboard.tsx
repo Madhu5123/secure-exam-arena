@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen, Users } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
@@ -910,3 +911,198 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                               : "Select All"}
                           </Button>
                         </div>
+                        
+                        {students.length > 0 ? (
+                          <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {filteredStudents.map((student) => (
+                              <div key={student.id} className="flex items-center gap-2 p-2 border rounded hover:bg-muted/50">
+                                <Checkbox 
+                                  id={`student-${student.id}`}
+                                  checked={selectedStudents.includes(student.id)}
+                                  onCheckedChange={() => handleStudentSelection(student.id)}
+                                />
+                                <Label htmlFor={`student-${student.id}`} className="flex-grow cursor-pointer">
+                                  {student.name}
+                                </Label>
+                                <Badge variant="outline">{student.semester}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center text-muted-foreground py-8">
+                            <p>No students available. Add students first.</p>
+                          </div>
+                        )}
+                      </CardContent>
+                      <CardFooter className="flex justify-between">
+                        <Button variant="outline" onClick={() => setActiveTab("questions")}>
+                          Back to Questions
+                        </Button>
+                        <Button 
+                          onClick={handleSaveExam}
+                          disabled={!examTitle || !examSubject || !examDate || questions.length === 0 || selectedStudents.length === 0}
+                        >
+                          Create Exam
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatsCard
+            title="Total Exams"
+            value={totalExams}
+            description="Created exams"
+            trend="up"
+            icon={<FileText className="text-blue-500" />}
+          />
+          <StatsCard
+            title="Students"
+            value={totalStudents}
+            description="Registered students"
+            trend="up"
+            icon={<Users className="text-green-500" />}
+          />
+          <StatsCard
+            title="Attendance"
+            value={totalAttended}
+            description="Total exam submissions"
+            trend="up"
+            percentage={totalExams > 0 ? Math.round((totalAttended / (totalExams * totalStudents || 1)) * 100) : 0}
+            icon={<BookOpen className="text-amber-500" />}
+          />
+          <StatsCard
+            title="Exams This Week"
+            value={filteredExams.filter(e => {
+              const examDate = new Date(e.date);
+              const now = new Date();
+              const weekAhead = new Date();
+              weekAhead.setDate(now.getDate() + 7);
+              return examDate >= now && examDate <= weekAhead;
+            }).length}
+            description="Upcoming exams"
+            trend="same"
+            icon={<Image className="text-purple-500" />}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Exams Overview</CardTitle>
+              <CardDescription>Recently created and upcoming exams</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {filteredExams.length > 0 ? (
+                  filteredExams.slice(0, 5).map((exam) => (
+                    <div key={exam.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <h3 className="font-medium">{exam.title}</h3>
+                        <div className="flex gap-2 text-sm text-muted-foreground">
+                          <span>{exam.subject}</span>
+                          <span>•</span>
+                          <span>{exam.semester}</span>
+                          <span>•</span>
+                          <span>{exam.date} {exam.time}</span>
+                        </div>
+                        <div className="mt-1 flex gap-2">
+                          <Badge variant={exam.status === "completed" ? "outline" : "default"}>
+                            {exam.status.charAt(0).toUpperCase() + exam.status.slice(1)}
+                          </Badge>
+                          <Badge variant="outline">
+                            {exam.duration} min
+                          </Badge>
+                        </div>
+                      </div>
+                      <div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleMonitorExam(exam.id)}
+                          disabled={exam.status === "draft"}
+                        >
+                          {exam.status === "scheduled" ? "Start" : exam.status === "active" ? "Monitor" : "Results"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No exams found. Create your first exam.</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Subjects</CardTitle>
+              <CardDescription>Exams by subject</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {subjectData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={subjectData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="subject" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#4f46e5" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No subject data available.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      {!section && (
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="exams">Exams</TabsTrigger>
+            <TabsTrigger value="students">Students</TabsTrigger>
+          </TabsList>
+          <TabsContent value="overview">
+            <DashboardOverview exams={exams} students={students} />
+          </TabsContent>
+          <TabsContent value="exams">
+            {renderManageExams()}
+          </TabsContent>
+          <TabsContent value="students">
+            <ManageStudents
+              showHeader={true}
+              students={students}
+              currentTeacherDepartment={currentTeacherDepartment}
+            />
+          </TabsContent>
+        </Tabs>
+      )}
+
+      {section === "students" && (
+        <ManageStudents
+          showHeader={false}
+          students={students}
+          currentTeacherDepartment={currentTeacherDepartment}
+        />
+      )}
+
+      {section === "exams" && renderManageExams()}
+    </div>
+  );
+}
