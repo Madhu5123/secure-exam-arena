@@ -26,6 +26,7 @@ interface Exam {
   instructions?: string[];
   assignedStudents: string[];
   submissions?: Record<string, Submission>;
+  department?: string;
 }
 
 interface Submission {
@@ -39,6 +40,7 @@ interface Submission {
   score: number;
   maxScore: number;
   warningCount: number;
+  percentage?: number;
   sectionScores?: {
     sectionId: string;
     score: number;
