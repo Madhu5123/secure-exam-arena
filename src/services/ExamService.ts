@@ -9,7 +9,7 @@ interface ExamSection {
   questions: Question[];
 }
 
-interface Exam {
+export interface Exam {
   id: string;
   title: string;
   subject: string;
