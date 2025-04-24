@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen, Users } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
@@ -28,15 +29,28 @@ interface TeacherDashboardProps {
   section?: string;
 }
 
-interface ManageStudentsProps {
-  students: any[];
+interface StudentData {
+  id?: string;
+  name: string;
+  email: string;
+  regNumber: string;
+  password: string;
+  photo: string;
+  semester: string;
 }
 
 export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [students, setStudents] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: "", email: "", regNumber: "", password: "", photo: "", semester: "Semester 1" });
+  const [newStudent, setNewStudent] = useState<StudentData>({ 
+    name: "", 
+    email: "", 
+    regNumber: "", 
+    password: "", 
+    photo: "", 
+    semester: "Semester 1" 
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("All");
   const [selectedSubject, setSelectedSubject] = useState("All");
@@ -301,8 +315,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const handleEditStudent = (id: string) => {
     const student = students.find(s => s.id === id);
     if (student) {
-      const studentWithId = {
-        ...newStudent,
+      const studentWithId: StudentData = {
         id: student.id,
         name: student.name,
         email: student.email,
@@ -1035,6 +1048,16 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
       {section === "students" ? (
         <ManageStudents 
           students={students}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          isAddStudentDialogOpen={isAddStudentDialogOpen}
+          setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
+          newStudent={newStudent}
+          setNewStudent={setNewStudent}
+          SEMESTERS={availableSemesters}
+          handleAddStudent={handleAddStudent}
+          handleEditStudent={handleEditStudent}
+          handleDeleteStudent={handleDeleteStudent}
         />
       ) : section === "exams" ? (
         renderManageExams()

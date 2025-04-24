@@ -22,6 +22,7 @@ interface Student {
   endTime?: string;
   answers?: Record<string, string>;
   warningCount?: number;
+  timeTaken?: number;
   status: 'completed' | 'in-progress' | 'not-started';
 }
 
