@@ -106,7 +106,7 @@ const Index = () => {
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
+                {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
                   {features.map((feature, index) => (
                     <Card key={index} className="overflow-hidden hover:shadow-lg transition-all duration-300 animate-slide-in">
                       <CardHeader className="flex flex-row items-center gap-4">
@@ -122,9 +122,9 @@ const Index = () => {
                       </CardContent>
                     </Card>
                   ))}
-                </div>
+                </div> */}
 
-                <div className="mt-24 mb-16">
+                {/* <div className="mt-24 mb-16">
                   <h2 className="text-3xl font-bold mb-12">What Our Users Say</h2>
                   <Carousel className="max-w-xl mx-auto">
                     <CarouselContent>
@@ -147,7 +147,7 @@ const Index = () => {
                     <CarouselPrevious />
                     <CarouselNext />
                   </Carousel>
-                </div>
+                </div> */}
               </div>
             </div>
           </div>

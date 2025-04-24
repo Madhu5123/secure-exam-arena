@@ -2,8 +2,8 @@
 // Cloudinary unsigned upload utility
 export const uploadToCloudinary = async (file: File): Promise<string> => {
   try {
-    const cloudName = 'demo'; // Replace with your Cloudinary cloud name
-    const uploadPreset = 'unsigned_upload'; // Replace with your unsigned upload preset
+    const cloudName = 'dyp2q6oy1'; // Replace with your Cloudinary cloud name
+    const uploadPreset = 'studentprofile'; // Replace with your unsigned upload preset
     
     const formData = new FormData();
     formData.append('file', file);

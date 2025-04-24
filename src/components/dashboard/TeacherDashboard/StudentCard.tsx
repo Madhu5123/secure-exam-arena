@@ -11,7 +11,7 @@ interface StudentCardProps {
 
 export function StudentCard({ student, onEdit, onDelete }: StudentCardProps) {
   return (
-    <div className="rounded-2xl shadow-lg relative bg-gradient-to-br from-[#F1F0FB] to-[#E5DEFF] p-6 flex flex-col items-center border-2 border-[#9b87f5]/30 hover:scale-105 transition-transform min-h-[315px]">
+    <div className="rounded-2xl shadow-lg relative bg-gradient-to-br from-[#F1F0FB] to-[#E5DEFF] p-6 flex flex-col items-center border-2 border-[#9b87f5]/30 hover:scale-105 transition-transform min-h-[240px]">
       <div className="relative -mt-10 mb-2">
         <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center border-2 border-[#9b87f5] shadow-lg">
           {student.photo ? (
@@ -21,7 +21,7 @@ export function StudentCard({ student, onEdit, onDelete }: StudentCardProps) {
               {student.name?.charAt(0) ?? "?"}
             </div>
           )}
-          <span className="absolute bottom-[-8px] right-[-8px] bg-gradient-to-br from-[#7E69AB] to-[#9b87f5] text-white text-xs px-2 py-0.5 rounded-full shadow font-bold">
+          <span className="absolute bottom-[-8px] right-[0px] bg-gradient-to-br from-[#7E69AB] to-[#9b87f5] text-white text-xs px-2 py-0.5 rounded-full shadow font-bold">
             {student.semester}
           </span>
         </div>

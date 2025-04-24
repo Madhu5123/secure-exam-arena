@@ -35,19 +35,6 @@ export function ManageStudents({
 }: ManageStudentsProps) {
   const filteredStudents = students;
 
-  // Reset student data when opening the add dialog
-  const handleOpenAddDialog = () => {
-    setNewStudent({ 
-      name: "", 
-      email: "", 
-      regNumber: "", 
-      password: "", 
-      photo: "", 
-      semester: "Semester 1" 
-    });
-    setIsAddStudentDialogOpen(true);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
@@ -64,16 +51,16 @@ export function ManageStudents({
           />
           <Dialog open={isAddStudentDialogOpen} onOpenChange={setIsAddStudentDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={handleOpenAddDialog}>
+              <Button>
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Add Student
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>{newStudent.id ? "Edit Student" : "Add New Student"}</DialogTitle>
+                <DialogTitle>{newStudent.name ? "Edit Student" : "Add New Student"}</DialogTitle>
                 <DialogDescription>
-                  {newStudent.id ? "Edit the student details." : "Create a new student account with a unique registration number."}
+                  {newStudent.name ? "Edit the student details." : "Create a new student account with a unique registration number."}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
