@@ -315,10 +315,14 @@ export const getExamSubmissions = async (examId: string) => {
         const submissionData = childSnapshot.val();
         const studentId = childSnapshot.key as string;
         
-        // If submission doesn't have student name/photo, add it from users data
-        if (!submissionData.studentName && users[studentId]) {
-          submissionData.studentName = users[studentId].name;
-          submissionData.studentPhoto = users[studentId].photo;
+        // Ensure submission has student name/photo from users data
+        if (!submissionData.studentName || !submissionData.studentPhoto) {
+          submissionData.studentName = users[studentId]?.name || `Student ${studentId.slice(-4)}`;
+          submissionData.studentPhoto = users[studentId]?.photo || "";
+          
+          // Update the submission with student info in the database
+          set(ref(db, `exams/${examId}/submissions/${studentId}/studentName`), submissionData.studentName);
+          set(ref(db, `exams/${examId}/submissions/${studentId}/studentPhoto`), submissionData.studentPhoto);
         }
         
         submissions.push({
@@ -482,6 +486,7 @@ export const getTopStudents = async (examId: string) => {
         .slice(0, 3)
         .map(submission => ({
           name: submission.studentName || `Student ${submission.studentId.slice(-4)}`,
+          photo: submission.studentPhoto || "",
           score: submission.percentage
         }));
       
