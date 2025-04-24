@@ -1,80 +1,98 @@
 import { useState, useEffect } from "react";
-import { PlusCircle, FileText, Search, Image } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Trash, Save, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { createExam, Exam } from "@/services/ExamService";
-import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
-import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { createExam } from "@/services/ExamService";
+import { fetchAcademicData } from "@/services/AcademicService";
 
-export function ManageExams({
-  exams,
-  students,
-  selectedSemester,
-  selectedSubject,
-  setSelectedSemester,
-  setSelectedSubject,
-  availableSemesters,
-  availableSubjects,
-  teacherDepartment,
-  availableSubjectsForSemester,
-  subjectsBySemester
-}) {
-  const [isCreateExamDialogOpen, setIsCreateExamDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("details");
+type QuestionType = "multiple-choice" | "true-false" | "short-answer";
+
+interface Question {
+  id: string;
+  type: QuestionType;
+  text: string;
+  options?: string[];
+  correctAnswer?: string;
+  points: number;
+}
+
+export function ManageExams() {
   const [examTitle, setExamTitle] = useState("");
+  const [selectedSemester, setSelectedSemester] = useState("");
   const [examSubject, setExamSubject] = useState("");
-  const [examSemester, setExamSemester] = useState("Semester 1");
   const [examDuration, setExamDuration] = useState("60");
-  const [examDate, setExamDate] = useState("");
-  const [examTime, setExamTime] = useState("");
-  const [examStartDate, setExamStartDate] = useState("");
-  const [examEndDate, setExamEndDate] = useState("");
-  const [questions, setQuestions] = useState([]);
-  const [selectedStudents, setSelectedStudents] = useState([]);
-  const [currentQuestion, setCurrentQuestion] = useState({
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [semesters, setSemesters] = useState<string[]>([]);
+  const [subjectsBySemester, setSubjectsBySemester] = useState<Record<string, string[]>>({});
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const loadAcademicData = async () => {
+      try {
+        // Assuming we have the department ID from context or props
+        const departmentId = "your-department-id"; // You'll need to get this from your app's context
+        const academicData = await fetchAcademicData(departmentId);
+        setSemesters(academicData.semesters);
+        setSubjectsBySemester(academicData.subjectsBySemester);
+      } catch (error) {
+        console.error("Error loading academic data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load academic data",
+          variant: "destructive",
+        });
+      }
+    };
+
+    loadAcademicData();
+  }, [toast]);
+
+  useEffect(() => {
+    if (selectedSemester) {
+      setAvailableSubjects(subjectsBySemester[selectedSemester] || []);
+      setExamSubject(""); // Reset subject when semester changes
+    } else {
+      setAvailableSubjects([]);
+    }
+  }, [selectedSemester, subjectsBySemester]);
+
+  const [activeTab, setActiveTab] = useState("details");
+  const [currentQuestion, setCurrentQuestion] = useState<Question>({
     id: "1",
     type: "multiple-choice",
     text: "",
     options: ["", "", "", ""],
     correctAnswer: "",
-    points: 1,
-    section: "Section 1",
-    timeLimit: 5
+    points: 1
   });
-  const [examSections, setExamSections] = useState([{ id: "section-1", name: "Section 1", timeLimit: 30, questions: [] }]);
-  const [currentSection, setCurrentSection] = useState("Section 1");
-  const { toast } = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (examSemester && subjectsBySemester && subjectsBySemester[examSemester]) {
-      setExamSubject(""); // Reset subject when semester changes
-    }
-  }, [examSemester, subjectsBySemester]);
-
-  const handleAddSection = () => {
-    const newSectionId = `section-${examSections.length + 1}`;
-    const newSectionName = `Section ${examSections.length + 1}`;
-    setExamSections([...examSections, { id: newSectionId, name: newSectionName, timeLimit: 30, questions: [] }]);
-  };
-
-  const handleSectionTimeLimitChange = (index, timeLimit) => {
-    const updatedSections = [...examSections];
-    updatedSections[index].timeLimit = timeLimit;
-    setExamSections(updatedSections);
-  };
+  // Mock student data
+  const availableStudents = [
+    { id: "1", name: "Alex Johnson" },
+    { id: "2", name: "Emily Chen" },
+    { id: "3", name: "Michael Brown" },
+    { id: "4", name: "Sarah Williams" },
+    { id: "5", name: "James Davis" },
+  ];
 
   const handleAddQuestion = () => {
+    // Validate question
     if (!currentQuestion.text) {
       toast({
         title: "Incomplete question",
@@ -84,6 +102,7 @@ export function ManageExams({
       return;
     }
 
+    // Validate based on question type
     if (currentQuestion.type === "multiple-choice") {
       if (!currentQuestion.options?.every(option => option.trim())) {
         toast({
@@ -103,19 +122,10 @@ export function ManageExams({
       }
     }
 
+    // Add question to list
     setQuestions([...questions, { ...currentQuestion }]);
     
-    const updatedSections = [...examSections];
-    const currentSectionIndex = updatedSections.findIndex(s => s.name === currentSection);
-    
-    if (currentSectionIndex !== -1) {
-      if (!updatedSections[currentSectionIndex].questions) {
-        updatedSections[currentSectionIndex].questions = [];
-      }
-      updatedSections[currentSectionIndex].questions.push({ ...currentQuestion });
-      setExamSections(updatedSections);
-    }
-    
+    // Reset current question
     const newId = String(questions.length + 2);
     setCurrentQuestion({
       id: newId,
@@ -123,22 +133,37 @@ export function ManageExams({
       text: "",
       options: ["", "", "", ""],
       correctAnswer: "",
-      points: 1,
-      section: currentSection,
-      timeLimit: 5
+      points: 1
     });
 
     toast({
       title: "Question added",
-      description: `Question ${questions.length + 1} added to ${currentSection}`,
+      description: `Question ${questions.length + 1} added successfully`,
     });
   };
 
-  const handleQuestionTypeChange = (type) => {
+  const handleRemoveQuestion = (id: string) => {
+    setQuestions(questions.filter(q => q.id !== id));
+    toast({
+      title: "Question removed",
+      description: "Question has been removed from the exam",
+    });
+  };
+
+  const handleOptionChange = (index: number, value: string) => {
+    const newOptions = [...(currentQuestion.options || [])];
+    newOptions[index] = value;
+    setCurrentQuestion({ ...currentQuestion, options: newOptions });
+  };
+
+  const handleQuestionTypeChange = (type: QuestionType) => {
     let newQuestion = { ...currentQuestion, type };
     
     if (type === "multiple-choice") {
       newQuestion.options = ["", "", "", ""];
+      newQuestion.correctAnswer = "";
+    } else if (type === "true-false") {
+      newQuestion.options = ["True", "False"];
       newQuestion.correctAnswer = "";
     } else {
       delete newQuestion.options;
@@ -148,123 +173,77 @@ export function ManageExams({
     setCurrentQuestion(newQuestion);
   };
 
-  const handleOptionChange = (index, value) => {
-    const newOptions = [...(currentQuestion.options || [])];
-    newOptions[index] = value;
-    setCurrentQuestion({ ...currentQuestion, options: newOptions });
+  const handleStudentSelection = (studentId: string) => {
+    setSelectedStudents(
+      selectedStudents.includes(studentId)
+        ? selectedStudents.filter(id => id !== studentId)
+        : [...selectedStudents, studentId]
+    );
+  };
+
+  const handleSelectAllStudents = () => {
+    if (selectedStudents.length === availableStudents.length) {
+      setSelectedStudents([]);
+    } else {
+      setSelectedStudents(availableStudents.map(student => student.id));
+    }
   };
 
   const handleSaveExam = async () => {
-    try {
-      if (!examTitle || !examSubject || !examDuration || !examDate || !examTime) {
-        toast({
-          title: "Missing information",
-          description: "Please fill in all required exam details",
-          variant: "destructive"
-        });
-        setActiveTab("details");
-        return;
-      }
-
-      if (!examStartDate || !examEndDate) {
-        toast({
-          title: "Missing dates",
-          description: "Please set both start and end dates for the exam",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const startDate = new Date(examStartDate);
-      const endDate = new Date(examEndDate);
-      
-      if (startDate >= endDate) {
-        toast({
-          title: "Invalid dates",
-          description: "End date must be after start date",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (questions.length === 0) {
-        toast({
-          title: "No questions",
-          description: "Please add at least one question to the exam",
-          variant: "destructive"
-        });
-        setActiveTab("questions");
-        return;
-      }
-
-      if (selectedStudents.length === 0) {
-        toast({
-          title: "No students assigned",
-          description: "Please assign this exam to at least one student",
-          variant: "destructive"
-        });
-        setActiveTab("students");
-        return;
-      }
-
-      const user = localStorage.getItem('examUser');
-      if (!user) {
-        toast({
-          title: "Authentication error",
-          description: "Please login again",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const userData = JSON.parse(user);
-      
-      const formattedSections = examSections.map(section => {
-        const sectionQuestions = questions.filter(q => q.section === section.name);
-        return {
-          id: section.id,
-          name: section.name,
-          timeLimit: section.timeLimit,
-          questions: sectionQuestions
-        };
+    // Validate required fields
+    if (!examTitle || !examSubject || !selectedSemester || !examDuration || !startDate || !startTime || !endDate || !endTime) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required exam details",
+        variant: "destructive"
       });
-      
+      return;
+    }
+
+    if (questions.length === 0) {
+      toast({
+        title: "No questions",
+        description: "Please add at least one question to the exam",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (selectedStudents.length === 0) {
+      toast({
+        title: "No students assigned",
+        description: "Please assign this exam to at least one student",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const formattedSections = [];
+
       const examData = {
         title: examTitle,
         subject: examSubject,
-        semester: examSemester,
-        createdBy: userData.id,
-        date: examDate,
-        time: examTime,
+        semester: selectedSemester,
+        createdBy: "current-user-id", // You'll need to get this from your auth context
+        startDate: `${startDate}T${startTime}`,
+        endDate: `${endDate}T${endTime}`,
         duration: Number(examDuration),
         status: "scheduled" as const,
         questions: questions,
         assignedStudents: selectedStudents,
         sections: formattedSections,
-        startDate: examStartDate,
-        endDate: examEndDate,
-        department: teacherDepartment
+        department: "current-department-id" // You'll need to get this from your context
       };
 
       const result = await createExam(examData);
-      
+
       if (result.success) {
         toast({
-          title: "Exam created",
-          description: "The exam has been created and assigned successfully",
+          title: "Success",
+          description: "Exam created successfully",
         });
-        
-        setExamTitle("");
-        setExamSubject("");
-        setExamDuration("60");
-        setExamDate("");
-        setExamTime("");
-        setExamStartDate("");
-        setExamEndDate("");
-        setQuestions([]);
-        setSelectedStudents([]);
-        setExamSections([{ id: "section-1", name: "Section 1", timeLimit: 30, questions: [] }]);
-        setIsCreateExamDialogOpen(false);
+        // Reset form or redirect
       } else {
         toast({
           title: "Error",
@@ -273,566 +252,368 @@ export function ManageExams({
         });
       }
     } catch (error) {
-      console.error("Error creating exam:", error);
       toast({
         title: "Error",
-        description: "Failed to create exam. Please try again.",
+        description: "Failed to create exam",
         variant: "destructive"
       });
     }
   };
 
-  const handleStudentSelection = (studentId) => {
-    setSelectedStudents(
-      selectedStudents.includes(studentId)
-        ? selectedStudents.filter(id => id !== studentId)
-        : [...selectedStudents, studentId]
-    );
+  const handleCancel = () => {
+    navigate("/dashboard");
   };
-
-  const handleSelectAllStudents = (semesterFilter) => {
-    const semesterStudents = students
-      .filter(student => semesterFilter === "All" || student.semester === semesterFilter)
-      .map(student => student.id);
-    
-    if (selectedStudents.length === semesterStudents.length) {
-      setSelectedStudents([]);
-    } else {
-      setSelectedStudents(semesterStudents);
-    }
-  };
-
-  const handleMonitorExam = (examId) => {
-    navigate(`/exam/monitor/${examId}`);
-  };
-
-  const filteredExams = exams.filter((exam) => {
-    const bySemester = selectedSemester === "All" || exam.semester === selectedSemester;
-    const bySubject = selectedSubject === "All" || exam.subject === selectedSubject;
-    return bySemester && bySubject;
-  });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Manage Exams</h2>
-          <p className="text-muted-foreground">Create, schedule and monitor exams</p>
-        </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <Input
-            placeholder="Search exams..."
-            className="md:w-64"
-          />
-          <Dialog open={isCreateExamDialogOpen} onOpenChange={setIsCreateExamDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Create Exam
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Create New Exam</DialogTitle>
-                <DialogDescription>
-                  Create a new exam with sections, questions and assign to students
-                </DialogDescription>
-              </DialogHeader>
-              
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="details">Exam Details</TabsTrigger>
-                  <TabsTrigger value="questions">Questions</TabsTrigger>
-                  <TabsTrigger value="students">Assign Students</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="details" className="pt-6 space-y-4">
-                  {/* Details tab content */}
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="grid gap-2">
-                      <Label htmlFor="examTitle">Exam Title</Label>
-                      <Input
-                        id="examTitle"
-                        value={examTitle}
-                        onChange={(e) => setExamTitle(e.target.value)}
-                        placeholder="e.g. Mid-term Mathematics"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="examSubject">Subject</Label>
-                      <Select value={examSubject} onValueChange={setExamSubject}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select subject" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableSubjectsForSemester && availableSubjectsForSemester.map(subject => (
-                            <SelectItem key={subject} value={subject}>{subject}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  {/* More form fields */}
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="grid gap-2">
-                      <Label htmlFor="examSemester">Semester</Label>
-                      <Select value={examSemester} onValueChange={setExamSemester}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select semester" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableSemesters && availableSemesters.slice(1).map(semester => (
-                            <SelectItem key={semester} value={semester}>{semester}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="examDuration">Total Duration (minutes)</Label>
-                      <Input
-                        id="examDuration"
-                        type="number"
-                        min="1"
-                        value={examDuration}
-                        onChange={(e) => setExamDuration(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Date and time fields */}
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="grid gap-2">
-                      <Label htmlFor="examDate">Date</Label>
-                      <Input
-                        id="examDate"
-                        type="date"
-                        value={examDate}
-                        onChange={(e) => setExamDate(e.target.value)}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="examTime">Time</Label>
-                      <Input
-                        id="examTime"
-                        type="time"
-                        value={examTime}
-                        onChange={(e) => setExamTime(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Start and end date fields */}
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="grid gap-2">
-                      <Label htmlFor="examStartDate">Start Date</Label>
-                      <Input
-                        id="examStartDate"
-                        type="datetime-local"
-                        value={examStartDate}
-                        onChange={(e) => setExamStartDate(e.target.value)}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="examEndDate">End Date</Label>
-                      <Input
-                        id="examEndDate"
-                        type="datetime-local"
-                        value={examEndDate}
-                        onChange={(e) => setExamEndDate(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Sections */}
-                  <div className="mt-6">
-                    <Label className="text-lg font-medium mb-2 block">Exam Sections</Label>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Create sections with separate time limits
-                    </p>
-                    
-                    <div className="space-y-4">
-                      {examSections.map((section, index) => (
-                        <div key={index} className="flex items-center gap-4 p-3 border rounded-md">
-                          <div className="font-medium flex-1">{section.name}</div>
-                          <div className="flex items-center gap-2">
-                            <Label htmlFor={`section-time-${index}`} className="text-sm whitespace-nowrap">
-                              Time limit (min):
-                            </Label>
-                            <Input
-                              id={`section-time-${index}`}
-                              type="number"
-                              min="1"
-                              value={section.timeLimit}
-                              onChange={(e) => handleSectionTimeLimitChange(index, parseInt(e.target.value) || 1)}
-                              className="w-20"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    <Button onClick={handleAddSection} className="mt-3" variant="outline">
-                      <PlusCircle className="h-4 w-4 mr-2" />
-                      Add Section
-                    </Button>
-                  </div>
-                  
-                  <div className="flex justify-end gap-2 pt-4">
-                    <Button variant="outline" onClick={() => setIsCreateExamDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={() => setActiveTab("questions")}>
-                      Next: Add Questions
-                    </Button>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="questions" className="pt-6 space-y-6">
-                  {/* Questions tab content */}
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h2 className="text-xl font-semibold">Current Questions ({questions.length})</h2>
+    <div className="space-y-6 pb-10">
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="icon" onClick={handleCancel}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-2xl font-bold">Create New Exam</h1>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="details">Exam Details</TabsTrigger>
+          <TabsTrigger value="questions">Questions</TabsTrigger>
+          <TabsTrigger value="students">Assign Students</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="details" className="pt-6 space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="examTitle">Exam Title</Label>
+              <Input
+                id="examTitle"
+                value={examTitle}
+                onChange={(e) => setExamTitle(e.target.value)}
+                placeholder="e.g. Mid-term Mathematics"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="examDuration">Duration (minutes)</Label>
+              <Input
+                id="examDuration"
+                type="number"
+                min="1"
+                value={examDuration}
+                onChange={(e) => setExamDuration(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="semester">Semester</Label>
+              <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  {semesters.map((semester) => (
+                    <SelectItem key={semester} value={semester}>
+                      {semester}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="subject">Subject</Label>
+              <Select value={examSubject} onValueChange={setExamSubject} disabled={!selectedSemester}>
+                <SelectTrigger>
+                  <SelectValue placeholder={selectedSemester ? "Select subject" : "Select semester first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSubjects.map((subject) => (
+                    <SelectItem key={subject} value={subject}>
+                      {subject}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2">
+              <Label>Start Date & Time</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+                <Input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>End Date & Time</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+                <Input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={handleCancel}>Cancel</Button>
+            <Button onClick={() => setActiveTab("questions")}>Next: Add Questions</Button>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="questions" className="pt-6 space-y-6">
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Current Questions ({questions.length})</h2>
+            
+            {questions.length > 0 ? (
+              <div className="space-y-4">
+                {questions.map((question, index) => (
+                  <Card key={question.id}>
+                    <CardHeader className="pb-2 flex flex-row items-start justify-between">
                       <div>
-                        <Label htmlFor="questionSection" className="mr-2">Section:</Label>
-                        <select 
-                          id="questionSection"
-                          value={currentSection}
-                          onChange={(e) => setCurrentSection(e.target.value)}
-                          className="border rounded px-2 py-1 bg-background"
-                        >
-                          {examSections.map((section) => (
-                            <option key={section.name} value={section.name}>
-                              {section.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    
-                    {questions.length > 0 ? (
-                      <div className="space-y-4">
-                        {questions.map((question, index) => (
-                          <Card key={question.id}>
-                            <CardHeader className="pb-2 flex flex-row items-start justify-between">
-                              <div>
-                                <CardTitle className="text-base">Question {index + 1}</CardTitle>
-                                <div className="flex gap-2 text-xs text-muted-foreground">
-                                  <span className="uppercase">{question.type}</span>
-                                  <span>•</span>
-                                  <span>{question.section}</span>
-                                  <span>•</span>
-                                  <span>{question.points} {question.points === 1 ? "point" : "points"}</span>
-                                </div>
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                                onClick={() => setQuestions(questions.filter(q => q.id !== question.id))}
-                              >
-                                <FileText className="h-4 w-4" />
-                              </Button>
-                            </CardHeader>
-                            <CardContent>
-                              <p className="font-medium">{question.text}</p>
-                              
-                              {question.type === "multiple-choice" && (
-                                <div className="mt-2 space-y-1">
-                                  {question.options?.map((option, i) => (
-                                    <div key={i} className="flex items-center gap-2">
-                                      <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs ${
-                                        question.correctAnswer === String(i) ? "bg-primary text-white" : "border"
-                                      }`}>
-                                        {question.correctAnswer === String(i) && "✓"}
-                                      </div>
-                                      <span>{option}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              
-                              {question.type === "short-answer" && (
-                                <div className="mt-2 text-sm text-muted-foreground">
-                                  Answer: {question.correctAnswer}
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <Card className="p-6 text-center text-muted-foreground">
-                        <p>No questions added yet. Add your first question below.</p>
-                      </Card>
-                    )}
-                  </div>
-                  
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Add New Question to {currentSection}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="questionType">Question Type</Label>
-                        <Select 
-                          value={currentQuestion.type} 
-                          onValueChange={(val) => handleQuestionTypeChange(val)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select question type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
-                            <SelectItem value="short-answer">Short Answer</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="grid gap-2">
-                        <Label htmlFor="questionText">Question Text</Label>
-                        <Textarea
-                          id="questionText"
-                          placeholder="Enter your question here"
-                          value={currentQuestion.text}
-                          onChange={(e) => setCurrentQuestion({ ...currentQuestion, text: e.target.value })}
-                          rows={3}
-                        />
-                      </div>
-                      
-                      {currentQuestion.type === "multiple-choice" && (
-                        <div className="space-y-4">
-                          <Label>Options</Label>
-                          <div className="space-y-2">
-                            {currentQuestion.options?.map((option, index) => (
-                              <div key={index} className="flex gap-2 items-center">
-                                <RadioGroup 
-                                  value={currentQuestion.correctAnswer} 
-                                  onValueChange={(val) => setCurrentQuestion({ ...currentQuestion, correctAnswer: val })}
-                                  className="flex-shrink-0"
-                                >
-                                  <RadioGroupItem value={String(index)} id={`option-${index}`} />
-                                </RadioGroup>
-                                <Input
-                                  placeholder={`Option ${index + 1}`}
-                                  value={option}
-                                  onChange={(e) => handleOptionChange(index, e.target.value)}
-                                  className="flex-grow"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {currentQuestion.type === "short-answer" && (
-                        <div className="grid gap-2">
-                          <Label htmlFor="correctAnswer">Correct Answer</Label>
-                          <Input
-                            id="correctAnswer"
-                            placeholder="Enter the correct answer"
-                            value={currentQuestion.correctAnswer || ""}
-                            onChange={(e) => setCurrentQuestion({ ...currentQuestion, correctAnswer: e.target.value })}
-                          />
-                        </div>
-                      )}
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="questionPoints">Points</Label>
-                          <Input
-                            id="questionPoints"
-                            type="number"
-                            min="1"
-                            value={currentQuestion.points}
-                            onChange={(e) => setCurrentQuestion({ ...currentQuestion, points: Number(e.target.value) || 1 })}
-                            className="w-full"
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="questionTimeLimit">Time Limit (min)</Label>
-                          <Input
-                            id="questionTimeLimit"
-                            type="number"
-                            min="1"
-                            value={currentQuestion.timeLimit}
-                            onChange={(e) => setCurrentQuestion({ ...currentQuestion, timeLimit: Number(e.target.value) || 1 })}
-                            className="w-full"
-                          />
+                        <CardTitle className="text-base">Question {index + 1}</CardTitle>
+                        <div className="flex gap-2 text-xs text-muted-foreground">
+                          <span className="uppercase">{question.type}</span>
+                          <span>•</span>
+                          <span>{question.points} {question.points === 1 ? "point" : "points"}</span>
                         </div>
                       </div>
-                      
-                      <Button onClick={handleAddQuestion} className="mt-2">
-                        <PlusCircle className="h-4 w-4 mr-2" />
-                        Add Question
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                        onClick={() => handleRemoveQuestion(question.id)}
+                      >
+                        <Trash className="h-4 w-4" />
                       </Button>
-                    </CardContent>
-                  </Card>
-                  
-                  <div className="flex justify-between gap-2 pt-4">
-                    <Button variant="outline" onClick={() => setActiveTab("details")}>Back to Details</Button>
-                    <Button 
-                      onClick={() => setActiveTab("students")}
-                      disabled={questions.length === 0}
-                    >
-                      Next: Assign Students
-                    </Button>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="students" className="pt-6 space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Assign Students</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex justify-end mb-4 gap-2">
-                        <Select 
-                          value={selectedSemester} 
-                          onValueChange={setSelectedSemester}
-                        >
-                          <SelectTrigger className="w-[130px]">
-                            <SelectValue placeholder="Filter by semester" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableSemesters && availableSemesters.map(s => (
-                              <SelectItem key={s} value={s}>{s}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button variant="outline" onClick={() => handleSelectAllStudents(selectedSemester)}>
-                          {selectedStudents.length === students.filter(s => selectedSemester === "All" || s.semester === selectedSemester).length 
-                            ? "Deselect All" 
-                            : "Select All"}
-                        </Button>
-                      </div>
+                      <p className="font-medium">{question.text}</p>
                       
-                      <div className="space-y-3">
-                        {students
-                          .filter(student => 
-                            student.department === teacherDepartment &&
-                            (selectedSemester === "All" || student.semester === selectedSemester)
-                          )
-                          .map((student) => (
-                            <div key={student.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
-                              <Checkbox 
-                                id={`student-${student.id}`}
-                                checked={selectedStudents.includes(student.id)}
-                                onCheckedChange={() => handleStudentSelection(student.id)}
-                              />
-                              <div className="flex items-center flex-grow gap-3">
-                                {student.photo ? (
-                                  <img src={student.photo} alt={student.name} className="h-8 w-8 rounded-full object-cover" />
-                                ) : (
-                                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                    <Image className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                )}
-                                <Label htmlFor={`student-${student.id}`} className="cursor-pointer flex-grow">
-                                  {student.name}
-                                </Label>
-                                <span className="text-xs text-muted-foreground">{student.semester}</span>
+                      {question.type === "multiple-choice" && (
+                        <div className="mt-2 space-y-1">
+                          {question.options?.map((option, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs ${
+                                question.correctAnswer === String(i) ? "bg-exam-primary text-white" : "border"
+                              }`}>
+                                {question.correctAnswer === String(i) && "✓"}
                               </div>
+                              <span>{option}</span>
                             </div>
                           ))}
-                      </div>
+                        </div>
+                      )}
+                      
+                      {question.type === "true-false" && (
+                        <div className="mt-2 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs ${
+                              question.correctAnswer === "0" ? "bg-exam-primary text-white" : "border"
+                            }`}>
+                              {question.correctAnswer === "0" && "✓"}
+                            </div>
+                            <span>True</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs ${
+                              question.correctAnswer === "1" ? "bg-exam-primary text-white" : "border"
+                            }`}>
+                              {question.correctAnswer === "1" && "✓"}
+                            </div>
+                            <span>False</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {question.type === "short-answer" && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          Answer: {question.correctAnswer}
+                        </div>
+                      )}
                     </CardContent>
-                    <CardFooter className="flex justify-between pt-4 px-6">
-                      <Button variant="outline" onClick={() => setActiveTab("questions")}>
-                        Back to Questions
-                      </Button>
-                      <Button 
-                        onClick={handleSaveExam}
-                        disabled={selectedStudents.length === 0}
-                      >
-                        Create Exam
-                      </Button>
-                    </CardFooter>
                   </Card>
-                </TabsContent>
-              </Tabs>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 gap-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg">Upcoming Exams</h3>
-          <div className="flex items-center gap-2">
-            <Select value={selectedSemester} onValueChange={setSelectedSemester}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="Semester" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableSemesters && availableSemesters.map(s => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue placeholder="Subject" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableSubjects && availableSubjects.map(s => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        
-        {filteredExams.length > 0 ? (
-          <div className="grid gap-4">
-            {filteredExams.map(exam => (
-              <Card key={exam.id}>
-                <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
-                  <div className="flex-grow">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-lg">{exam.title}</h3>
-                      <Badge className={`${
-                        exam.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        exam.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {exam.status}
-                      </Badge>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-1 mt-2">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Subject</p>
-                        <p className="text-sm font-medium">{exam.subject}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Semester</p>
-                        <p className="text-sm font-medium">{exam.semester}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Date & Time</p>
-                        <p className="text-sm font-medium">{exam.date} {exam.time}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Duration</p>
-                        <p className="text-sm font-medium">{exam.duration} min</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 self-end md:self-auto w-full md:w-auto">
-                    <Button variant="outline" className="flex-1 md:flex-none" onClick={() => handleMonitorExam(exam.id)}>
-                      Monitor
-                    </Button>
-                  </div>
-                </CardContent>
+              </div>
+            ) : (
+              <Card className="p-6 text-center text-muted-foreground">
+                <p>No questions added yet. Add your first question below.</p>
               </Card>
-            ))}
+            )}
           </div>
-        ) : (
-          <Card className="p-6 text-center text-muted-foreground">
-            <p>No exams found for the selected filters.</p>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Add New Question</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="questionType">Question Type</Label>
+                <Select 
+                  value={currentQuestion.type} 
+                  onValueChange={(val) => handleQuestionTypeChange(val as QuestionType)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select question type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
+                    <SelectItem value="true-false">True/False</SelectItem>
+                    <SelectItem value="short-answer">Short Answer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="questionText">Question Text</Label>
+                <Textarea
+                  id="questionText"
+                  placeholder="Enter your question here"
+                  value={currentQuestion.text}
+                  onChange={(e) => setCurrentQuestion({ ...currentQuestion, text: e.target.value })}
+                  rows={3}
+                />
+              </div>
+              
+              {currentQuestion.type === "multiple-choice" && (
+                <div className="space-y-4">
+                  <Label>Options</Label>
+                  <div className="space-y-2">
+                    {currentQuestion.options?.map((option, index) => (
+                      <div key={index} className="flex gap-2 items-center">
+                        <RadioGroup 
+                          value={currentQuestion.correctAnswer} 
+                          onValueChange={(val) => setCurrentQuestion({ ...currentQuestion, correctAnswer: val })}
+                          className="flex-shrink-0"
+                        >
+                          <RadioGroupItem value={String(index)} id={`option-${index}`} />
+                        </RadioGroup>
+                        <Input
+                          placeholder={`Option ${index + 1}`}
+                          value={option}
+                          onChange={(e) => handleOptionChange(index, e.target.value)}
+                          className="flex-grow"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {currentQuestion.type === "true-false" && (
+                <div className="space-y-4">
+                  <Label>Correct Answer</Label>
+                  <RadioGroup 
+                    value={currentQuestion.correctAnswer} 
+                    onValueChange={(val) => setCurrentQuestion({ ...currentQuestion, correctAnswer: val })}
+                    className="space-y-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="0" id="true" />
+                      <Label htmlFor="true">True</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="1" id="false" />
+                      <Label htmlFor="false">False</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
+              
+              {currentQuestion.type === "short-answer" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="correctAnswer">Correct Answer</Label>
+                  <Input
+                    id="correctAnswer"
+                    placeholder="Enter the correct answer"
+                    value={currentQuestion.correctAnswer || ""}
+                    onChange={(e) => setCurrentQuestion({ ...currentQuestion, correctAnswer: e.target.value })}
+                  />
+                </div>
+              )}
+              
+              <div className="grid gap-2">
+                <Label htmlFor="questionPoints">Points</Label>
+                <Input
+                  id="questionPoints"
+                  type="number"
+                  min="1"
+                  value={currentQuestion.points}
+                  onChange={(e) => setCurrentQuestion({ ...currentQuestion, points: Number(e.target.value) || 1 })}
+                  className="w-24"
+                />
+              </div>
+              
+              <Button onClick={handleAddQuestion} className="mt-2">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Question
+              </Button>
+            </CardContent>
           </Card>
-        )}
-      </div>
+          
+          <div className="flex justify-between gap-2 pt-4">
+            <Button variant="outline" onClick={() => setActiveTab("details")}>Back to Details</Button>
+            <Button 
+              onClick={() => setActiveTab("students")}
+              disabled={questions.length === 0}
+            >
+              Next: Assign Students
+            </Button>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="students" className="pt-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Assign Students</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-end mb-4">
+                <Button variant="outline" onClick={handleSelectAllStudents}>
+                  {selectedStudents.length === availableStudents.length ? "Deselect All" : "Select All"}
+                </Button>
+              </div>
+              
+              <div className="space-y-3">
+                {availableStudents.map((student) => (
+                  <div key={student.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
+                    <Checkbox 
+                      id={`student-${student.id}`}
+                      checked={selectedStudents.includes(student.id)}
+                      onCheckedChange={() => handleStudentSelection(student.id)}
+                    />
+                    <Label htmlFor={`student-${student.id}`} className="flex-grow cursor-pointer">
+                      {student.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <div className="flex justify-between gap-2 pt-4">
+            <Button variant="outline" onClick={() => setActiveTab("questions")}>Back to Questions</Button>
+            <Button onClick={handleSaveExam}>
+              <Save className="h-4 w-4 mr-2" />
+              Save Exam
+            </Button>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
