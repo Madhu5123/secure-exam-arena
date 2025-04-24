@@ -55,7 +55,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     section: "Section 1",
     timeLimit: 5
   });
-  const [examSections, setExamSections] = useState([{ name: "Section 1", timeLimit: 30 }]);
+  const [examSections, setExamSections] = useState([{ id: "section-1", name: "Section 1", timeLimit: 30, questions: [] }]);
   const [currentSection, setCurrentSection] = useState("Section 1");
   const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
   const [availableSubjectsAll, setAvailableSubjectsAll] = useState<string[]>([]);
@@ -201,8 +201,9 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   };
 
   const handleAddSection = () => {
+    const newSectionId = `section-${examSections.length + 1}`;
     const newSectionName = `Section ${examSections.length + 1}`;
-    setExamSections([...examSections, { name: newSectionName, timeLimit: 30 }]);
+    setExamSections([...examSections, { id: newSectionId, name: newSectionName, timeLimit: 30, questions: [] }]);
   };
 
   const handleSectionTimeLimitChange = (index: number, timeLimit: number) => {
@@ -241,6 +242,17 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     }
 
     setQuestions([...questions, { ...currentQuestion }]);
+    
+    const updatedSections = [...examSections];
+    const currentSectionIndex = updatedSections.findIndex(s => s.name === currentSection);
+    
+    if (currentSectionIndex !== -1) {
+      if (!updatedSections[currentSectionIndex].questions) {
+        updatedSections[currentSectionIndex].questions = [];
+      }
+      updatedSections[currentSectionIndex].questions.push({ ...currentQuestion });
+      setExamSections(updatedSections);
+    }
     
     const newId = String(questions.length + 2);
     setCurrentQuestion({
@@ -359,6 +371,16 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
 
       const userData = JSON.parse(user);
       
+      const formattedSections = examSections.map(section => {
+        const sectionQuestions = questions.filter(q => q.section === section.name);
+        return {
+          id: section.id,
+          name: section.name,
+          timeLimit: section.timeLimit,
+          questions: sectionQuestions
+        };
+      });
+      
       const examData = {
         title: examTitle,
         subject: examSubject,
@@ -370,7 +392,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         status: "scheduled" as "draft" | "scheduled" | "active" | "completed",
         questions: questions,
         assignedStudents: selectedStudents,
-        sections: examSections
+        sections: formattedSections
       };
 
       const result = await createExam(examData);
@@ -388,7 +410,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         setExamTime("");
         setQuestions([]);
         setSelectedStudents([]);
-        setExamSections([{ name: "Section 1", timeLimit: 30 }]);
+        setExamSections([{ id: "section-1", name: "Section 1", timeLimit: 30, questions: [] }]);
         setIsCreateExamDialogOpen(false);
       } else {
         toast({
