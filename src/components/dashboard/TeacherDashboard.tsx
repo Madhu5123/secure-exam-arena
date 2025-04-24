@@ -141,18 +141,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     (async () => {
       examsCleanup = await fetchExams();
     })();
-    
-    const loadAcademicData = async () => {
-      const user = localStorage.getItem('examUser');
-      if (user) {
-        const userData = JSON.parse(user);
-        const data = await fetchAcademicData(teacherDepartment);
-        setAvailableSemesters(["All", ...data.semesters]);
-        setSubjectsBySemester(data.subjectsBySemester || {});
-      }
-    };
-
-    loadAcademicData();
 
     const fetchTeacherDepartment = async () => {
       const user = localStorage.getItem('examUser');
@@ -162,6 +150,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         onValue(teacherRef, (snapshot) => {
           if (snapshot.exists()) {
             const teacherData = snapshot.val();
+            console.log("Teacher data:", teacherData);
             setTeacherDepartment(teacherData.department || '');
           }
         });
@@ -169,15 +158,31 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     };
 
     fetchTeacherDepartment();
-
+    
     return () => {
       unsubscribeStudents();
       examsCleanup();
     };
+  }, []);
+
+  useEffect(() => {
+    const loadAcademicData = async () => {
+      if (teacherDepartment) {
+        console.log("Loading academic data for department:", teacherDepartment);
+        const data = await fetchAcademicData(teacherDepartment);
+        console.log("Academic data received:", data);
+        setAvailableSemesters(["All", ...data.semesters]);
+        setAvailableSubjectsAll(["All", ...data.subjects]);
+        setSubjectsBySemester(data.subjectsBySemester || {});
+      }
+    };
+
+    loadAcademicData();
   }, [teacherDepartment]);
 
   useEffect(() => {
     if (examSemester && subjectsBySemester[examSemester]) {
+      console.log(`Setting subjects for semester ${examSemester}:`, subjectsBySemester[examSemester]);
       setAvailableSubjectsForSemester(subjectsBySemester[examSemester]);
       setExamSubject(""); // Reset subject when semester changes
     } else {
