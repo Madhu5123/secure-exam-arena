@@ -78,6 +78,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
   const [availableSubjectsAll, setAvailableSubjectsAll] = useState<string[]>([]);
   const [subjectsBySemester, setSubjectsBySemester] = useState({});
+  const [teacherDepartment, setTeacherDepartment] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -147,6 +148,22 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
 
     loadAcademicData();
 
+    const fetchTeacherDepartment = async () => {
+      const user = localStorage.getItem('examUser');
+      if (user) {
+        const userData = JSON.parse(user);
+        const teacherRef = ref(db, `users/${userData.id}`);
+        onValue(teacherRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const teacherData = snapshot.val();
+            setTeacherDepartment(teacherData.department || '');
+          }
+        });
+      }
+    };
+
+    fetchTeacherDepartment();
+
     return () => {
       unsubscribeStudents();
       examsCleanup();
@@ -172,7 +189,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         regNumber: newStudent.regNumber,
         semester: newStudent.semester,
         photo: newStudent.photo,
-        status: "active"
+        status: "active",
+        department: teacherDepartment
       };
       
       const { success, user, error } = await registerUser(
@@ -196,7 +214,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           regNumber: studentData.regNumber,
           semester: studentData.semester,
           photo: studentData.photo,
-          status: "active"
+          status: "active",
+          department: teacherDepartment
         });
       } else {
         toast({
@@ -1057,6 +1076,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           handleAddStudent={handleAddStudent}
           handleEditStudent={handleEditStudent}
           handleDeleteStudent={handleDeleteStudent}
+          teacherDepartment={teacherDepartment}
         />
       ) : section === "exams" ? (
         renderManageExams()
