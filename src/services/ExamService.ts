@@ -264,9 +264,14 @@ export const submitExam = async (
       maxScore,
       warningCount,
       sectionScores: sectionScores.length > 0 ? sectionScores : undefined,
+      percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
     };
     
+    // Update exam status to completed for this student
     await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
+    
+    // Update student's exam status to completed
+    await set(ref(db, `students/${studentId}/exams/${examId}/status`), "completed");
     
     return {
       success: true,
