@@ -1,3 +1,4 @@
+
 import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
@@ -15,8 +16,8 @@ export interface Exam {
   subject: string;
   semester?: string;
   createdBy: string;
-  date: string;
-  time: string;
+  date?: string;  // Made optional
+  time?: string;  // Made optional
   startDate: string;
   endDate: string;
   duration: number;
