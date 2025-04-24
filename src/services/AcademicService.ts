@@ -73,6 +73,10 @@ export const fetchAcademicData = async (departmentId: string): Promise<AcademicD
 
 export const fetchDepartmentSubjects = async (departmentId: string, semester: string): Promise<string[]> => {
   try {
+    if (!departmentId || !semester) {
+      return [];
+    }
+    
     const departmentRef = ref(db, `departments/${departmentId}/subjects/${semester}`);
     const snapshot = await get(departmentRef);
     

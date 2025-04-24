@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Trash, Save, ArrowLeft, Calendar } from "lucide-react";
@@ -97,8 +98,10 @@ export function ExamCreator() {
   useEffect(() => {
     // Fetch semesters when department ID is available
     if (teacherDepartment) {
+      console.log("Fetching academic data for department:", teacherDepartment);
       const loadAcademicData = async () => {
         const data = await fetchAcademicData(teacherDepartment);
+        console.log("Academic data received:", data);
         setAvailableSemesters(data.semesters || []);
       };
       loadAcademicData();
@@ -108,8 +111,10 @@ export function ExamCreator() {
   useEffect(() => {
     // Fetch subjects when semester changes
     if (teacherDepartment && examSemester) {
+      console.log(`Fetching subjects for department ${teacherDepartment} and semester ${examSemester}`);
       const loadSubjects = async () => {
         const subjects = await fetchDepartmentSubjects(teacherDepartment, examSemester);
+        console.log("Subjects received:", subjects);
         setAvailableSubjectsForSemester(subjects);
       };
       loadSubjects();
