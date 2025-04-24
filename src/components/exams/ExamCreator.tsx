@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Trash, Save, ArrowLeft, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { createExam } from "@/services/ExamService";
+import { fetchAcademicData, fetchDepartmentSubjects } from "@/services/AcademicService";
+import { db } from "@/config/firebase";
+import { ref, onValue } from "firebase/database";
 
 type QuestionType = "multiple-choice" | "true-false" | "short-answer";
 
@@ -21,37 +25,98 @@ interface Question {
   options?: string[];
   correctAnswer?: string;
   points: number;
+  section?: string;
+  timeLimit?: number;
 }
 
 export function ExamCreator() {
   const [activeTab, setActiveTab] = useState("details");
   const [examTitle, setExamTitle] = useState("");
   const [examSubject, setExamSubject] = useState("");
+  const [examSemester, setExamSemester] = useState("");
   const [examDuration, setExamDuration] = useState("60");
-  const [examDate, setExamDate] = useState("");
-  const [examTime, setExamTime] = useState("");
+  const [examStartDate, setExamStartDate] = useState("");
+  const [examEndDate, setExamEndDate] = useState("");
+  const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
+  const [availableSubjectsForSemester, setAvailableSubjectsForSemester] = useState<string[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [teacherDepartment, setTeacherDepartment] = useState("");
   const [currentQuestion, setCurrentQuestion] = useState<Question>({
     id: "1",
     type: "multiple-choice",
     text: "",
     options: ["", "", "", ""],
     correctAnswer: "",
-    points: 1
+    points: 1,
+    section: "Section 1",
+    timeLimit: 5
   });
+  const [examSections, setExamSections] = useState([{ id: "section-1", name: "Section 1", timeLimit: 30 }]);
+  const [currentSection, setCurrentSection] = useState("Section 1");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [availableStudents, setAvailableStudents] = useState<{id: string, name: string, photo?: string, semester?: string}[]>([]);
   
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Mock student data
-  const availableStudents = [
-    { id: "1", name: "Alex Johnson" },
-    { id: "2", name: "Emily Chen" },
-    { id: "3", name: "Michael Brown" },
-    { id: "4", name: "Sarah Williams" },
-    { id: "5", name: "James Davis" },
-  ];
+  useEffect(() => {
+    // Get teacher information and department
+    const user = localStorage.getItem('examUser');
+    if (user) {
+      const userData = JSON.parse(user);
+      const teacherRef = ref(db, `users/${userData.id}`);
+      onValue(teacherRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const teacherData = snapshot.val();
+          setTeacherDepartment(teacherData.department || '');
+        }
+      });
+    }
+
+    // Get available students
+    const studentsRef = ref(db, 'users');
+    onValue(studentsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const studentsList: any[] = [];
+        snapshot.forEach((childSnapshot) => {
+          const userData = childSnapshot.val();
+          if (userData.role === 'student') {
+            studentsList.push({
+              id: childSnapshot.key,
+              name: userData.name || 'Unknown Student',
+              photo: userData.photo || '',
+              semester: userData.semester || ''
+            });
+          }
+        });
+        setAvailableStudents(studentsList);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    // Fetch semesters when department ID is available
+    if (teacherDepartment) {
+      const loadAcademicData = async () => {
+        const data = await fetchAcademicData(teacherDepartment);
+        setAvailableSemesters(data.semesters || []);
+      };
+      loadAcademicData();
+    }
+  }, [teacherDepartment]);
+
+  useEffect(() => {
+    // Fetch subjects when semester changes
+    if (teacherDepartment && examSemester) {
+      const loadSubjects = async () => {
+        const subjects = await fetchDepartmentSubjects(teacherDepartment, examSemester);
+        setAvailableSubjectsForSemester(subjects);
+      };
+      loadSubjects();
+    } else {
+      setAvailableSubjectsForSemester([]);
+    }
+  }, [teacherDepartment, examSemester]);
 
   const handleAddQuestion = () => {
     // Validate question
@@ -95,7 +160,9 @@ export function ExamCreator() {
       text: "",
       options: ["", "", "", ""],
       correctAnswer: "",
-      points: 1
+      points: 1,
+      section: currentSection,
+      timeLimit: 5
     });
 
     toast({
@@ -151,15 +218,50 @@ export function ExamCreator() {
     }
   };
 
-  const handleSaveExam = () => {
+  const handleAddSection = () => {
+    const newSectionId = `section-${examSections.length + 1}`;
+    const newSectionName = `Section ${examSections.length + 1}`;
+    setExamSections([...examSections, { id: newSectionId, name: newSectionName, timeLimit: 30 }]);
+    setCurrentSection(newSectionName);
+  };
+
+  const handleSectionTimeLimitChange = (index: number, timeLimit: number) => {
+    const updatedSections = [...examSections];
+    updatedSections[index].timeLimit = timeLimit;
+    setExamSections(updatedSections);
+  };
+
+  const handleSaveExam = async () => {
     // Validate required fields
-    if (!examTitle || !examSubject || !examDuration || !examDate || !examTime) {
+    if (!examTitle || !examSubject || !examDuration || !examStartDate || !examEndDate) {
       toast({
         title: "Missing information",
         description: "Please fill in all required exam details",
         variant: "destructive"
       });
       setActiveTab("details");
+      return;
+    }
+
+    if (!examSemester) {
+      toast({
+        title: "Missing semester",
+        description: "Please select a semester for the exam",
+        variant: "destructive"
+      });
+      setActiveTab("details");
+      return;
+    }
+
+    const startDate = new Date(examStartDate);
+    const endDate = new Date(examEndDate);
+    
+    if (startDate >= endDate) {
+      toast({
+        title: "Invalid dates",
+        description: "End date must be after start date",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -183,13 +285,60 @@ export function ExamCreator() {
       return;
     }
 
-    // In a real app, this would save to Firebase
-    toast({
-      title: "Exam created",
-      description: "The exam has been created and assigned successfully",
-    });
+    // Get user data
+    const user = localStorage.getItem('examUser');
+    if (!user) {
+      toast({
+        title: "Authentication error",
+        description: "Please login again",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const userData = JSON.parse(user);
     
-    navigate("/dashboard");
+    // Prepare sections for API
+    const formattedSections = examSections.map(section => ({
+      id: section.id,
+      name: section.name,
+      timeLimit: section.timeLimit,
+      questions: questions.filter(q => q.section === section.name)
+    }));
+    
+    // Create exam data object
+    const examData = {
+      title: examTitle,
+      subject: examSubject,
+      semester: examSemester,
+      createdBy: userData.id,
+      startDate: examStartDate,
+      endDate: examEndDate,
+      duration: Number(examDuration),
+      status: "scheduled" as const,
+      questions: questions,
+      assignedStudents: selectedStudents,
+      sections: formattedSections,
+      department: teacherDepartment
+    };
+
+    // Submit to API
+    const result = await createExam(examData);
+    
+    if (result.success) {
+      toast({
+        title: "Exam created",
+        description: "The exam has been created and assigned successfully",
+      });
+      
+      navigate("/dashboard");
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to create exam",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleCancel = () => {
@@ -224,17 +373,34 @@ export function ExamCreator() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="examSubject">Subject</Label>
-              <Input
-                id="examSubject"
-                value={examSubject}
-                onChange={(e) => setExamSubject(e.target.value)}
-                placeholder="e.g. Mathematics"
-              />
+              <Label htmlFor="examSemester">Semester</Label>
+              <Select value={examSemester} onValueChange={setExamSemester}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSemesters.map(semester => (
+                    <SelectItem key={semester} value={semester}>{semester}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="examSubject">Subject</Label>
+              <Select value={examSubject} onValueChange={setExamSubject} disabled={!examSemester}>
+                <SelectTrigger>
+                  <SelectValue placeholder={examSemester ? "Select subject" : "Select semester first"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSubjectsForSemester.map(subject => (
+                    <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="examDuration">Duration (minutes)</Label>
               <Input
@@ -245,27 +411,60 @@ export function ExamCreator() {
                 onChange={(e) => setExamDuration(e.target.value)}
               />
             </div>
+          </div>
+          
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="examDate">Date</Label>
-              <div className="relative">
-                <Input
-                  id="examDate"
-                  type="date"
-                  value={examDate}
-                  onChange={(e) => setExamDate(e.target.value)}
-                />
-                <Calendar className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="examTime">Time</Label>
+              <Label htmlFor="examStartDate">Start Date & Time</Label>
               <Input
-                id="examTime"
-                type="time"
-                value={examTime}
-                onChange={(e) => setExamTime(e.target.value)}
+                id="examStartDate"
+                type="datetime-local"
+                value={examStartDate}
+                onChange={(e) => setExamStartDate(e.target.value)}
               />
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="examEndDate">End Date & Time</Label>
+              <Input
+                id="examEndDate"
+                type="datetime-local"
+                value={examEndDate}
+                onChange={(e) => setExamEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <div className="mt-6">
+            <Label className="text-lg font-medium mb-2 block">Exam Sections</Label>
+            <p className="text-sm text-muted-foreground mb-4">
+              Create sections with separate time limits
+            </p>
+            
+            <div className="space-y-4">
+              {examSections.map((section, index) => (
+                <div key={index} className="flex items-center gap-4 p-3 border rounded-md">
+                  <div className="font-medium flex-1">{section.name}</div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor={`section-time-${index}`} className="text-sm whitespace-nowrap">
+                      Time limit (min):
+                    </Label>
+                    <Input
+                      id={`section-time-${index}`}
+                      type="number"
+                      min="1"
+                      value={section.timeLimit}
+                      onChange={(e) => handleSectionTimeLimitChange(index, parseInt(e.target.value) || 1)}
+                      className="w-20"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <Button onClick={handleAddSection} className="mt-3" variant="outline">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Section
+            </Button>
           </div>
           
           <div className="flex justify-end gap-2 pt-4">
@@ -488,18 +687,26 @@ export function ExamCreator() {
               </div>
               
               <div className="space-y-3">
-                {availableStudents.map((student) => (
-                  <div key={student.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
-                    <Checkbox 
-                      id={`student-${student.id}`}
-                      checked={selectedStudents.includes(student.id)}
-                      onCheckedChange={() => handleStudentSelection(student.id)}
-                    />
-                    <Label htmlFor={`student-${student.id}`} className="flex-grow cursor-pointer">
-                      {student.name}
-                    </Label>
-                  </div>
-                ))}
+                {availableStudents
+                  .filter(student => examSemester ? student.semester === examSemester : true)
+                  .map((student) => (
+                    <div key={student.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
+                      <Checkbox 
+                        id={`student-${student.id}`}
+                        checked={selectedStudents.includes(student.id)}
+                        onCheckedChange={() => handleStudentSelection(student.id)}
+                      />
+                      <div className="flex items-center gap-2">
+                        {student.photo && (
+                          <img src={student.photo} alt={student.name} className="h-8 w-8 rounded-full object-cover" />
+                        )}
+                        <Label htmlFor={`student-${student.id}`} className="flex-grow cursor-pointer">
+                          {student.name}
+                        </Label>
+                      </div>
+                    </div>
+                  ))
+                }
               </div>
             </CardContent>
           </Card>

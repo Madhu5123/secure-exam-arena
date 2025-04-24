@@ -70,3 +70,21 @@ export const fetchAcademicData = async (departmentId: string): Promise<AcademicD
     };
   }
 };
+
+export const fetchDepartmentSubjects = async (departmentId: string, semester: string): Promise<string[]> => {
+  try {
+    const departmentRef = ref(db, `departments/${departmentId}/subjects/${semester}`);
+    const snapshot = await get(departmentRef);
+    
+    if (snapshot.exists()) {
+      const subjects = snapshot.val();
+      if (Array.isArray(subjects)) {
+        return subjects.map(subject => subject.name).filter(Boolean);
+      }
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching department subjects:', error);
+    return [];
+  }
+};

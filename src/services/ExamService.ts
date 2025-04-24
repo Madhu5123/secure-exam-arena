@@ -15,8 +15,8 @@ export interface Exam {
   subject: string;
   semester?: string;
   createdBy: string;
-  date: string;
-  time: string;
+  date?: string;
+  time?: string;
   startDate: string;
   endDate: string;
   duration: number;
