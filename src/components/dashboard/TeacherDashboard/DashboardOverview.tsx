@@ -29,23 +29,40 @@ export function DashboardOverview({
   availableSubjects,
   subjectData,
 }: Props) {
+  const examPerformanceData = useMemo(() => [
+    {
+      name: selectedSubject === "All" ? "Average" : selectedSubject,
+      totalStudents: totalAttended,
+      passedStudents: studentsPassed,
+    }
+  ], [selectedSubject, totalAttended, studentsPassed]);
+
+  // Mock data for top students (in a real app, this would come from props)
+  const topStudents = [
+    { name: "John Doe", score: 95 },
+    { name: "Jane Smith", score: 92 },
+    { name: "Alex Johnson", score: 88 }
+  ];
+
   return (
     <div className="space-y-8">
-      {/* Analytics row */}
+      {/* Analytics cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="flex flex-col items-center p-6 rounded-2xl shadow bg-gradient-to-br from-[#F1F0FB] to-[#E5DEFF] border-none">
           <div className="w-12 h-12 flex items-center justify-center rounded-full bg-[#f4f0fa] mb-2 shadow-inner">
             <Book size={28} strokeWidth={1.5} className="text-[#9b87f5]" />
           </div>
           <div className="text-2xl font-semibold text-[#9b87f5]">{totalExams}</div>
-          <div className="text-xs text-[#7E69AB] mt-1 tracking-wide text-center">Total Exams Created</div>
+          <div className="text-xs text-[#7E69AB] mt-1 tracking-wide text-center">
+            {selectedSubject === "All" ? "Total Exams" : `${selectedSubject} Exams`}
+          </div>
         </Card>
         <Card className="flex flex-col items-center p-6 rounded-2xl shadow bg-gradient-to-br from-[#E7F4FB] to-[#D3E4FD] border-none">
           <div className="w-12 h-12 flex items-center justify-center rounded-full bg-[#e5fafd] mb-2 shadow-inner">
             <Calendar size={28} strokeWidth={1.5} className="text-[#33C3F0]" />
           </div>
           <div className="text-2xl font-semibold text-[#33C3F0]">{totalAttended}</div>
-          <div className="text-xs text-[#6E59A5] mt-1 tracking-wide text-center">Exam Attended</div>
+          <div className="text-xs text-[#6E59A5] mt-1 tracking-wide text-center">Students Attended</div>
         </Card>
         <Card className="flex flex-col items-center p-6 rounded-2xl shadow bg-gradient-to-br from-[#EDE7FB] to-[#F1F0FB] border-none">
           <div className="w-12 h-12 flex items-center justify-center rounded-full bg-[#ede7fb] mb-2 shadow-inner">
@@ -55,6 +72,7 @@ export function DashboardOverview({
           <div className="text-xs text-[#a497d7] mt-1 tracking-wide text-center">Students Passed</div>
         </Card>
       </div>
+
       {/* Filters */}
       <div className="flex flex-wrap gap-4 items-center mt-2">
         <div>
@@ -78,28 +96,37 @@ export function DashboardOverview({
           </select>
         </div>
       </div>
+
       {/* Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Exam Performance Chart */}
         <Card className="border rounded-lg p-4 bg-white">
-          <h2 className="text-lg font-bold mb-4 text-[#7E69AB]">Exams by Subject</h2>
+          <h2 className="text-lg font-bold mb-4 text-[#7E69AB]">Exam Performance Analysis</h2>
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={subjectData} layout="vertical" margin={{ left: 20 }}>
+            <BarChart data={examPerformanceData} barGap={20}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" />
-              <YAxis dataKey="subject" type="category" width={100} />
+              <XAxis dataKey="name" />
+              <YAxis />
               <Tooltip />
-              <Bar dataKey="count" fill="#9b87f5" />
+              <Bar dataKey="totalStudents" name="Total Students" fill="#33C3F0" />
+              <Bar dataKey="passedStudents" name="Passed Students" fill="#9b87f5" />
             </BarChart>
           </ResponsiveContainer>
         </Card>
+
+        {/* Top Students */}
         <Card className="border rounded-lg p-4 bg-white">
-          <h2 className="text-lg font-bold mb-4 text-[#7E69AB]">Subject Distribution</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {subjectData.map(({ subject, count }) => (
-              <div key={subject} className="bg-[#F1F0FB] p-3 rounded flex flex-col items-center shadow">
-                <span className="font-semibold text-[#6E59A5]">{subject}</span>
-                <span className="text-2xl text-[#9b87f5]">{count}</span>
-                <span className="text-xs text-muted-foreground">exams</span>
+          <h2 className="text-lg font-bold mb-4 text-[#7E69AB]">Top Performing Students</h2>
+          <div className="space-y-4">
+            {topStudents.map((student, index) => (
+              <div key={student.name} className="flex items-center justify-between p-3 bg-[#F1F0FB] rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 flex items-center justify-center rounded-full bg-[#9b87f5] text-white font-semibold">
+                    {index + 1}
+                  </div>
+                  <span className="font-medium text-[#6E59A5]">{student.name}</span>
+                </div>
+                <span className="text-[#9b87f5] font-bold">{student.score}%</span>
               </div>
             ))}
           </div>
