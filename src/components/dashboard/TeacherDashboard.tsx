@@ -85,18 +85,10 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     const studentsRef = ref(db, 'users');
     const unsubscribeStudents = onValue(studentsRef, (snapshot) => {
       if (snapshot.exists()) {
-        const user = localStorage.getItem('examUser');
-        let teacherDepartment = "";
-        
-        if (user) {
-          const userData = JSON.parse(user);
-          teacherDepartment = userData.department || "";
-        }
-
         const studentsList: any[] = [];
         snapshot.forEach((childSnapshot) => {
           const userData = childSnapshot.val();
-          if (userData.role === 'student' && userData.department === teacherDepartment) {
+          if (userData.role === 'student') {
             studentsList.push({
               id: childSnapshot.key,
               ...userData,
@@ -161,18 +153,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     };
   }, []);
 
-  const openAddStudentDialog = () => {
-    setNewStudent({ 
-      name: "", 
-      email: "", 
-      regNumber: "", 
-      password: "", 
-      photo: "", 
-      semester: "Semester 1" 
-    });
-    setIsAddStudentDialogOpen(true);
-  };
-
   const handleAddStudent = async () => {
     try {
       if (!newStudent.name || !newStudent.email || !newStudent.regNumber || !newStudent.password) {
@@ -184,14 +164,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         return;
       }
 
-      const user = localStorage.getItem('examUser');
-      let teacherDepartment = "";
-      
-      if (user) {
-        const userData = JSON.parse(user);
-        teacherDepartment = userData.department || "";
-      }
-
       const studentData = {
         name: newStudent.name,
         email: newStudent.email,
@@ -200,33 +172,31 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         regNumber: newStudent.regNumber,
         semester: newStudent.semester,
         photo: newStudent.photo,
-        status: "active",
-        department: teacherDepartment
+        status: "active"
       };
       
-      const { success, user: newUser, error } = await registerUser(
+      const { success, user, error } = await registerUser(
         studentData.name,
         studentData.email,
         studentData.password,
         "student"
       );
       
-      if (success && newUser) {
+      if (success && user) {
         toast({
           title: "Student added",
           description: "New student account has been created successfully",
         });
         
-        await set(ref(db, `users/${newUser.id}`), {
-          id: newUser.id,
+        await set(ref(db, `users/${user.id}`), {
+          id: user.id,
           name: studentData.name,
           email: studentData.email,
           role: "student",
           regNumber: studentData.regNumber,
           semester: studentData.semester,
           photo: studentData.photo,
-          status: "active",
-          department: teacherDepartment
+          status: "active"
         });
       } else {
         toast({
@@ -1076,7 +1046,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     <div className="space-y-8 p-6">
       {section === "students" ? (
         <ManageStudents 
-          students={filteredStudents}
+          students={students}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           isAddStudentDialogOpen={isAddStudentDialogOpen}
