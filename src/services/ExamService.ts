@@ -396,10 +396,20 @@ export const getTopStudentsBySubject = async (subject: string) => {
             name: student.name || "Unknown Student",
             email: student.email,
             photo: student.photo || "",
-            semester: student.semester
+            semester: student.semester,
+            department: student.department
           };
         }
       });
+    }
+    
+    // Get logged in teacher's department
+    const user = localStorage.getItem('examUser');
+    let teacherDepartment = null;
+    
+    if (user) {
+      const userData = JSON.parse(user);
+      teacherDepartment = userData.department;
     }
     
     if (subject === "All") {
@@ -430,6 +440,12 @@ export const getTopStudentsBySubject = async (subject: string) => {
       const submissions = exam.submissions || {};
       
       Object.entries(submissions).forEach(([studentId, submission]: [string, any]) => {
+        // Only include students from the teacher's department if department is set
+        const studentDepartment = students[studentId]?.department;
+        if (teacherDepartment && studentDepartment && teacherDepartment !== studentDepartment) {
+          return; // Skip students from other departments
+        }
+        
         if (!studentScores[studentId]) {
           const studentData = students[studentId] || {};
           studentScores[studentId] = {

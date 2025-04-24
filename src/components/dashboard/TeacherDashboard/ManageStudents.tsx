@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { PlusCircle } from "lucide-react";
 import { StudentCard } from "./StudentCard";
+import { useEffect, useState } from "react";
 
 interface ManageStudentsProps {
   students: any[];
@@ -33,7 +34,36 @@ export function ManageStudents({
   handleEditStudent,
   handleDeleteStudent
 }: ManageStudentsProps) {
-  const filteredStudents = students;
+  const [loggedInTeacherDepartment, setLoggedInTeacherDepartment] = useState<string | null>(null);
+  
+  // Get the logged-in teacher's department
+  useEffect(() => {
+    const getUserDepartment = () => {
+      const user = localStorage.getItem('examUser');
+      if (user) {
+        const userData = JSON.parse(user);
+        setLoggedInTeacherDepartment(userData.department || null);
+      }
+    };
+    
+    getUserDepartment();
+  }, []);
+  
+  // Filter students by department and search query
+  const filteredStudents = students.filter(student => {
+    // First filter by department if teacher has a department
+    const departmentMatch = loggedInTeacherDepartment 
+      ? student.department === loggedInTeacherDepartment
+      : true;
+      
+    // Then filter by search query
+    const searchMatch = 
+      student.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.regNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+    return departmentMatch && searchMatch;
+  });
 
   return (
     <div className="space-y-6">
@@ -102,6 +132,18 @@ export function ManageStudents({
                     ))}
                   </select>
                 </div>
+                {loggedInTeacherDepartment && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="department">Department</Label>
+                    <Input
+                      id="department"
+                      value={loggedInTeacherDepartment}
+                      disabled
+                      className="bg-muted"
+                    />
+                    <p className="text-xs text-muted-foreground">Students will be assigned to your department</p>
+                  </div>
+                )}
                 <div className="grid gap-2">
                   <Label htmlFor="studentPhoto">Profile Image (optional)</Label>
                   <Input
