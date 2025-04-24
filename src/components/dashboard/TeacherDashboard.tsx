@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen, Users } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
@@ -1073,7 +1072,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           SEMESTERS={availableSemesters}
           availableSubjects={availableSubjects}
           subjectData={subjectData}
-          topStudents={[]} // This will be replaced with real data
         />
       )}
       

@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useMemo, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Book, Users, Calendar } from "lucide-react";
-import { getTopStudents } from "@/services/ExamService";
+import { getTopStudentsBySubject } from "@/services/ExamService";
 
 type Props = {
   totalExams: number;
@@ -16,7 +16,6 @@ type Props = {
   SEMESTERS: string[];
   availableSubjects: string[];
   subjectData: { subject: string; count: number }[];
-  topStudents: { name: string; score: number }[];
 };
 
 export function DashboardOverview({
@@ -35,26 +34,17 @@ export function DashboardOverview({
   
   useEffect(() => {
     const fetchTopStudents = async () => {
-      // This function would need to be adapted to fetch top students based on subject/semester
       try {
-        if (!selectedSubject || selectedSubject === "All") {
-          // If no specific subject is selected, get general top performers
-          const randomizedTopStudents = [
-            { name: "John Doe", score: 95 },
-            { name: "Jane Smith", score: 92 },
-            { name: "Bob Johnson", score: 88 },
-          ];
-          setTopStudents(randomizedTopStudents);
-          return;
-        }
-        
-        // Get exam ID for the selected subject
-        // In a real implementation, we'd get all exams for the subject and get top students
-        const result = await getTopStudents(selectedSubject);
-        if (result.success) {
-          setTopStudents(result.topStudents);
+        const result = await getTopStudentsBySubject(selectedSubject);
+        if (result.success && result.topStudents) {
+          // Map to the format we need for display
+          const formattedTopStudents = result.topStudents.map(student => ({
+            name: student.name,
+            score: student.averageScore || 0
+          }));
+          setTopStudents(formattedTopStudents);
         } else {
-          // Fallback data
+          // Fallback data in case of error
           setTopStudents([
             { name: "Alex Thompson", score: 91 },
             { name: "Samantha Lee", score: 87 },
