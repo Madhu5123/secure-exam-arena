@@ -1,379 +1,361 @@
-
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { PlusCircle, FileText, Search, Image, BookOpen, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { StatsCard } from "@/components/common/StatsCard";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { format } from "date-fns";
-import { CalendarIcon, ChevronDownIcon, InfoIcon, Plus, Trash2, FileEdit, ArrowRight, Search } from "lucide-react";
-import { createExam } from "@/services/ExamService";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { ref, onValue } from 'firebase/database';
+import { db } from '@/config/firebase';
+import { createExam } from "@/services/ExamService";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { fetchAcademicData } from "@/services/AcademicService";
+import { useNavigate } from "react-router-dom";
 
-// Constants for the subjects based on semester
-const SUBJECTS_BY_SEMESTER = {
-  "Semester 1": ["Mathematics I", "Physics I", "Computer Fundamentals", "English", "Engineering Drawing"],
-  "Semester 2": ["Mathematics II", "Physics II", "Chemistry", "Programming Basics", "Environmental Science"],
-  "Semester 3": ["Data Structures", "Digital Electronics", "Database Systems", "Computer Architecture", "Discrete Mathematics"],
-  "Semester 4": ["Algorithms", "Operating Systems", "Software Engineering", "Web Development", "Computer Networks"],
-  "Semester 5": ["Artificial Intelligence", "Machine Learning", "Computer Graphics", "Information Security", "Cloud Computing"],
-  "Semester 6": ["Data Mining", "Mobile App Development", "Computer Vision", "Natural Language Processing", "IoT Systems"],
-  "Semester 7": ["Blockchain Technology", "Big Data Analytics", "Cryptography", "Quantum Computing", "Robotics"],
-  "Semester 8": ["Advanced AI", "Network Security", "Parallel Computing", "Project Management", "Ethics in Computing"]
-};
-
-interface ManageExamsProps {
-  section?: string;
-}
-
-export function ManageExams({ section }: ManageExamsProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "create" | "manage">("overview");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSemester, setSelectedSemester] = useState<string>("Semester 1");
-  const [selectedSubject, setSelectedSubject] = useState<string>("");
+export function ManageExams() {
+  const [exams, setExams] = useState<any[]>([]);
+  const [isCreateExamDialogOpen, setIsCreateExamDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
   const [examTitle, setExamTitle] = useState("");
-  const [examDate, setExamDate] = useState<Date | undefined>(new Date());
-  const [examTime, setExamTime] = useState("09:00");
+  const [examSubject, setExamSubject] = useState("");
+  const [examSemester, setExamSemester] = useState("Semester 1");
   const [examDuration, setExamDuration] = useState("60");
+  const [examDate, setExamDate] = useState("");
+  const [examTime, setExamTime] = useState("");
+  const [examStartDate, setExamStartDate] = useState("");
+  const [examEndDate, setExamEndDate] = useState("");
   const [questions, setQuestions] = useState<any[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState({
-    text: "",
+    id: "1",
     type: "multiple-choice",
+    text: "",
     options: ["", "", "", ""],
     correctAnswer: "",
-    points: "1"
+    points: 1,
+    section: "Section 1",
+    timeLimit: 5
   });
-  const [isAddingQuestion, setIsAddingQuestion] = useState(false);
-  const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
-  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
-  const [availableStudents, setAvailableStudents] = useState<any[]>([]);
-  const [exams, setExams] = useState<any[]>([]);
-  const [isDateOpen, setIsDateOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [examToDelete, setExamToDelete] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [examSections, setExamSections] = useState([{ id: "section-1", name: "Section 1", timeLimit: 30, questions: [] }]);
+  const [currentSection, setCurrentSection] = useState("Section 1");
+  const [selectedSemester, setSelectedSemester] = useState("All");
+  const [selectedSubject, setSelectedSubject] = useState("All");
+  const [students, setStudents] = useState<any[]>([]);
+  const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
+  const [availableSubjectsAll, setAvailableSubjectsAll] = useState<string[]>([]);
+  const [subjectsBySemester, setSubjectsBySemester] = useState<Record<string, string[]>>({});
+  const [teacherDepartment, setTeacherDepartment] = useState("");
+  const [availableSubjectsForSemester, setAvailableSubjectsForSemester] = useState<string[]>([]);
   const { toast } = useToast();
-  
-  // Add this state to track analytics data
-  const [analytics, setAnalytics] = useState({
-    totalExams: 0,
-    examsAttended: 0,
-    studentsPassed: 0
-  });
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Initialize with first subject from the selected semester
-    if (SUBJECTS_BY_SEMESTER[selectedSemester]?.length > 0) {
-      setSelectedSubject(SUBJECTS_BY_SEMESTER[selectedSemester][0]);
-    }
-    
-    // Mock data for students
-    setAvailableStudents([
-      { id: "1", name: "Alice Johnson", regNumber: "CS2023001", semester: selectedSemester },
-      { id: "2", name: "Bob Smith", regNumber: "CS2023002", semester: selectedSemester },
-      { id: "3", name: "Charlie Brown", regNumber: "CS2023003", semester: selectedSemester },
-      { id: "4", name: "Diana Prince", regNumber: "CS2023004", semester: selectedSemester },
-      { id: "5", name: "Edward Norton", regNumber: "CS2023005", semester: selectedSemester }
-    ]);
-
-    // Mock data for exams with the selected subject filter
-    const mockExams = [
-      { 
-        id: "1", 
-        title: "Midterm Examination", 
-        subject: "Mathematics I", 
-        semester: "Semester 1", 
-        date: "2023-04-15", 
-        time: "09:00", 
-        duration: 120, 
-        status: "completed", 
-        students: 45, 
-        averageScore: 78 
-      },
-      { 
-        id: "2", 
-        title: "Final Examination", 
-        subject: "Physics I", 
-        semester: "Semester 1", 
-        date: "2023-05-20", 
-        time: "10:30", 
-        duration: 180, 
-        status: "scheduled", 
-        students: 42, 
-        averageScore: null 
-      },
-      { 
-        id: "3", 
-        title: "Quiz 1", 
-        subject: "Computer Fundamentals", 
-        semester: "Semester 1", 
-        date: "2023-03-10", 
-        time: "14:00", 
-        duration: 45, 
-        status: "completed", 
-        students: 40, 
-        averageScore: 82 
-      },
-      { 
-        id: "4", 
-        title: "Quiz 2", 
-        subject: "English", 
-        semester: "Semester 1", 
-        date: "2023-04-05", 
-        time: "11:15", 
-        duration: 60, 
-        status: "completed", 
-        students: 38, 
-        averageScore: 75 
-      },
-      { 
-        id: "5", 
-        title: "Practical Exam", 
-        subject: "Engineering Drawing", 
-        semester: "Semester 1", 
-        date: "2023-05-05", 
-        time: "09:00", 
-        duration: 150, 
-        status: "scheduled", 
-        students: 41, 
-        averageScore: null 
-      },
-      { 
-        id: "6", 
-        title: "Midterm Examination", 
-        subject: "Data Structures", 
-        semester: "Semester 3", 
-        date: "2023-04-18", 
-        time: "09:00", 
-        duration: 120, 
-        status: "completed", 
-        students: 38, 
-        averageScore: 72 
-      },
-      { 
-        id: "7", 
-        title: "Quiz 1", 
-        subject: "Operating Systems", 
-        semester: "Semester 4", 
-        date: "2023-03-22", 
-        time: "14:00", 
-        duration: 45, 
-        status: "completed", 
-        students: 36, 
-        averageScore: 68 
+    const loadExams = async () => {
+      const user = localStorage.getItem('examUser');
+      if (user) {
+        const userData = JSON.parse(user);
+        const examsRef = ref(db, 'exams');
+        
+        const unsubscribeExams = onValue(examsRef, async (snapshot) => {
+          if (snapshot.exists()) {
+            const teacherExams: any[] = [];
+            snapshot.forEach((childSnapshot) => {
+              const examData = childSnapshot.val();
+              if (examData.createdBy === userData.id) {
+                teacherExams.push({ 
+                  id: childSnapshot.key, 
+                  ...examData 
+                });
+              }
+            });
+            setExams(teacherExams);
+            console.log("Fetched exams:", teacherExams);
+          } else {
+            setExams([]);
+          }
+        });
+        return () => unsubscribeExams();
       }
-    ];
+      return () => {};
+    };
 
-    // Filter exams based on selected semester and subject
-    const filteredExams = mockExams.filter(exam => 
-      exam.semester === selectedSemester && 
-      (selectedSubject === "" || exam.subject === selectedSubject) &&
-      (searchQuery === "" || 
-       exam.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-       exam.subject.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-    
-    setExams(filteredExams);
+    const loadStudents = async () => {
+      const studentsRef = ref(db, 'users');
+      const unsubscribeStudents = onValue(studentsRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const studentsList: any[] = [];
+          snapshot.forEach((childSnapshot) => {
+            const userData = childSnapshot.val();
+            if (userData.role === 'student') {
+              studentsList.push({
+                id: childSnapshot.key,
+                ...userData,
+                status: userData.status || 'active',
+                semester: userData.semester || "Semester 1",
+                photo: userData.photo || "",
+              });
+            }
+          });
+          setStudents(studentsList);
+        }
+      });
+      return () => unsubscribeStudents();
+    };
 
-    // Update analytics based on the filtered exams
-    const totalExams = filteredExams.length;
-    const attendedExams = filteredExams.filter(exam => exam.status === "completed").length;
-    const passedStudents = filteredExams
-      .filter(exam => exam.status === "completed" && exam.averageScore !== null && exam.averageScore >= 60)
-      .reduce((total, exam) => {
-        // Assuming 60% of students pass if average score is above passing mark
-        return total + Math.round(exam.students * 0.6);
-      }, 0);
+    const loadAcademicData = async () => {
+      const user = localStorage.getItem('examUser');
+      if (user) {
+        const userData = JSON.parse(user);
+        const data = await fetchAcademicData(teacherDepartment);
+        setAvailableSemesters(["All", ...data.semesters]);
+        setSubjectsBySemester(data.subjectsBySemester || {});
+        setAvailableSubjectsAll(["All", ...data.subjects]);
+      }
+    };
 
-    setAnalytics({
-      totalExams,
-      examsAttended: attendedExams,
-      studentsPassed: passedStudents
-    });
-    
-  }, [selectedSemester, selectedSubject, searchQuery]);
+    const fetchTeacherDepartment = async () => {
+      const user = localStorage.getItem('examUser');
+      if (user) {
+        const userData = JSON.parse(user);
+        const teacherRef = ref(db, `users/${userData.id}`);
+        onValue(teacherRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const teacherData = snapshot.val();
+            setTeacherDepartment(teacherData.department || '');
+          }
+        });
+      }
+    };
+
+    loadExams();
+    loadStudents();
+    loadAcademicData();
+    fetchTeacherDepartment();
+  }, [teacherDepartment]);
 
   useEffect(() => {
-    // Set active tab based on the section prop
-    if (section) {
-      switch (section) {
-        case "create":
-          setActiveTab("create");
-          break;
-        case "manage":
-          setActiveTab("manage");
-          break;
-        default:
-          setActiveTab("overview");
-      }
-    }
-  }, [section]);
-
-  const handleSemesterChange = (value: string) => {
-    setSelectedSemester(value);
-    // Reset subject when semester changes
-    if (SUBJECTS_BY_SEMESTER[value]?.length > 0) {
-      setSelectedSubject(SUBJECTS_BY_SEMESTER[value][0]);
+    if (examSemester && subjectsBySemester[examSemester]) {
+      setAvailableSubjectsForSemester(subjectsBySemester[examSemester]);
+      setExamSubject(""); // Reset subject when semester changes
     } else {
-      setSelectedSubject("");
+      setAvailableSubjectsForSemester([]);
     }
+  }, [examSemester, subjectsBySemester]);
+
+  const handleAddSection = () => {
+    const newSectionId = `section-${examSections.length + 1}`;
+    const newSectionName = `Section ${examSections.length + 1}`;
+    setExamSections([...examSections, { id: newSectionId, name: newSectionName, timeLimit: 30, questions: [] }]);
+  };
+
+  const handleSectionTimeLimitChange = (index: number, timeLimit: number) => {
+    const updatedSections = [...examSections];
+    updatedSections[index].timeLimit = timeLimit;
+    setExamSections(updatedSections);
   };
 
   const handleAddQuestion = () => {
-    if (currentQuestion.text.trim() === "") {
+    if (!currentQuestion.text) {
       toast({
-        title: "Error",
-        description: "Question text cannot be empty.",
+        title: "Incomplete question",
+        description: "Please add question text",
         variant: "destructive"
       });
       return;
     }
 
-    if (currentQuestion.type === "multiple-choice" && 
-        (!currentQuestion.options.every(option => option.trim() !== "") || 
-         currentQuestion.correctAnswer.trim() === "")) {
-      toast({
-        title: "Error",
-        description: "All options must be filled and correct answer must be selected.",
-        variant: "destructive"
-      });
-      return;
+    if (currentQuestion.type === "multiple-choice") {
+      if (!currentQuestion.options?.every(option => option.trim())) {
+        toast({
+          title: "Incomplete options",
+          description: "Please fill in all options",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (!currentQuestion.correctAnswer) {
+        toast({
+          title: "Missing correct answer",
+          description: "Please select the correct answer",
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
-    if (editingQuestionIndex !== null) {
-      // Update existing question
-      const updatedQuestions = [...questions];
-      updatedQuestions[editingQuestionIndex] = {...currentQuestion};
-      setQuestions(updatedQuestions);
-      setEditingQuestionIndex(null);
-    } else {
-      // Add new question
-      setQuestions([...questions, {...currentQuestion}]);
+    setQuestions([...questions, { ...currentQuestion }]);
+    
+    const updatedSections = [...examSections];
+    const currentSectionIndex = updatedSections.findIndex(s => s.name === currentSection);
+    
+    if (currentSectionIndex !== -1) {
+      if (!updatedSections[currentSectionIndex].questions) {
+        updatedSections[currentSectionIndex].questions = [];
+      }
+      updatedSections[currentSectionIndex].questions.push({ ...currentQuestion });
+      setExamSections(updatedSections);
     }
-
-    // Reset current question
+    
+    const newId = String(questions.length + 2);
     setCurrentQuestion({
-      text: "",
+      id: newId,
       type: "multiple-choice",
+      text: "",
       options: ["", "", "", ""],
       correctAnswer: "",
-      points: "1"
+      points: 1,
+      section: currentSection,
+      timeLimit: 5
     });
-    setIsAddingQuestion(false);
+
+    toast({
+      title: "Question added",
+      description: `Question ${questions.length + 1} added to ${currentSection}`,
+    });
   };
 
-  const handleEditQuestion = (index: number) => {
-    setCurrentQuestion({...questions[index]});
-    setEditingQuestionIndex(index);
-    setIsAddingQuestion(true);
-  };
-
-  const handleDeleteQuestion = (index: number) => {
-    const updatedQuestions = questions.filter((_, i) => i !== index);
-    setQuestions(updatedQuestions);
+  const handleQuestionTypeChange = (type: "multiple-choice" | "short-answer") => {
+    let newQuestion = { ...currentQuestion, type };
+    
+    if (type === "multiple-choice") {
+      newQuestion.options = ["", "", "", ""];
+      newQuestion.correctAnswer = "";
+    } else {
+      delete newQuestion.options;
+      newQuestion.correctAnswer = "";
+    }
+    
+    setCurrentQuestion(newQuestion);
   };
 
   const handleOptionChange = (index: number, value: string) => {
-    const updatedOptions = [...currentQuestion.options];
-    updatedOptions[index] = value;
-    setCurrentQuestion({...currentQuestion, options: updatedOptions});
+    const newOptions = [...(currentQuestion.options || [])];
+    newOptions[index] = value;
+    setCurrentQuestion({ ...currentQuestion, options: newOptions });
   };
 
-  const handleCreateExam = async () => {
-    if (!examTitle.trim()) {
-      toast({
-        title: "Error",
-        description: "Exam title is required.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!selectedSubject) {
-      toast({
-        title: "Error",
-        description: "Please select a subject.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!examDate) {
-      toast({
-        title: "Error",
-        description: "Exam date is required.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (questions.length === 0) {
-      toast({
-        title: "Error",
-        description: "At least one question is required.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (selectedStudents.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please select at least one student.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Format date for submission
-    const formattedDate = format(examDate, "yyyy-MM-dd");
-
-    const examData = {
-      title: examTitle,
-      subject: selectedSubject,
-      semester: selectedSemester,
-      createdBy: "teacher_id", // This would come from authentication
-      date: formattedDate,
-      time: examTime,
-      duration: parseInt(examDuration),
-      status: "scheduled" as const,
-      questions: questions.map(q => ({
-        ...q,
-        points: parseInt(q.points)
-      })),
-      assignedStudents: selectedStudents
-    };
-
+  const handleSaveExam = async () => {
     try {
+      if (!examTitle || !examSubject || !examDuration || !examDate || !examTime) {
+        toast({
+          title: "Missing information",
+          description: "Please fill in all required exam details",
+          variant: "destructive"
+        });
+        setActiveTab("details");
+        return;
+      }
+
+      if (!examStartDate || !examEndDate) {
+        toast({
+          title: "Missing dates",
+          description: "Please set both start and end dates for the exam",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const startDate = new Date(examStartDate);
+      const endDate = new Date(examEndDate);
+      
+      if (startDate >= endDate) {
+        toast({
+          title: "Invalid dates",
+          description: "End date must be after start date",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (questions.length === 0) {
+        toast({
+          title: "No questions",
+          description: "Please add at least one question to the exam",
+          variant: "destructive"
+        });
+        setActiveTab("questions");
+        return;
+      }
+
+      if (selectedStudents.length === 0) {
+        toast({
+          title: "No students assigned",
+          description: "Please assign this exam to at least one student",
+          variant: "destructive"
+        });
+        setActiveTab("students");
+        return;
+      }
+
+      const user = localStorage.getItem('examUser');
+      if (!user) {
+        toast({
+          title: "Authentication error",
+          description: "Please login again",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const userData = JSON.parse(user);
+      
+      const formattedSections = examSections.map(section => {
+        const sectionQuestions = questions.filter(q => q.section === section.name);
+        return {
+          id: section.id,
+          name: section.name,
+          timeLimit: section.timeLimit,
+          questions: sectionQuestions
+        };
+      });
+      
+      const examData = {
+        title: examTitle,
+        subject: examSubject,
+        semester: examSemester,
+        createdBy: userData.id,
+        date: examDate,
+        time: examTime,
+        startDate: examStartDate,  // Add startDate property
+        endDate: examEndDate,      // Add endDate property
+        duration: Number(examDuration),
+        status: "scheduled" as "draft" | "scheduled" | "active" | "completed",
+        questions: questions,
+        assignedStudents: selectedStudents,
+        sections: formattedSections,
+        department: teacherDepartment
+      };
+
       const result = await createExam(examData);
       
       if (result.success) {
         toast({
-          title: "Success",
-          description: "Exam created successfully!",
+          title: "Exam created",
+          description: "The exam has been created and assigned successfully",
         });
         
-        // Reset form
         setExamTitle("");
-        setExamDate(new Date());
-        setExamTime("09:00");
+        setExamSubject("");
         setExamDuration("60");
+        setExamDate("");
+        setExamTime("");
+        setExamStartDate("");
+        setExamEndDate("");
         setQuestions([]);
         setSelectedStudents([]);
-        
-        // Switch to manage tab
-        setActiveTab("manage");
+        setExamSections([{ id: "section-1", name: "Section 1", timeLimit: 30, questions: [] }]);
+        setIsCreateExamDialogOpen(false);
       } else {
         toast({
           title: "Error",
-          description: result.error || "Failed to create exam.",
+          description: result.error || "Failed to create exam",
           variant: "destructive"
         });
       }
@@ -381,788 +363,476 @@ export function ManageExams({ section }: ManageExamsProps) {
       console.error("Error creating exam:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred.",
+        description: "Failed to create exam. Please try again.",
         variant: "destructive"
       });
     }
   };
 
-  const handleDeleteExam = (examId: string) => {
-    setExamToDelete(examId);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const confirmDeleteExam = () => {
-    // Here you would call your API to delete the exam
-    // For now, we'll just update the state
-    setExams(exams.filter(exam => exam.id !== examToDelete));
-    setIsDeleteDialogOpen(false);
-    setExamToDelete(null);
-    
-    toast({
-      title: "Success",
-      description: "Exam deleted successfully!",
-    });
-  };
-
-  const renderOverviewTab = () => {
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-primary">Exam Dashboard</h2>
-            <p className="text-muted-foreground">Manage your exams and monitor student performance</p>
-          </div>
-          
-          <div className="flex gap-3">
-            <Select value={selectedSemester} onValueChange={handleSemesterChange}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select Semester" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.keys(SUBJECTS_BY_SEMESTER).map((semester) => (
-                  <SelectItem key={semester} value={semester}>
-                    {semester}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select Subject" />
-              </SelectTrigger>
-              <SelectContent>
-                {SUBJECTS_BY_SEMESTER[selectedSemester]?.map((subject) => (
-                  <SelectItem key={subject} value={subject}>
-                    {subject}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        
-        {/* Analytics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xl text-primary">Total Exams</CardTitle>
-              <CardDescription>All exams for selected subject</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-primary">{analytics.totalExams}</div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Created for {selectedSubject || "all subjects"}
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xl text-primary">Exams Conducted</CardTitle>
-              <CardDescription>Completed examinations</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-primary">{analytics.examsAttended}</div>
-              <p className="text-sm text-muted-foreground mt-1">
-                {((analytics.examsAttended / analytics.totalExams) * 100 || 0).toFixed(0)}% completion rate
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xl text-primary">Students Passed</CardTitle>
-              <CardDescription>Success rate analysis</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-primary">{analytics.studentsPassed}</div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Average pass rate: 72%
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Recent Exams Section */}
-        <div>
-          <h3 className="text-xl font-semibold mb-4">Recent Exams</h3>
-          <div className="space-y-4">
-            {exams.slice(0, 4).map(exam => (
-              <Card key={exam.id} className="overflow-hidden transition-all hover:shadow-md">
-                <div className="flex flex-col md:flex-row">
-                  <div className="md:w-3/4 p-4">
-                    <h4 className="font-semibold text-lg">{exam.title}</h4>
-                    <p className="text-sm text-muted-foreground">{exam.subject} • {exam.semester}</p>
-                    <div className="flex items-center gap-x-2 mt-2">
-                      <div className="flex items-center text-sm">
-                        <CalendarIcon className="mr-1 h-4 w-4" />
-                        {exam.date} at {exam.time}
-                      </div>
-                      <div className="text-sm">
-                        Duration: {exam.duration} mins
-                      </div>
-                    </div>
-                  </div>
-                  <div className="md:w-1/4 flex items-center justify-end p-4 bg-slate-50/50">
-                    <div className="flex flex-col items-end gap-2">
-                      {exam.status === "completed" ? (
-                        <Badge className="px-3 py-1 bg-green-500 text-white">Completed</Badge>
-                      ) : (
-                        <Badge className="px-3 py-1 bg-blue-500 text-white">Scheduled</Badge>
-                      )}
-                      {exam.status === "completed" && (
-                        <div className="text-sm font-medium">Avg: {exam.averageScore}%</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-          <div className="mt-4">
-            <Button 
-              variant="outline" 
-              className="w-full flex justify-center items-center gap-2"
-              onClick={() => setActiveTab("manage")}
-            >
-              View All Exams <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        
-        {/* Quick Actions */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <Button 
-            className="flex-1 py-6 flex flex-col gap-2" 
-            onClick={() => setActiveTab("create")}
-          >
-            <Plus className="h-5 w-5" />
-            <span>Create New Exam</span>
-          </Button>
-          <Button 
-            className="flex-1 py-6 flex flex-col gap-2" 
-            variant="outline"
-            onClick={() => setActiveTab("manage")}
-          >
-            <FileEdit className="h-5 w-5" />
-            <span>Manage Exams</span>
-          </Button>
-        </div>
-      </div>
+  const handleStudentSelection = (studentId: string) => {
+    setSelectedStudents(
+      selectedStudents.includes(studentId)
+        ? selectedStudents.filter(id => id !== studentId)
+        : [...selectedStudents, studentId]
     );
   };
 
-  const renderCreateTab = () => {
-    return (
-      <div className="space-y-6">
+  const handleSelectAllStudents = (semesterFilter: string) => {
+    const semesterStudents = students
+      .filter(student => semesterFilter === "All" || student.semester === semesterFilter)
+      .map(student => student.id);
+    
+    if (selectedStudents.length === semesterStudents.length) {
+      setSelectedStudents([]);
+    } else {
+      setSelectedStudents(semesterStudents);
+    }
+  };
+
+  const handleMonitorExam = (examId: string) => {
+    navigate(`/exam/monitor/${examId}`);
+  };
+
+  const filteredExams = exams.filter((exam) => {
+    const bySemester = selectedSemester === "All" || exam.semester === selectedSemester;
+    const bySubject = selectedSubject === "All" || exam.subject === selectedSubject;
+    return bySemester && bySubject;
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
         <div>
-          <h2 className="text-3xl font-bold text-primary">Create New Exam</h2>
-          <p className="text-muted-foreground">Set up a new examination for your students</p>
+          <h2 className="text-2xl font-bold">Manage Exams</h2>
+          <p className="text-muted-foreground">Create, schedule and monitor exams</p>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Exam Details</h3>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="examTitle" className="block text-sm font-medium mb-1">
-                    Exam Title
-                  </label>
-                  <Input
-                    id="examTitle"
-                    placeholder="e.g., Midterm Examination"
-                    value={examTitle}
-                    onChange={(e) => setExamTitle(e.target.value)}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="examSemester" className="block text-sm font-medium mb-1">
-                      Semester
-                    </label>
-                    <Select value={selectedSemester} onValueChange={handleSemesterChange}>
-                      <SelectTrigger id="examSemester">
-                        <SelectValue placeholder="Select Semester" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.keys(SUBJECTS_BY_SEMESTER).map((semester) => (
-                          <SelectItem key={semester} value={semester}>
-                            {semester}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="examSubject" className="block text-sm font-medium mb-1">
-                      Subject
-                    </label>
-                    <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                      <SelectTrigger id="examSubject">
-                        <SelectValue placeholder="Select Subject" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SUBJECTS_BY_SEMESTER[selectedSemester]?.map((subject) => (
-                          <SelectItem key={subject} value={subject}>
-                            {subject}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Exam Date
-                    </label>
-                    <Popover open={isDateOpen} onOpenChange={setIsDateOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {examDate ? format(examDate, "PPP") : "Select date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={examDate}
-                          onSelect={(date) => {
-                            setExamDate(date);
-                            setIsDateOpen(false);
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="examTime" className="block text-sm font-medium mb-1">
-                      Start Time
-                    </label>
-                    <Input
-                      id="examTime"
-                      type="time"
-                      value={examTime}
-                      onChange={(e) => setExamTime(e.target.value)}
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="examDuration" className="block text-sm font-medium mb-1">
-                    Duration (minutes)
-                  </label>
-                  <Input
-                    id="examDuration"
-                    type="number"
-                    min="10"
-                    max="300"
-                    value={examDuration}
-                    onChange={(e) => setExamDuration(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Assign Students</h3>
-              <div className="space-y-4">
-                <div className="border rounded-lg p-4 max-h-60 overflow-y-auto">
-                  {availableStudents.length > 0 ? (
-                    availableStudents.map(student => (
-                      <div key={student.id} className="flex items-center mb-2">
-                        <input 
-                          type="checkbox"
-                          id={`student-${student.id}`}
-                          className="mr-2 rounded text-primary focus:ring-primary"
-                          checked={selectedStudents.includes(student.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedStudents([...selectedStudents, student.id]);
-                            } else {
-                              setSelectedStudents(selectedStudents.filter(id => id !== student.id));
-                            }
-                          }}
-                        />
-                        <label htmlFor={`student-${student.id}`} className="flex-1">
-                          <span className="font-medium">{student.name}</span>
-                          <span className="text-sm text-muted-foreground block">{student.regNumber}</span>
-                        </label>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-center text-muted-foreground">No students available for the selected semester</p>
-                  )}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Selected {selectedStudents.length} of {availableStudents.length} students
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Questions</h3>
+        <div className="flex gap-2 w-full md:w-auto">
+          <Input
+            placeholder="Search exams..."
+            className="md:w-64"
+          />
+          <Dialog open={isCreateExamDialogOpen} onOpenChange={setIsCreateExamDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Create Exam
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Exam</DialogTitle>
+                <DialogDescription>
+                  Create a new exam with sections, questions and assign to students
+                </DialogDescription>
+              </DialogHeader>
               
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    onClick={() => {
-                      setIsAddingQuestion(true);
-                      setEditingQuestionIndex(null);
-                      setCurrentQuestion({
-                        text: "",
-                        type: "multiple-choice",
-                        options: ["", "", "", ""],
-                        correctAnswer: "",
-                        points: "1"
-                      });
-                    }}
-                  >
-                    Add Question
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[600px]">
-                  <DialogHeader>
-                    <DialogTitle>
-                      {editingQuestionIndex !== null ? "Edit Question" : "Add New Question"}
-                    </DialogTitle>
-                    <DialogDescription>
-                      Create a question for your exam. Configure the question type, options, and correct answer.
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <div className="space-y-4 py-4">
-                    <div>
-                      <label htmlFor="questionText" className="block text-sm font-medium mb-1">
-                        Question Text
-                      </label>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="details">Exam Details</TabsTrigger>
+                  <TabsTrigger value="questions">Questions</TabsTrigger>
+                  <TabsTrigger value="students">Assign Students</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="details" className="pt-6 space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="examTitle">Exam Title</Label>
                       <Input
-                        id="questionText"
-                        value={currentQuestion.text}
-                        onChange={(e) => setCurrentQuestion({...currentQuestion, text: e.target.value})}
-                        placeholder="Enter your question here"
+                        id="examTitle"
+                        value={examTitle}
+                        onChange={(e) => setExamTitle(e.target.value)}
+                        placeholder="e.g. Mid-term Mathematics"
                       />
                     </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="examSubject">Subject</Label>
+                      <Select value={examSubject} onValueChange={setExamSubject}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select subject" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableSubjectsAll.slice(1).map(subject => (
+                            <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="examSemester">Semester</Label>
+                      <Select value={examSemester} onValueChange={setExamSemester}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select semester" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableSemesters.slice(1).map(semester => (
+                            <SelectItem key={semester} value={semester}>{semester}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="examDuration">Total Duration (minutes)</Label>
+                      <Input
+                        id="examDuration"
+                        type="number"
+                        min="1"
+                        value={examDuration}
+                        onChange={(e) => setExamDuration(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="examDate">Date</Label>
+                      <Input
+                        id="examDate"
+                        type="date"
+                        value={examDate}
+                        onChange={(e) => setExamDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="examTime">Time</Label>
+                      <Input
+                        id="examTime"
+                        type="time"
+                        value={examTime}
+                        onChange={(e) => setExamTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="examStartDate">Start Date</Label>
+                      <Input
+                        id="examStartDate"
+                        type="datetime-local"
+                        value={examStartDate}
+                        onChange={(e) => setExamStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="examEndDate">End Date</Label>
+                      <Input
+                        id="examEndDate"
+                        type="datetime-local"
+                        value={examEndDate}
+                        onChange={(e) => setExamEndDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6">
+                    <Label className="text-lg font-medium mb-2 block">Exam Sections</Label>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Create sections with separate time limits
+                    </p>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-4">
+                      {examSections.map((section, index) => (
+                        <div key={index} className="flex items-center gap-4 p-3 border rounded-md">
+                          <div className="font-medium flex-1">{section.name}</div>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`section-time-${index}`} className="text-sm whitespace-nowrap">
+                              Time limit (min):
+                            </Label>
+                            <Input
+                              id={`section-time-${index}`}
+                              type="number"
+                              min="1"
+                              value={section.timeLimit}
+                              onChange={(e) => handleSectionTimeLimitChange(index, parseInt(e.target.value) || 1)}
+                              className="w-20"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <Button onClick={handleAddSection} className="mt-3" variant="outline">
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Add Section
+                    </Button>
+                  </div>
+                  
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button variant="outline" onClick={() => setIsCreateExamDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={() => setActiveTab("questions")}>
+                      Next: Add Questions
+                    </Button>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="questions" className="pt-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-xl font-semibold">Current Questions ({questions.length})</h2>
                       <div>
-                        <label htmlFor="questionType" className="block text-sm font-medium mb-1">
-                          Question Type
-                        </label>
-                        <Select 
-                          value={currentQuestion.type}
-                          onValueChange={(value) => setCurrentQuestion({...currentQuestion, type: value})}
+                        <Label htmlFor="questionSection" className="mr-2">Section:</Label>
+                        <select 
+                          id="questionSection"
+                          value={currentSection}
+                          onChange={(e) => setCurrentSection(e.target.value)}
+                          className="border rounded px-2 py-1 bg-background"
                         >
-                          <SelectTrigger id="questionType">
-                            <SelectValue placeholder="Select type" />
+                          {examSections.map((section) => (
+                            <option key={section.name} value={section.name}>
+                              {section.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    
+                    {questions.length > 0 ? (
+                      <div className="space-y-4">
+                        {questions.map((question, index) => (
+                          <Card key={question.id}>
+                            <CardHeader className="pb-2 flex flex-row items-start justify-between">
+                              <div>
+                                <CardTitle className="text-base">Question {index + 1}</CardTitle>
+                                <div className="flex gap-2 text-xs text-muted-foreground">
+                                  <span className="uppercase">{question.type}</span>
+                                  <span>•</span>
+                                  <span>{question.section}</span>
+                                  <span>•</span>
+                                  <span>{question.points} {question.points === 1 ? "point" : "points"}</span>
+                                </div>
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                                onClick={() => setQuestions(questions.filter(q => q.id !== question.id))}
+                              >
+                                <FileText className="h-4 w-4" />
+                              </Button>
+                            </CardHeader>
+                            <CardContent>
+                              <p className="font-medium">{question.text}</p>
+                              
+                              {question.type === "multiple-choice" && (
+                                <div className="mt-2 space-y-1">
+                                  {question.options?.map((option, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                      <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs ${
+                                        question.correctAnswer === String(i) ? "bg-primary text-white" : "border"
+                                      }`}>
+                                        {question.correctAnswer === String(i) && "✓"}
+                                      </div>
+                                      <span>{option}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {question.type === "short-answer" && (
+                                <div className="mt-2 text-sm text-muted-foreground">
+                                  Answer: {question.correctAnswer}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <Card className="p-6 text-center text-muted-foreground">
+                        <p>No questions added yet. Add your first question below.</p>
+                      </Card>
+                    )}
+                  </div>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Add New Question to {currentSection}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="questionType">Question Type</Label>
+                        <Select 
+                          value={currentQuestion.type} 
+                          onValueChange={(val) => handleQuestionTypeChange(val as "multiple-choice" | "short-answer")}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select question type" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
-                            <SelectItem value="true-false">True/False</SelectItem>
                             <SelectItem value="short-answer">Short Answer</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       
-                      <div>
-                        <label htmlFor="questionPoints" className="block text-sm font-medium mb-1">
-                          Points
-                        </label>
-                        <Input
-                          id="questionPoints"
-                          type="number"
-                          min="1"
-                          max="20"
-                          value={currentQuestion.points}
-                          onChange={(e) => setCurrentQuestion({...currentQuestion, points: e.target.value})}
+                      <div className="grid gap-2">
+                        <Label htmlFor="questionText">Question Text</Label>
+                        <Textarea
+                          id="questionText"
+                          placeholder="Enter your question here"
+                          value={currentQuestion.text}
+                          onChange={(e) => setCurrentQuestion({ ...currentQuestion, text: e.target.value })}
+                          rows={3}
                         />
                       </div>
-                    </div>
-                    
-                    {currentQuestion.type === "multiple-choice" && (
-                      <div className="space-y-3">
-                        <label className="block text-sm font-medium">
-                          Options
-                        </label>
-                        {currentQuestion.options.map((option, index) => (
-                          <div key={index} className="flex gap-2 items-center">
+                      
+                      {currentQuestion.type === "multiple-choice" && (
+                        <div className="space-y-4">
+                          <Label>Options</Label>
+                          <div className="space-y-2">
+                            {currentQuestion.options?.map((option, index) => (
+                              <div key={index} className="flex gap-2 items-center">
+                                <RadioGroup 
+                                  value={currentQuestion.correctAnswer} 
+                                  onValueChange={(val) => setCurrentQuestion({ ...currentQuestion, correctAnswer: val })}
+                                  className="flex-shrink-0"
+                                >
+                                  <RadioGroupItem value={String(index)} id={`option-${index}`} />
+                                </RadioGroup>
+                                <Input
+                                  placeholder={`Option ${index + 1}`}
+                                  value={option}
+                                  onChange={(e) => handleOptionChange(index, e.target.value)}
+                                  className="flex-grow"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {currentQuestion.type === "short-answer" && (
+                          <div className="grid gap-2">
+                            <Label htmlFor="correctAnswer">Correct Answer</Label>
                             <Input
-                              value={option}
-                              onChange={(e) => handleOptionChange(index, e.target.value)}
-                              placeholder={`Option ${index + 1}`}
-                            />
-                            <input 
-                              type="radio"
-                              name="correctAnswer"
-                              checked={currentQuestion.correctAnswer === option}
-                              onChange={() => setCurrentQuestion({...currentQuestion, correctAnswer: option})}
-                              className="ml-2"
+                              id="correctAnswer"
+                              placeholder="Enter the correct answer"
+                              value={currentQuestion.correctAnswer || ""}
+                              onChange={(e) => setCurrentQuestion({ ...currentQuestion, correctAnswer: e.target.value })}
                             />
                           </div>
-                        ))}
-                        <p className="text-xs text-muted-foreground">
-                          Select the radio button next to the correct answer
-                        </p>
-                      </div>
-                    )}
-                    
-                    {currentQuestion.type === "true-false" && (
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium">
-                          Correct Answer
-                        </label>
-                        <div className="flex gap-4">
-                          <div className="flex items-center">
-                            <input 
-                              type="radio"
-                              id="answerTrue"
-                              name="tfAnswer"
-                              value="True"
-                              checked={currentQuestion.correctAnswer === "True"}
-                              onChange={() => setCurrentQuestion({...currentQuestion, correctAnswer: "True"})}
-                              className="mr-2"
+                        )}
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="questionPoints">Points</Label>
+                            <Input
+                              id="questionPoints"
+                              type="number"
+                              min="1"
+                              value={currentQuestion.points}
+                              onChange={(e) => setCurrentQuestion({ ...currentQuestion, points: Number(e.target.value) || 1 })}
+                              className="w-full"
                             />
-                            <label htmlFor="answerTrue">True</label>
                           </div>
-                          <div className="flex items-center">
-                            <input 
-                              type="radio"
-                              id="answerFalse"
-                              name="tfAnswer"
-                              value="False"
-                              checked={currentQuestion.correctAnswer === "False"}
-                              onChange={() => setCurrentQuestion({...currentQuestion, correctAnswer: "False"})}
-                              className="mr-2"
+                          <div className="grid gap-2">
+                            <Label htmlFor="questionTimeLimit">Time Limit (min)</Label>
+                            <Input
+                              id="questionTimeLimit"
+                              type="number"
+                              min="1"
+                              value={currentQuestion.timeLimit}
+                              onChange={(e) => setCurrentQuestion({ ...currentQuestion, timeLimit: Number(e.target.value) || 1 })}
+                              className="w-full"
                             />
-                            <label htmlFor="answerFalse">False</label>
                           </div>
                         </div>
-                      </div>
-                    )}
-                    
-                    {currentQuestion.type === "short-answer" && (
-                      <div>
-                        <label htmlFor="shortAnswerKey" className="block text-sm font-medium mb-1">
-                          Answer Key
-                        </label>
-                        <Input
-                          id="shortAnswerKey"
-                          value={currentQuestion.correctAnswer}
-                          onChange={(e) => setCurrentQuestion({...currentQuestion, correctAnswer: e.target.value})}
-                          placeholder="Enter the expected answer"
-                        />
-                      </div>
-                    )}
-                  </div>
-                  
-                  <DialogFooter>
-                    <Button onClick={handleAddQuestion}>
-                      {editingQuestionIndex !== null ? "Update Question" : "Add Question"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-            
-            <div className="space-y-4">
-              {questions.length > 0 ? (
-                questions.map((question, index) => (
-                  <div key={index} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <span className="font-medium">Question {index + 1}</span>
-                        <span className="ml-2 text-sm text-muted-foreground">
-                          {question.points} {parseInt(question.points) === 1 ? "point" : "points"}
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          onClick={() => handleEditQuestion(index)}
-                        >
-                          <FileEdit className="h-4 w-4" />
+                        
+                        <Button onClick={handleAddQuestion} className="mt-2">
+                          <PlusCircle className="h-4 w-4 mr-2" />
+                          Add Question
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          onClick={() => handleDeleteQuestion(index)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                    <p className="mt-2">{question.text}</p>
+                      </CardContent>
+                    </Card>
                     
-                    {question.type === "multiple-choice" && (
-                      <div className="mt-3 space-y-1">
-                        {question.options.map((option, i) => (
-                          <div key={i} className="flex items-center">
-                            <div className={`w-4 h-4 rounded-full border mr-2 flex items-center justify-center
-                              ${option === question.correctAnswer ? "bg-primary border-primary" : "border-gray-300"}`}>
-                              {option === question.correctAnswer && (
-                                <div className="w-2 h-2 rounded-full bg-white" />
-                              )}
-                            </div>
-                            <span>{option}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {question.type === "true-false" && (
-                      <div className="mt-3 flex gap-4">
-                        <div className="flex items-center">
-                          <div className={`w-4 h-4 rounded-full border mr-2 
-                            ${question.correctAnswer === "True" ? "bg-primary border-primary" : "border-gray-300"}`}>
-                            {question.correctAnswer === "True" && (
-                              <div className="w-2 h-2 rounded-full bg-white" />
-                            )}
-                          </div>
-                          <span>True</span>
-                        </div>
-                        <div className="flex items-center">
-                          <div className={`w-4 h-4 rounded-full border mr-2 
-                            ${question.correctAnswer === "False" ? "bg-primary border-primary" : "border-gray-300"}`}>
-                            {question.correctAnswer === "False" && (
-                              <div className="w-2 h-2 rounded-full bg-white" />
-                            )}
-                          </div>
-                          <span>False</span>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {question.type === "short-answer" && (
-                      <div className="mt-3">
-                        <p className="text-sm text-muted-foreground">
-                          Expected answer: <span className="font-medium">{question.correctAnswer}</span>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="border border-dashed rounded-lg p-8 text-center">
-                  <p className="text-muted-foreground mb-4">No questions added yet</p>
-                  <Button 
-                    variant="outline"
-                    onClick={() => {
-                      setIsAddingQuestion(true);
-                      setEditingQuestionIndex(null);
-                    }}
-                  >
-                    Add Your First Question
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button variant="outline" onClick={() => setActiveTab("overview")}>
-            Cancel
-          </Button>
-          <Button onClick={handleCreateExam}>
-            Create Exam
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
-  const renderManageTab = () => {
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-          <div>
-            <h2 className="text-3xl font-bold text-primary">Manage Exams</h2>
-            <p className="text-muted-foreground">View, edit and monitor all your examinations</p>
-          </div>
-          
-          <div className="flex gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search exams..."
-                className="pl-10 w-full md:w-[300px]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            
-            <Button onClick={() => setActiveTab("create")}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Exam
-            </Button>
-          </div>
-        </div>
-        
-        <div className="flex flex-wrap gap-3">
-          <Select value={selectedSemester} onValueChange={handleSemesterChange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by Semester" />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.keys(SUBJECTS_BY_SEMESTER).map((semester) => (
-                <SelectItem key={semester} value={semester}>
-                  {semester}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by Subject" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">All Subjects</SelectItem>
-              {SUBJECTS_BY_SEMESTER[selectedSemester]?.map((subject) => (
-                <SelectItem key={subject} value={subject}>
-                  {subject}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="space-y-4">
-          {exams.length > 0 ? (
-            exams.map(exam => (
-              <Card key={exam.id} className="overflow-hidden">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  <div className="md:col-span-3 p-6">
-                    <h3 className="text-xl font-bold">{exam.title}</h3>
-                    <p className="text-muted-foreground">
-                      {exam.subject} • {exam.semester}
-                    </p>
-                    
-                    <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3">
-                      <div className="flex items-center text-sm">
-                        <CalendarIcon className="mr-1 h-4 w-4" />
-                        {exam.date}
-                      </div>
-                      <div className="flex items-center text-sm">
-                        <span className="mr-1">🕒</span>
-                        {exam.time}
-                      </div>
-                      <div className="flex items-center text-sm">
-                        <span className="mr-1">⏱️</span>
-                        {exam.duration} minutes
-                      </div>
-                      <div className="flex items-center text-sm">
-                        <span className="mr-1">👥</span>
-                        {exam.students} students
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="md:col-span-2 flex items-center justify-between p-6 bg-slate-50">
-                    <div>
-                      {exam.status === "completed" ? (
-                        <Badge className="px-3 py-1 bg-green-500 text-white">Completed</Badge>
-                      ) : (
-                        <Badge className="px-3 py-1 bg-blue-500 text-white">Scheduled</Badge>
-                      )}
-                      
-                      {exam.status === "completed" && (
-                        <div className="mt-2">
-                          <span className="font-semibold">Avg. Score:</span>{" "}
-                          <span className="text-primary font-bold">{exam.averageScore}%</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => navigate(`/exam/monitor/${exam.id}`)}>
-                        Monitor
+                    <div className="flex justify-between gap-2 pt-4">
+                      <Button variant="outline" onClick={() => setActiveTab("details")}>Back to Details</Button>
+                      <Button 
+                        onClick={() => setActiveTab("students")}
+                        disabled={questions.length === 0}
+                      >
+                        Next: Assign Students
                       </Button>
-                      
-                      <AlertDialog open={isDeleteDialogOpen && examToDelete === exam.id} onOpenChange={setIsDeleteDialogOpen}>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteExam(exam.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete the exam "{exam.title}" and all associated data. This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction className="bg-destructive" onClick={confirmDeleteExam}>
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
                     </div>
-                  </div>
-                </div>
-              </Card>
-            ))
-          ) : (
-            <div className="text-center py-12 border rounded-lg">
-              <p className="text-muted-foreground mb-4">No exams found matching your filters</p>
-              <Button onClick={() => setActiveTab("create")}>Create New Exam</Button>
-            </div>
-          )}
+                  </TabsContent>
+                  
+                  <TabsContent value="students" className="pt-6 space-y-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Assign Students</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex justify-end mb-4 gap-2">
+                          <Select 
+                            value={selectedSemester} 
+                            onValueChange={setSelectedSemester}
+                          >
+                            <SelectTrigger className="w-[130px]">
+                              <SelectValue placeholder="Filter by semester" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableSemesters.map(s => (
+                                <SelectItem key={s} value={s}>{s}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button variant="outline" onClick={() => handleSelectAllStudents(selectedSemester)}>
+                            {selectedStudents.length === students.filter(s => selectedSemester === "All" || s.semester === selectedSemester).length 
+                              ? "Deselect All" 
+                              : "Select All"}
+                          </Button>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          {students
+                            .filter(student => student.department === teacherDepartment && (selectedSemester === "All" || student.semester === selectedSemester))
+                            .map((student) => (
+                              <div key={student.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
+                                <Checkbox 
+                                  id={`student-${student.id}`}
+                                  checked={selectedStudents.includes(student.id)}
+                                  onCheckedChange={() => handleStudentSelection(student.id)}
+                                />
+                                <div className="flex items-center flex-grow gap-3">
+                                  {student.photo ? (
+                                    <img src={student.photo} alt={student.name} className="h-8 w-8 rounded-full object-cover" />
+                                  ) : (
+                                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                      <Image className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                  <Label htmlFor={`student-${student.id}`} className="cursor-pointer flex-grow">
+                                    {student.name}
+                                  </Label>
+                                  <span className="text-xs text-muted-foreground">{student.semester}</span>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </CardContent>
+                      <CardFooter className="flex justify-between pt-4 px-6">
+                        <Button variant="outline" onClick={() => setActiveTab("questions")}>
+                          Back to Questions
+                        </Button>
+                        <Button 
+                          onClick={handleSaveExam}
+                          disabled={selectedStudents.length === 0}
+                        >
+                          Create Exam
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </div>
-    );
-  };
-
-  return (
-    <div className="container mx-auto py-6">
-      <div className="flex mb-6 border-b overflow-x-auto">
-        <button
-          className={`px-4 py-2 font-medium ${
-            activeTab === "overview" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
-          }`}
-          onClick={() => setActiveTab("overview")}
-        >
-          Overview
-        </button>
-        <button
-          className={`px-4 py-2 font-medium ${
-            activeTab === "create" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
-          }`}
-          onClick={() => setActiveTab("create")}
-        >
-          Create Exam
-        </button>
-        <button
-          className={`px-4 py-2 font-medium ${
-            activeTab === "manage" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
-          }`}
-          onClick={() => setActiveTab("manage")}
-        >
-          Manage Exams
-        </button>
-      </div>
-      
-      {activeTab === "overview" && renderOverviewTab()}
-      {activeTab === "create" && renderCreateTab()}
-      {activeTab === "manage" && renderManageTab()}
     </div>
   );
 }
