@@ -403,3 +403,37 @@ export const getTopStudentsBySubject = async (subject: string) => {
     };
   }
 };
+
+export const getTopStudents = async (examId: string) => {
+  try {
+    const submissionsResult = await getExamSubmissions(examId);
+    
+    if (submissionsResult.success) {
+      const sortedSubmissions = submissionsResult.submissions
+        .sort((a, b) => b.percentage - a.percentage)
+        .slice(0, 3)
+        .map(submission => ({
+          name: submission.studentName || `Student ${submission.studentId.slice(-4)}`,
+          score: submission.percentage
+        }));
+      
+      return {
+        success: true,
+        topStudents: sortedSubmissions
+      };
+    }
+    
+    return {
+      success: false,
+      error: "No submissions found",
+      topStudents: []
+    };
+  } catch (error) {
+    console.error('Error fetching top students:', error);
+    return {
+      success: false,
+      error: "Failed to fetch top students",
+      topStudents: []
+    };
+  }
+};

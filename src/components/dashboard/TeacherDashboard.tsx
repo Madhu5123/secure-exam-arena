@@ -22,6 +22,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchAcademicData } from "@/services/AcademicService";
+import { useNavigate } from "react-router-dom";
+import { getTopStudents } from "@/services/ExamService";
 
 interface TeacherDashboardProps {
   section?: string;
@@ -61,6 +63,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [availableSubjectsAll, setAvailableSubjectsAll] = useState<string[]>([]);
   const [subjectsBySemester, setSubjectsBySemester] = useState({});
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const studentsRef = ref(db, 'users');
@@ -503,6 +506,10 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
 
   const subjectData = getSubjectExamsCount();
 
+  const handleMonitorExam = (examId: string) => {
+    navigate(`/exam/monitor/${examId}`);
+  };
+
   const renderManageExams = () => (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
@@ -893,112 +900,3 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                                   {student.name}
                                 </Label>
                                 <span className="text-xs text-muted-foreground">{student.semester}</span>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                      
-                      {students.filter(student => selectedSemester === "All" || student.semester === selectedSemester).length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          No students found for the selected semester.
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                  
-                  <div className="flex justify-between gap-2 pt-4">
-                    <Button variant="outline" onClick={() => setActiveTab("questions")}>Back to Questions</Button>
-                    <Button onClick={handleSaveExam}>
-                      Save Exam
-                    </Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {exams.length > 0 ? (
-          exams.map((exam) => (
-            <Card key={exam.id} className="overflow-hidden hover:shadow-md transition-all">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle>{exam.title}</CardTitle>
-                  <Badge 
-                    variant={exam.status === "active" ? "default" : "secondary"}
-                  >
-                    {exam.status}
-                  </Badge>
-                </div>
-                <CardDescription>
-                  {exam.subject} • {exam.semester || "All semesters"}
-                </CardDescription>
-                <CardDescription>
-                  {new Date(exam.date).toLocaleDateString()} • {exam.time}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-muted-foreground">
-                  <div>Duration: {exam.duration} minutes</div>
-                  <div>Sections: {exam.sections?.length || 1}</div>
-                  <div>Questions: {exam.questions?.length || 0}</div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end gap-2 border-t pt-4">
-                <Button variant="outline" size="sm">
-                  <FileText className="h-4 w-4 mr-1" />
-                  Edit
-                </Button>
-                <Button size="sm">
-                  <Search className="h-4 w-4 mr-1" />
-                  Monitor
-                </Button>
-              </CardFooter>
-            </Card>
-          ))
-        ) : (
-          <div className="col-span-full text-center py-10">
-            <p className="text-muted-foreground">No exams found. Create a new exam to get started.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  if (section === "students") {
-    return (
-      <ManageStudents
-        students={filteredStudents}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        isAddStudentDialogOpen={isAddStudentDialogOpen}
-        setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
-        newStudent={newStudent}
-        setNewStudent={setNewStudent}
-        SEMESTERS={availableSemesters}
-        handleAddStudent={handleAddStudent}
-        handleEditStudent={handleEditStudent}
-        handleDeleteStudent={handleDeleteStudent}
-      />
-    );
-  }
-  if (section === "exams") {
-    return renderManageExams();
-  }
-  
-  return (
-    <DashboardOverview
-      totalExams={totalExams}
-      totalAttended={totalAttended}
-      studentsPassed={studentsPassed}
-      selectedSemester={selectedSemester}
-      selectedSubject={selectedSubject}
-      setSelectedSemester={setSelectedSemester}
-      setSelectedSubject={setSelectedSubject}
-      SEMESTERS={availableSemesters}
-      availableSubjects={availableSubjects}
-      subjectData={subjectData}
-    />
-  );
-}

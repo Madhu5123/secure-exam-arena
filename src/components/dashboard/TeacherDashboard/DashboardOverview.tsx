@@ -1,4 +1,3 @@
-
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMemo } from "react";
 import { Card } from "@/components/ui/card";
@@ -15,6 +14,7 @@ type Props = {
   SEMESTERS: string[];
   availableSubjects: string[];
   subjectData: { subject: string; count: number }[];
+  topStudents: { name: string; score: number }[];
 };
 
 export function DashboardOverview({
@@ -28,6 +28,7 @@ export function DashboardOverview({
   SEMESTERS,
   availableSubjects,
   subjectData,
+  topStudents
 }: Props) {
   const examPerformanceData = useMemo(() => [
     {
@@ -37,16 +38,8 @@ export function DashboardOverview({
     }
   ], [selectedSubject, totalAttended, studentsPassed]);
 
-  // Mock data for top students (in a real app, this would come from props)
-  const topStudents = [
-    { name: "John Doe", score: 95 },
-    { name: "Jane Smith", score: 92 },
-    { name: "Alex Johnson", score: 88 }
-  ];
-
   return (
     <div className="space-y-8">
-      {/* Analytics cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="flex flex-col items-center p-6 rounded-2xl shadow bg-gradient-to-br from-[#F1F0FB] to-[#E5DEFF] border-none">
           <div className="w-12 h-12 flex items-center justify-center rounded-full bg-[#f4f0fa] mb-2 shadow-inner">
@@ -73,7 +66,6 @@ export function DashboardOverview({
         </Card>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-4 items-center mt-2">
         <div>
           <label className="block mb-1 text-sm font-semibold">Semester</label>
@@ -97,9 +89,7 @@ export function DashboardOverview({
         </div>
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Exam Performance Chart */}
         <Card className="border rounded-lg p-4 bg-white">
           <h2 className="text-lg font-bold mb-4 text-[#7E69AB]">Exam Performance Analysis</h2>
           <ResponsiveContainer width="100%" height={240}>
@@ -114,7 +104,6 @@ export function DashboardOverview({
           </ResponsiveContainer>
         </Card>
 
-        {/* Top Students */}
         <Card className="border rounded-lg p-4 bg-white">
           <h2 className="text-lg font-bold mb-4 text-[#7E69AB]">Top Performing Students</h2>
           <div className="space-y-4">
