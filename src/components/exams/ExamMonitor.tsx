@@ -7,6 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Search } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ref, get } from 'firebase/database';
+import { db } from '@/config/firebase';
 
 interface ExamMonitorProps {
   examId?: string;
@@ -15,6 +18,7 @@ interface ExamMonitorProps {
 interface Student {
   id: string;
   name: string;
+  photo?: string;
   score?: number;
   maxScore?: number;
   percentage?: number;
@@ -56,7 +60,25 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
         // Fetch submissions
         const submissionsResult = await getExamSubmissions(examId);
         
+        // Fetch student data
+        const studentsRef = ref(db, 'users');
+        const studentSnapshot = await get(studentsRef);
+        
         const studentsData: Student[] = [];
+        const studentProfiles: Record<string, { name: string, photo: string }> = {};
+        
+        // Get student profile information
+        if (studentSnapshot.exists()) {
+          studentSnapshot.forEach((childSnapshot) => {
+            const studentData = childSnapshot.val();
+            if (studentData && studentData.role === 'student') {
+              studentProfiles[childSnapshot.key as string] = {
+                name: studentData.name || "Unknown Student",
+                photo: studentData.photo || ""
+              };
+            }
+          });
+        }
         
         // Get assigned students and submissions
         if (examResult.exam.assignedStudents) {
@@ -64,6 +86,11 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
             const submission = submissionsResult.success ? 
               submissionsResult.submissions.find((sub: any) => sub.studentId === studentId) : 
               null;
+            
+            const studentProfile = studentProfiles[studentId] || { 
+              name: `Student ${studentId.slice(-4)}`,
+              photo: ""
+            };
             
             if (submission) {
               // Student has a submission
@@ -73,7 +100,8 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
               
               studentsData.push({
                 id: studentId,
-                name: submission.studentName || `Student ${studentId.slice(-4)}`,
+                name: studentProfile.name,
+                photo: studentProfile.photo,
                 score: submission.score || 0,
                 maxScore: submission.maxScore || 0,
                 percentage: submission.percentage || 0,
@@ -88,7 +116,8 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
               // Student hasn't taken the exam
               studentsData.push({
                 id: studentId,
-                name: `Student ${studentId.slice(-4)}`,
+                name: studentProfile.name,
+                photo: studentProfile.photo,
                 status: 'not-started'
               });
             }
@@ -223,7 +252,20 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                     {filteredStudents.length > 0 ? (
                       filteredStudents.map((student) => (
                         <tr key={student.id} className="border-b hover:bg-muted/50">
-                          <td className="py-3 px-4">{student.name}</td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center space-x-2">
+                              <Avatar className="h-8 w-8">
+                                {student.photo ? (
+                                  <AvatarImage src={student.photo} alt={student.name} />
+                                ) : (
+                                  <AvatarFallback className="bg-primary/10 text-primary">
+                                    {student.name.substring(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                )}
+                              </Avatar>
+                              <span className="font-medium">{student.name}</span>
+                            </div>
+                          </td>
                           <td className="py-3 px-4">
                             <Badge className={
                               student.status === 'completed' ? 'bg-green-100 text-green-800' :

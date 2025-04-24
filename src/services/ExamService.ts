@@ -1,3 +1,4 @@
+
 import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
@@ -29,6 +30,8 @@ interface Exam {
 interface Submission {
   examId: string;
   studentId: string;
+  studentName?: string;
+  studentPhoto?: string;
   answers: Record<string, string>;
   startTime: string;
   endTime: string;
@@ -125,6 +128,13 @@ export const submitExam = async (
       };
     }
     
+    // Get student profile information for the submission
+    const studentRef = ref(db, `users/${studentId}`);
+    const studentSnapshot = await get(studentRef);
+    const studentData = studentSnapshot.exists() ? studentSnapshot.val() : null;
+    const studentName = studentData?.name || `Student ${studentId.slice(-4)}`;
+    const studentPhoto = studentData?.photo || "";
+    
     let score = 0;
     let maxScore = 0;
     
@@ -138,6 +148,8 @@ export const submitExam = async (
     const submission = {
       examId,
       studentId,
+      studentName,
+      studentPhoto,
       answers,
       startTime: new Date().toISOString(),
       endTime: new Date().toISOString(),
@@ -281,10 +293,37 @@ export const getExamSubmissions = async (examId: string) => {
     
     if (snapshot.exists()) {
       const submissions: any[] = [];
+      
+      // Get user data for submissions that don't have student info
+      const usersRef = ref(db, 'users');
+      const usersSnapshot = await get(usersRef);
+      const users: Record<string, any> = {};
+      
+      if (usersSnapshot.exists()) {
+        usersSnapshot.forEach((childSnapshot) => {
+          const userData = childSnapshot.val();
+          if (userData.role === 'student') {
+            users[childSnapshot.key as string] = {
+              name: userData.name || `Student ${(childSnapshot.key as string).slice(-4)}`,
+              photo: userData.photo || ""
+            };
+          }
+        });
+      }
+      
       snapshot.forEach((childSnapshot) => {
+        const submissionData = childSnapshot.val();
+        const studentId = childSnapshot.key as string;
+        
+        // If submission doesn't have student name/photo, add it from users data
+        if (!submissionData.studentName && users[studentId]) {
+          submissionData.studentName = users[studentId].name;
+          submissionData.studentPhoto = users[studentId].photo;
+        }
+        
         submissions.push({
-          studentId: childSnapshot.key,
-          ...childSnapshot.val()
+          studentId,
+          ...submissionData
         });
       });
       
