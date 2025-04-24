@@ -5,6 +5,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { PlusCircle } from "lucide-react";
 import { StudentCard } from "./StudentCard";
+import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 interface ManageStudentsProps {
   students: any[];
@@ -33,7 +36,34 @@ export function ManageStudents({
   handleEditStudent,
   handleDeleteStudent
 }: ManageStudentsProps) {
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const { toast } = useToast();
   const filteredStudents = students;
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      
+      try {
+        setUploadingImage(true);
+        // Upload to Cloudinary
+        const imageUrl = await uploadToCloudinary(file);
+        setNewStudent({ ...newStudent, photo: imageUrl });
+        toast({
+          title: "Image uploaded",
+          description: "Profile image has been uploaded successfully.",
+        });
+      } catch (error) {
+        toast({
+          title: "Upload failed",
+          description: "Failed to upload image. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setUploadingImage(false);
+      }
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -58,9 +88,9 @@ export function ManageStudents({
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>{newStudent.name ? "Edit Student" : "Add New Student"}</DialogTitle>
+                <DialogTitle>Add New Student</DialogTitle>
                 <DialogDescription>
-                  {newStudent.name ? "Edit the student details." : "Create a new student account with a unique registration number."}
+                  Create a new student account with a unique registration number.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -108,13 +138,8 @@ export function ManageStudents({
                     id="studentPhoto"
                     type="file"
                     accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const url = URL.createObjectURL(file);
-                        setNewStudent((curr: any) => ({ ...curr, photo: url }));
-                      }
-                    }}
+                    onChange={handleImageUpload}
+                    disabled={uploadingImage}
                   />
                   {newStudent.photo && (
                     <img src={newStudent.photo} alt="preview" className="h-14 w-14 object-cover rounded mt-1" />
@@ -134,7 +159,7 @@ export function ManageStudents({
                 <Button variant="outline" onClick={() => setIsAddStudentDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddStudent}>Save</Button>
+                <Button onClick={handleAddStudent} disabled={uploadingImage}>Save</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
