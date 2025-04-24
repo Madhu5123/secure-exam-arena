@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ref, onValue, set } from 'firebase/database';
 import { db } from '@/config/firebase';
 import { registerUser } from "@/services/AuthService";
-import { getExamsForTeacher, createExam, getTopStudents } from "@/services/ExamService";
+import { getExamsForTeacher, createExam, getTopStudents, Exam } from "@/services/ExamService";
 import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -462,7 +462,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         date: examDate,
         time: examTime,
         duration: Number(examDuration),
-        status: "scheduled" as "draft" | "scheduled" | "active" | "completed",
+        status: "scheduled" as "draft" | "scheduled" | "active" | "completed" | "expired",
         questions: questions,
         assignedStudents: selectedStudents,
         sections: formattedSections,
