@@ -82,52 +82,13 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const navigate = useNavigate();
 
   useEffect(() => {
-<<<<<<< HEAD
-=======
-    const user = localStorage.getItem('examUser');
-    if (user) {
-      const userData = JSON.parse(user);
-      const teacherId = userData.id;
-
-      const teacherRef = ref(db, `users/${teacherId}`);
-      get(teacherRef).then((snapshot) => {
-        if (snapshot.exists()) {
-          const teacherData = snapshot.val();
-          setCurrentTeacherDepartment(teacherData.department || "");
-          
-          fetchStudents(teacherData.department || "");
-        }
-      });
-
-      const loadAcademicData = async () => {
-        const data = await fetchAcademicData();
-        setAvailableSemesters(["All", ...data.semesters]);
-        setAvailableSubjectsAll(["All", ...data.subjects]);
-        setSubjectsBySemester(data.subjectsBySemester || {});
-      };
-
-      loadAcademicData();
-    }
-
-    return () => {
-      // Cleanup code if needed
-    };
-  }, []);
-
-  const fetchStudents = (teacherDepartment: string) => {
->>>>>>> 453b8794d3199f8cd2bf7343dfa0999063589f5a
     const studentsRef = ref(db, 'users');
     const unsubscribeStudents = onValue(studentsRef, (snapshot) => {
       if (snapshot.exists()) {
         const studentsList: any[] = [];
         snapshot.forEach((childSnapshot) => {
           const userData = childSnapshot.val();
-<<<<<<< HEAD
           if (userData.role === 'student') {
-=======
-          if (userData.role === 'student' && 
-              (!teacherDepartment || userData.department === teacherDepartment)) {
->>>>>>> 453b8794d3199f8cd2bf7343dfa0999063589f5a
             studentsList.push({
               id: childSnapshot.key,
               ...userData,
@@ -211,12 +172,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         regNumber: newStudent.regNumber,
         semester: newStudent.semester,
         photo: newStudent.photo,
-<<<<<<< HEAD
         status: "active"
-=======
-        status: "active",
-        department: currentTeacherDepartment
->>>>>>> 453b8794d3199f8cd2bf7343dfa0999063589f5a
       };
       
       const { success, user, error } = await registerUser(
@@ -998,32 +954,10 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
             icon={<BookOpen className="h-8 w-8 text-primary" />}
           />
           <StatsCard
-<<<<<<< HEAD
             title="Active Students"
             value={activeStudents}
             description={`${totalStudents} total students`}
             icon={<Users className="h-8 w-8 text-primary" />}
-=======
-            title="Attendance"
-            value={totalAttended}
-            description="Total exam submissions"
-            trend="up"
-            trendValue={totalExams > 0 ? `${Math.round((totalAttended / (totalExams * totalStudents || 1)) * 100)}%` : "0%"}
-            icon={<BookOpen className="text-amber-500" />}
-          />
-          <StatsCard
-            title="Exams This Week"
-            value={filteredExams.filter(e => {
-              const examDate = new Date(e.date);
-              const now = new Date();
-              const weekAhead = new Date();
-              weekAhead.setDate(now.getDate() + 7);
-              return examDate >= now && examDate <= weekAhead;
-            }).length}
-            description="Upcoming exams"
-            trend="neutral"
-            icon={<Image className="text-purple-500" />}
->>>>>>> 453b8794d3199f8cd2bf7343dfa0999063589f5a
           />
         </div>
         
@@ -1109,7 +1043,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   };
 
   return (
-<<<<<<< HEAD
     <div className="space-y-8 p-6">
       {section === "students" ? (
         <ManageStudents 
@@ -1139,48 +1072,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           SEMESTERS={availableSemesters}
           availableSubjects={availableSubjects}
           subjectData={subjectData}
-=======
-    <div>
-      {!section && (
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="exams">Exams</TabsTrigger>
-            <TabsTrigger value="students">Students</TabsTrigger>
-          </TabsList>
-          <TabsContent value="overview">
-            <DashboardOverview />
-          </TabsContent>
-          <TabsContent value="exams">
-            {renderManageExams()}
-          </TabsContent>
-          <TabsContent value="students">
-            <ManageStudents
-              showHeader={true}
-              students={students}
-              currentTeacherDepartment={currentTeacherDepartment}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              isAddStudentDialogOpen={isAddStudentDialogOpen}
-              setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
-              newStudent={newStudent}
-              setNewStudent={setNewStudent}
-              handleAddStudent={handleAddStudent}
-              handleEditStudent={handleEditStudent}
-              handleDeleteStudent={handleDeleteStudent}
-            />
-          </TabsContent>
-        </Tabs>
-      )}
-
-      {section === "students" && (
-        <ManageStudents
-          showHeader={false}
-          students={students}
-          currentTeacherDepartment={currentTeacherDepartment}
-          handleEditStudent={handleEditStudent}
-          handleDeleteStudent={handleDeleteStudent}
->>>>>>> 453b8794d3199f8cd2bf7343dfa0999063589f5a
         />
       )}
       

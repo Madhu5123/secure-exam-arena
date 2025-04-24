@@ -9,7 +9,6 @@ interface StatsCardProps {
   icon?: React.ReactNode;
   trend?: "up" | "down" | "neutral";
   trendValue?: string;
-  percentage?: number;
   className?: string;
 }
 
@@ -20,7 +19,6 @@ export function StatsCard({
   icon, 
   trend, 
   trendValue,
-  percentage,
   className 
 }: StatsCardProps) {
   return (
@@ -42,7 +40,7 @@ export function StatsCard({
                   trend === "neutral" && "bg-muted text-muted-foreground"
                 )}
               >
-                {trendValue || (percentage !== undefined ? `${percentage}%` : '')}
+                {trendValue}
               </span>
             )}
             {description && (
