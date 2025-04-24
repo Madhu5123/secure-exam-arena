@@ -342,12 +342,19 @@ export const getTopStudentsBySubject = async (subject: string) => {
     
     // Get student data first
     studentSnapshot = await get(studentsRef);
-    const students = {};
+    const students: Record<string, any> = {};
+    
     if (studentSnapshot.exists()) {
       studentSnapshot.forEach((childSnapshot) => {
         const student = childSnapshot.val();
         if (student.role === 'student') {
-          students[childSnapshot.key] = student;
+          students[childSnapshot.key as string] = {
+            id: childSnapshot.key,
+            name: student.name || "Unknown Student",
+            email: student.email,
+            photo: student.photo || "",
+            semester: student.semester
+          };
         }
       });
     }

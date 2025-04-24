@@ -2,7 +2,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMemo, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Book, Users, Calendar, Image } from "lucide-react";
+import { Book, Users, Calendar } from "lucide-react";
 import { getTopStudentsBySubject } from "@/services/ExamService";
 
 type Props = {
@@ -142,8 +142,8 @@ export function DashboardOverview({
         <Card className="border rounded-lg p-4 bg-white">
           <h2 className="text-lg font-bold mb-4 text-[#7E69AB]">Top Performing Students</h2>
           <div className="space-y-4">
-            {topStudents.map((student, index) => (
-              <div key={student.name} className="flex items-center justify-between p-3 bg-[#F1F0FB] rounded-lg">
+            {topStudents.length > 0 ? topStudents.map((student, index) => (
+              <div key={index} className="flex items-center justify-between p-3 bg-[#F1F0FB] rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <div className="w-10 h-10 rounded-full overflow-hidden bg-[#9b87f5] flex items-center justify-center">
@@ -173,7 +173,11 @@ export function DashboardOverview({
                   }`} />
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No student data available for this subject
+              </div>
+            )}
           </div>
         </Card>
       </div>
