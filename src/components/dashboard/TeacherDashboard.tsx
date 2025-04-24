@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ref, onValue, set } from 'firebase/database';
+import { ref, onValue, set, get } from 'firebase/database';
 import { db } from '@/config/firebase';
 import { registerUser } from "@/services/AuthService";
 import { getExamsForTeacher, createExam, getTopStudents } from "@/services/ExamService";
@@ -36,6 +36,7 @@ interface StudentData {
   password: string;
   photo: string;
   semester: string;
+  department?: string;
 }
 
 export function TeacherDashboard({ section }: TeacherDashboardProps) {
@@ -48,7 +49,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     regNumber: "", 
     password: "", 
     photo: "", 
-    semester: "Semester 1" 
+    semester: "Semester 1",
+    department: "" 
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("All");
@@ -78,17 +80,53 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
   const [availableSubjectsAll, setAvailableSubjectsAll] = useState<string[]>([]);
   const [subjectsBySemester, setSubjectsBySemester] = useState({});
+  const [currentTeacherDepartment, setCurrentTeacherDepartment] = useState<string>("");
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Get current teacher's department
+    const user = localStorage.getItem('examUser');
+    if (user) {
+      const userData = JSON.parse(user);
+      const teacherId = userData.id;
+
+      // Fetch teacher's department
+      const teacherRef = ref(db, `users/${teacherId}`);
+      get(teacherRef).then((snapshot) => {
+        if (snapshot.exists()) {
+          const teacherData = snapshot.val();
+          setCurrentTeacherDepartment(teacherData.department || "");
+          
+          // Now fetch students after we know the teacher's department
+          fetchStudents(teacherData.department || "");
+        }
+      });
+
+      // Fetch exams for this teacher
+      fetchExams(teacherId);
+    }
+
+    const loadAcademicData = async () => {
+      const data = await fetchAcademicData();
+      setAvailableSemesters(["All", ...data.semesters]);
+      setAvailableSubjectsAll(["All", ...data.subjects]);
+      setSubjectsBySemester(data.subjectsBySemester || {});
+    };
+
+    loadAcademicData();
+  }, []);
+
+  const fetchStudents = (teacherDepartment: string) => {
     const studentsRef = ref(db, 'users');
-    const unsubscribeStudents = onValue(studentsRef, (snapshot) => {
+    onValue(studentsRef, (snapshot) => {
       if (snapshot.exists()) {
         const studentsList: any[] = [];
         snapshot.forEach((childSnapshot) => {
           const userData = childSnapshot.val();
-          if (userData.role === 'student') {
+          // Only include students from the teacher's department
+          if (userData.role === 'student' && 
+              (!teacherDepartment || userData.department === teacherDepartment)) {
             studentsList.push({
               id: childSnapshot.key,
               ...userData,
@@ -101,57 +139,32 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         setStudents(studentsList);
       }
     });
+  };
 
-    const fetchExams = async () => {
-      const user = localStorage.getItem('examUser');
-      if (user) {
-        const userData = JSON.parse(user);
-        const examsRef = ref(db, 'exams');
-        
-        const unsubscribeExams = onValue(examsRef, async (snapshot) => {
-          if (snapshot.exists()) {
-            const teacherExams: any[] = [];
-            snapshot.forEach((childSnapshot) => {
-              const examData = childSnapshot.val();
-              if (examData.createdBy === userData.id) {
-                teacherExams.push({ 
-                  id: childSnapshot.key, 
-                  ...examData 
-                });
-              }
+  const fetchExams = async (teacherId: string) => {
+    const examsRef = ref(db, 'exams');
+    
+    const unsubscribeExams = onValue(examsRef, async (snapshot) => {
+      if (snapshot.exists()) {
+        const teacherExams: any[] = [];
+        snapshot.forEach((childSnapshot) => {
+          const examData = childSnapshot.val();
+          if (examData.createdBy === teacherId) {
+            teacherExams.push({ 
+              id: childSnapshot.key, 
+              ...examData 
             });
-            setExams(teacherExams);
-            console.log("Fetched exams:", teacherExams);
-          } else {
-            setExams([]);
           }
         });
-
-        return () => unsubscribeExams();
+        setExams(teacherExams);
+        console.log("Fetched exams:", teacherExams);
+      } else {
+        setExams([]);
       }
-      return () => {};
-    };
-    
-    let examsCleanup: () => void = () => {};
-    
-    (async () => {
-      examsCleanup = await fetchExams();
-    })();
-    
-    const loadAcademicData = async () => {
-      const data = await fetchAcademicData();
-      setAvailableSemesters(["All", ...data.semesters]);
-      setAvailableSubjectsAll(["All", ...data.subjects]);
-      setSubjectsBySemester(data.subjectsBySemester || {});
-    };
+    });
 
-    loadAcademicData();
-
-    return () => {
-      unsubscribeStudents();
-      examsCleanup();
-    };
-  }, []);
+    return () => unsubscribeExams();
+  };
 
   const handleAddStudent = async () => {
     try {
@@ -172,7 +185,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         regNumber: newStudent.regNumber,
         semester: newStudent.semester,
         photo: newStudent.photo,
-        status: "active"
+        status: "active",
+        department: currentTeacherDepartment // Assign the student to the teacher's department
       };
       
       const { success, user, error } = await registerUser(
@@ -196,7 +210,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           regNumber: studentData.regNumber,
           semester: studentData.semester,
           photo: studentData.photo,
-          status: "active"
+          status: "active",
+          department: currentTeacherDepartment
         });
       } else {
         toast({
@@ -207,7 +222,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         return;
       }
 
-      setNewStudent({ name: "", email: "", regNumber: "", password: "", photo: "", semester: "Semester 1" });
+      setNewStudent({ name: "", email: "", regNumber: "", password: "", photo: "", semester: "Semester 1", department: currentTeacherDepartment });
       setIsAddStudentDialogOpen(false);
     } catch (error) {
       console.error("Error adding student:", error);
@@ -321,7 +336,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         regNumber: student.regNumber || "",
         password: "",
         photo: student.photo || "",
-        semester: student.semester || "Semester 1"
+        semester: student.semester || "Semester 1",
+        department: student.department || currentTeacherDepartment
       };
       
       setNewStudent(studentWithId);
@@ -473,7 +489,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
       student.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       student.regNumber?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSemester = selectedSemester === "All" || student.semester === selectedSemester;
-    return matchesSearch && matchesSemester;
+    const matchesDepartment = !currentTeacherDepartment || student.department === currentTeacherDepartment;
+    return matchesSearch && matchesSemester && matchesDepartment;
   });
 
   const getSubjectsForSemester = () => {
@@ -893,256 +910,3 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                               : "Select All"}
                           </Button>
                         </div>
-                        
-                        <div className="space-y-3">
-                          {students
-                            .filter(student => selectedSemester === "All" || student.semester === selectedSemester)
-                            .map((student) => (
-                              <div key={student.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
-                                <Checkbox 
-                                  id={`student-${student.id}`}
-                                  checked={selectedStudents.includes(student.id)}
-                                  onCheckedChange={() => handleStudentSelection(student.id)}
-                                />
-                                <div className="flex items-center flex-grow gap-3">
-                                  {student.photo ? (
-                                    <img src={student.photo} alt={student.name} className="h-8 w-8 rounded-full object-cover" />
-                                  ) : (
-                                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                      <Image className="h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                  )}
-                                  <Label htmlFor={`student-${student.id}`} className="cursor-pointer flex-grow">
-                                    {student.name}
-                                  </Label>
-                                  <span className="text-xs text-muted-foreground">{student.semester}</span>
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </CardContent>
-                      <CardFooter className="flex justify-between pt-4 px-6">
-                        <Button variant="outline" onClick={() => setActiveTab("questions")}>
-                          Back to Questions
-                        </Button>
-                        <Button 
-                          onClick={handleSaveExam}
-                          disabled={selectedStudents.length === 0}
-                        >
-                          Create Exam
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  </TabsContent>
-                </Tabs>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatsCard
-            title="Total Exams"
-            value={exams.length}
-            description={`${exams.filter(e => e.status === 'active').length} active`}
-            icon={<FileText className="h-8 w-8 text-primary" />}
-          />
-          <StatsCard
-            title="Subjects"
-            value={availableSubjects.length - 1}
-            description="Across all semesters"
-            icon={<BookOpen className="h-8 w-8 text-primary" />}
-          />
-          <StatsCard
-            title="Active Students"
-            value={activeStudents}
-            description={`${totalStudents} total students`}
-            icon={<Users className="h-8 w-8 text-primary" />}
-          />
-        </div>
-        
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-lg">Upcoming Exams</h3>
-            <div className="flex items-center gap-2">
-              <Select value={selectedSemester} onValueChange={setSelectedSemester}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="Semester" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSemesters.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="Subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSubjects.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          {filteredExams.length > 0 ? (
-            <div className="grid gap-4">
-              {filteredExams.map(exam => (
-                <Card key={exam.id}>
-                  <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
-                    <div className="flex-grow">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-lg">{exam.title}</h3>
-                        <Badge className={`${
-                          exam.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          exam.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {exam.status}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-1 mt-2">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Subject</p>
-                          <p className="text-sm font-medium">{exam.subject}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Semester</p>
-                          <p className="text-sm font-medium">{exam.semester}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Date & Time</p>
-                          <p className="text-sm font-medium">{exam.date} {exam.time}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Duration</p>
-                          <p className="text-sm font-medium">{exam.duration} min</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 self-end md:self-auto w-full md:w-auto">
-                      <Button variant="outline" className="flex-1 md:flex-none" onClick={() => handleMonitorExam(exam.id)}>
-                        Monitor
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card className="p-6 text-center text-muted-foreground">
-              <p>No exams found for the selected filters.</p>
-            </Card>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="space-y-8 p-6">
-      {section === "students" ? (
-        <ManageStudents 
-          students={students}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          isAddStudentDialogOpen={isAddStudentDialogOpen}
-          setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
-          newStudent={newStudent}
-          setNewStudent={setNewStudent}
-          SEMESTERS={availableSemesters}
-          handleAddStudent={handleAddStudent}
-          handleEditStudent={handleEditStudent}
-          handleDeleteStudent={handleDeleteStudent}
-        />
-      ) : section === "exams" ? (
-        renderManageExams()
-      ) : (
-        <DashboardOverview
-          totalExams={totalExams}
-          totalAttended={totalAttended}
-          studentsPassed={studentsPassed}
-          selectedSemester={selectedSemester}
-          selectedSubject={selectedSubject}
-          setSelectedSemester={setSelectedSemester}
-          setSelectedSubject={setSelectedSubject}
-          SEMESTERS={availableSemesters}
-          availableSubjects={availableSubjects}
-          subjectData={subjectData}
-        />
-      )}
-      
-      <Dialog open={isAddStudentDialogOpen} onOpenChange={setIsAddStudentDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{newStudent.id ? "Edit Student" : "Add New Student"}</DialogTitle>
-            <DialogDescription>
-              {newStudent.id ? "Update student information" : "Add a new student to the system"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={newStudent.name}
-                onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={newStudent.email}
-                onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="regNumber">Registration Number</Label>
-              <Input
-                id="regNumber"
-                value={newStudent.regNumber}
-                onChange={(e) => setNewStudent({ ...newStudent, regNumber: e.target.value })}
-              />
-            </div>
-            {!newStudent.id && (
-              <div className="grid gap-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={newStudent.password}
-                  onChange={(e) => setNewStudent({ ...newStudent, password: e.target.value })}
-                />
-              </div>
-            )}
-            <div className="grid gap-2">
-              <Label htmlFor="semester">Semester</Label>
-              <Select
-                value={newStudent.semester}
-                onValueChange={(value) => setNewStudent({ ...newStudent, semester: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select semester" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSemesters.slice(1).map(semester => (
-                    <SelectItem key={semester} value={semester}>{semester}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddStudentDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddStudent}>{newStudent.id ? "Update Student" : "Add Student"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
