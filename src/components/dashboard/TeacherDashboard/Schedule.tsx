@@ -105,13 +105,11 @@ export function Schedule() {
     setHoveredDate(null);
   };
 
-  // Function to determine if a date has an exam
   const hasExam = (date: Date) => {
     const dateString = format(date, "yyyy-MM-dd");
     return exams.some(exam => exam.date === dateString);
   };
 
-  // Custom renderer for calendar days
   const getDayClassName = (date: Date) => {
     const dateString = format(date, "yyyy-MM-dd");
     const isExamDate = exams.some(exam => exam.date === dateString);
@@ -149,15 +147,17 @@ export function Schedule() {
               onDayMouseEnter={handleDateMouseEnter}
               onDayMouseLeave={handleDateMouseLeave}
               components={{
-                Day: ({ date: dayDate, displayMonth, ...props }) => {
+                Day: ({ date: dayDate, displayMonth, className, ...props }) => {
                   const dateString = format(dayDate, "yyyy-MM-dd");
                   const isExamDate = exams.some(exam => exam.date === dateString);
                   const isHovered = hoveredDate && format(hoveredDate, "yyyy-MM-dd") === dateString;
                   
+                  const dayClassName = `${className || ''} ${isExamDate ? 'border-b-2 border-red-500' : ''} ${isHovered && isExamDate ? 'bg-red-100' : ''}`;
+                  
                   return (
                     <div 
                       {...props} 
-                      className={`${props.className} ${isExamDate ? 'border-b-2 border-red-500' : ''} ${isHovered && isExamDate ? 'bg-red-100' : ''}`}
+                      className={dayClassName}
                     />
                   );
                 }
