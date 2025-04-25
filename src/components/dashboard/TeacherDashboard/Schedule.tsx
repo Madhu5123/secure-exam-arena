@@ -111,19 +111,17 @@ export function Schedule() {
               }}
               className="rounded-md border"
               components={{
-                Day: (props) => {
-                  // Fix: Properly type the props and extract the date
-                  const { date, ...rest } = props;
+                Day: ({ date, ...rest }) => {
+                  // Check if this date has an exam
                   const isExamDay = examDates.some(examDate => 
                     examDate && isSameDay(examDate, date)
                   );
                   
-                  // Apply appropriate className with proper spreading of remaining props
                   return (
                     <div
                       {...rest}
                       className={cn(
-                        rest.className || "",
+                        rest.className,
                         isExamDay && "bg-red-100 text-red-800 hover:bg-red-200 hover:text-red-900 font-semibold"
                       )}
                     >
