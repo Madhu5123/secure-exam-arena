@@ -11,6 +11,7 @@ import { ref, onValue } from 'firebase/database';
 import { db } from '@/config/firebase';
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { DayProps } from "react-day-picker";
 
 interface Exam {
   id: string;
@@ -111,7 +112,10 @@ export function Schedule() {
               }}
               className="rounded-md border"
               components={{
-                Day: ({ date, ...rest }) => {
+                Day: (props: DayProps) => {
+                  // Properly typed props with DayProps from react-day-picker
+                  const { date, ...rest } = props;
+                  
                   // Check if this date has an exam
                   const isExamDay = examDates.some(examDate => 
                     examDate && isSameDay(examDate, date)
