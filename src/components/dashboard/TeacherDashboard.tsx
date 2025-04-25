@@ -1,7 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { PlusCircle, FileText, Search, Image, BookOpen, Users } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
 import { ManageStudents } from "./TeacherDashboard/ManageStudents";
+import { Schedule } from "./TeacherDashboard/Schedule";
+import { NoticeBoard } from "./TeacherDashboard/NoticeBoard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatsCard } from "@/components/common/StatsCard";
@@ -1150,6 +1153,10 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         />
       ) : section === "exams" ? (
         renderManageExams()
+      ) : section === "schedule" ? (
+        <Schedule />
+      ) : section === "notice-board" ? (
+        <NoticeBoard />
       ) : (
         <DashboardOverview
           totalExams={totalExams}
@@ -1164,7 +1171,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           subjectData={subjectData}
         />
       )}
-      
     </div>
   );
 }
