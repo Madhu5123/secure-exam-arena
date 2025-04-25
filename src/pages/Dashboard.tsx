@@ -4,7 +4,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
 import { TeacherDashboard } from "@/components/dashboard/TeacherDashboard";
+import { Schedule } from "@/components/dashboard/TeacherDashboard/Schedule";
+import { NoticeBoard } from "@/components/dashboard/TeacherDashboard/NoticeBoard";
 import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
+import { StudentNoticeBoard } from "@/components/dashboard/StudentDashboard/NoticeBoard";
 import { checkUserRole } from "@/services/AuthService";
 
 const Dashboard = () => {
@@ -51,9 +54,19 @@ const Dashboard = () => {
       case "admin":
         return <AdminDashboard section={section} />;
       case "teacher":
-        return <TeacherDashboard section={section} />;
+        if (section === "schedule") {
+          return <Schedule />;
+        } else if (section === "notices") {
+          return <NoticeBoard />;
+        } else {
+          return <TeacherDashboard section={section} />;
+        }
       case "student":
-        return <StudentDashboard />;
+        if (section === "notices") {
+          return <StudentNoticeBoard />;
+        } else {
+          return <StudentDashboard />;
+        }
       default:
         return (
           <div className="text-center py-10">
