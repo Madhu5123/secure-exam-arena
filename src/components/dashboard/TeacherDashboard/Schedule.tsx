@@ -70,18 +70,6 @@ export function Schedule() {
     return () => unsubscribeExams();
   }, []);
 
-  // Custom renderer for calendar days to highlight exam dates
-  const dayClassName = (date: Date | undefined) => {
-    if (!date) return "";
-    
-    // Check if the date is an exam date
-    if (examDates.some(examDate => examDate && isSameDay(examDate, date))) {
-      return "bg-red-100 text-red-800 hover:bg-red-200 hover:text-red-900 border border-red-300";
-    }
-    
-    return "";
-  };
-
   // Filter exams for the selected date
   const selectedDateExams = exams.filter(exam => {
     if (!selectedDate || !exam.date) return false;
@@ -123,13 +111,19 @@ export function Schedule() {
               }}
               className="rounded-md border"
               components={{
-                Day: ({ date, ...props }) => {
-                  const isExamDay = examDates.some(examDate => examDate && isSameDay(examDate, date));
+                Day: (props) => {
+                  // Fix: Properly type the props and extract the date
+                  const { date, ...rest } = props;
+                  const isExamDay = examDates.some(examDate => 
+                    examDate && isSameDay(examDate, date)
+                  );
+                  
+                  // Apply appropriate className with proper spreading of remaining props
                   return (
                     <div
-                      {...props}
+                      {...rest}
                       className={cn(
-                        props.className,
+                        rest.className || "",
                         isExamDay && "bg-red-100 text-red-800 hover:bg-red-200 hover:text-red-900 font-semibold"
                       )}
                     >
