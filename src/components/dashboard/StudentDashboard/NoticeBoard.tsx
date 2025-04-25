@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { Post } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -145,7 +144,7 @@ export function StudentNoticeBoard() {
       ) : (
         <Card className="p-8 text-center">
           <div className="flex flex-col items-center justify-center">
-            <Post className="h-12 w-12 text-muted-foreground mb-4" />
+            <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
               {selectedType === "all"
                 ? "No notices available for your semester."

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { CalendarIcon, Plus, Calendar as CalendarLucide } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -150,7 +149,7 @@ export function Schedule() {
               onDayMouseEnter={handleDateMouseEnter}
               onDayMouseLeave={handleDateMouseLeave}
               components={{
-                Day: ({ date: dayDate, ...props }) => {
+                Day: ({ date: dayDate, displayMonth, ...props }) => {
                   const dateString = format(dayDate, "yyyy-MM-dd");
                   const isExamDate = exams.some(exam => exam.date === dateString);
                   const isHovered = hoveredDate && format(hoveredDate, "yyyy-MM-dd") === dateString;
