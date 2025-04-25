@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { format, parse, isSameDay } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
@@ -112,10 +111,7 @@ export function Schedule() {
               }}
               className="rounded-md border"
               components={{
-                Day: (props: DayProps) => {
-                  // Properly typed props with DayProps from react-day-picker
-                  const { date, ...rest } = props;
-                  
+                Day: ({ date, className, ...props }: DayProps & { className?: string }) => {
                   // Check if this date has an exam
                   const isExamDay = examDates.some(examDate => 
                     examDate && isSameDay(examDate, date)
@@ -123,9 +119,9 @@ export function Schedule() {
                   
                   return (
                     <div
-                      {...rest}
+                      {...props}
                       className={cn(
-                        rest.className,
+                        className,
                         isExamDay && "bg-red-100 text-red-800 hover:bg-red-200 hover:text-red-900 font-semibold"
                       )}
                     >
