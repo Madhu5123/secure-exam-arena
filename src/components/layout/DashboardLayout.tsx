@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { LogOut, Menu, Users, Settings, Calendar, BarChart, FileText, Building, Bell } from "lucide-react";
@@ -39,7 +38,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     navigate("/");
   };
 
-  // Define menu items based on user role
   const getMenuItems = () => {
     if (!user) return [];
 
@@ -64,8 +62,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     
     const studentItems = [
       ...commonItems,
-      { title: "My Exams", icon: FileText, url: "/dashboard/my-exams" },
-      { title: "Results", icon: BarChart, url: "/dashboard/results" },
+      { title: "Results", icon: FileText, url: "/dashboard/results" },
       { title: "Notice Board", icon: Bell, url: "/dashboard/notices" },
     ];
     
