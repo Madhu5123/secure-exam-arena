@@ -8,26 +8,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ref, onValue } from "firebase/database";
 import { db } from "@/config/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { DayProps } from "react-day-picker";
 
 interface Exam {
   id: string;
@@ -71,7 +56,6 @@ export function Schedule() {
           });
           setExams(examsList);
           
-          // Update selected exams if date is already selected
           if (date) {
             updateSelectedExams(date);
           }
@@ -147,7 +131,7 @@ export function Schedule() {
               onDayMouseEnter={handleDateMouseEnter}
               onDayMouseLeave={handleDateMouseLeave}
               components={{
-                Day: ({ date: dayDate, displayMonth, className, ...props }) => {
+                Day: ({ date: dayDate, displayMonth, className, ...props }: DayProps & { className?: string }) => {
                   const dateString = format(dayDate, "yyyy-MM-dd");
                   const isExamDate = exams.some(exam => exam.date === dateString);
                   const isHovered = hoveredDate && format(hoveredDate, "yyyy-MM-dd") === dateString;
