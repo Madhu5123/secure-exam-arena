@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { CalendarIcon, Plus, Calendar as CalendarLucide } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -14,7 +13,7 @@ import { format } from "date-fns";
 import { ref, onValue } from "firebase/database";
 import { db } from "@/config/firebase";
 import { useToast } from "@/hooks/use-toast";
-import { DayProps } from "react-day-picker";
+import type { DayProps } from "react-day-picker";
 
 interface Exam {
   id: string;
@@ -133,12 +132,12 @@ export function Schedule() {
               onDayMouseEnter={handleDateMouseEnter}
               onDayMouseLeave={handleDateMouseLeave}
               components={{
-                Day: ({ date: dayDate, displayMonth, className, ...props }: DayProps & { className?: string }) => {
+                Day: ({ date: dayDate, displayMonth, ...props }: DayProps & { className?: string }) => {
                   const dateString = format(dayDate, "yyyy-MM-dd");
                   const isExamDate = exams.some(exam => exam.date === dateString);
                   const isHovered = hoveredDate && format(hoveredDate, "yyyy-MM-dd") === dateString;
                   
-                  const dayClassName = `${className || ''} ${isExamDate ? 'border-b-2 border-red-500' : ''} ${isHovered && isExamDate ? 'bg-red-100' : ''}`;
+                  const dayClassName = `${props.className || ''} ${isExamDate ? 'border-b-2 border-red-500' : ''} ${isHovered && isExamDate ? 'bg-red-100' : ''}`;
                   
                   return (
                     <div 
