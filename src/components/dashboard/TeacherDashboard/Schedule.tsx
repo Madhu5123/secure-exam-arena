@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { CalendarIcon, Plus, Calendar as CalendarLucide } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -8,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ref, onValue } from "firebase/database";
 import { db } from "@/config/firebase";
