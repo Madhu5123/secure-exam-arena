@@ -612,9 +612,3 @@ export const getTopStudents = async (examId: string) => {
     };
   }
 };
-
-export {
-  getExamWarnings,
-  captureWarning,
-  submitExam,
-};
