@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, AlertCircle, CheckCircle, Clock, Camera, CameraOff } from "lucide-react";
@@ -11,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { getExamById, submitExam, captureWarning } from "@/services/ExamService";
 
 interface ExamTakerProps {
@@ -281,6 +282,17 @@ export function ExamTaker({ examId }: ExamTakerProps) {
 
   const initializeCamera = async () => {
     try {
+      // Make sure any existing stream is stopped before requesting a new one
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        setCameraStream(null);
+      }
+      
+      // Clear video source
+      if (videoRef.current && videoRef.current.srcObject) {
+        videoRef.current.srcObject = null;
+      }
+      
       const constraints = { 
         video: { 
           width: { ideal: 640 },
@@ -290,22 +302,41 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       };
       
       console.log("Requesting camera access with constraints:", constraints);
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       
-      console.log("Camera access granted, setting up video stream");
+      // Request camera access with explicit error handling
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+        .catch(err => {
+          console.error("Camera access error:", err.name, err.message);
+          throw err;
+        });
+      
+      console.log("Camera access granted, stream tracks:", stream.getTracks().length);
       setCameraStream(stream);
       
       if (videoRef.current) {
+        console.log("Setting video source");
         videoRef.current.srcObject = stream;
+        videoRef.current.muted = true; // Ensure it's muted to prevent feedback
+        
+        // Force dimensions
+        videoRef.current.width = 640;
+        videoRef.current.height = 480;
+        
+        // Handle video loaded event
         videoRef.current.onloadedmetadata = () => {
           if (videoRef.current) {
             console.log("Video metadata loaded. Dimensions:", 
               videoRef.current.videoWidth, 
               videoRef.current.videoHeight
             );
-            videoRef.current.play().catch(err => {
-              console.error("Error playing video:", err);
-            });
+            
+            // Explicitly call play with error handling
+            videoRef.current.play()
+              .then(() => console.log("Video playback started"))
+              .catch(err => {
+                console.error("Error playing video:", err);
+                throw err;
+              });
           }
         };
       }
@@ -313,7 +344,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       setIsCameraError(false);
       
       // Ensure we have a canvas properly sized for video capture
-      if (canvasRef.current && videoRef.current) {
+      if (canvasRef.current) {
         canvasRef.current.width = 640;
         canvasRef.current.height = 480;
       }
@@ -326,17 +357,22 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       setIsCameraError(true);
       toast({
         title: "Camera access required",
-        description: "Please allow camera access to continue with the exam",
+        description: "Please allow camera access to continue with the exam. Check your browser permissions.",
         variant: "destructive",
       });
     }
   };
 
+  // Cleanup camera on component unmount
   useEffect(() => {
     return () => {
       // Clean up camera and intervals when component unmounts
       if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
+        console.log("Cleaning up camera stream");
+        cameraStream.getTracks().forEach(track => {
+          console.log("Stopping track:", track.kind, track.readyState);
+          track.stop();
+        });
       }
       
       if (faceDetectionIntervalRef.current) {
