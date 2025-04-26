@@ -10,8 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar, Bell, FileText, X, Edit, Trash2 } from "lucide-react";
 import { ref, onValue, push, set, remove, get } from 'firebase/database';
 import { db } from '@/config/firebase';
-import { useToast } from "@/hooks/use-toast";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { fetchAcademicData } from "@/services/AcademicService";
 
@@ -131,20 +130,16 @@ export function NoticeBoard() {
   
   const handleAddNotice = () => {
     if (!noticeData.title || !noticeData.description || !noticeData.semester) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all required fields",
-        variant: "destructive"
+      toast.error("Missing information", {
+        description: "Please fill in all required fields"
       });
       return;
     }
 
     const user = localStorage.getItem('examUser');
     if (!user) {
-      toast({
-        title: "Authentication error",
-        description: "Please login again",
-        variant: "destructive"
+      toast.error("Authentication error", {
+        description: "Please login again"
       });
       return;
     }
@@ -168,8 +163,7 @@ export function NoticeBoard() {
       
       set(newNoticeRef, newNotice);
       
-      toast({
-        title: "Notice added",
+      toast.success("Notice added", {
         description: "Your notice has been published successfully",
       });
       
@@ -183,10 +177,8 @@ export function NoticeBoard() {
       setIsAddDialogOpen(false);
     } catch (error) {
       console.error("Error adding notice:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add notice. Please try again.",
-        variant: "destructive"
+      toast.error("Error", {
+        description: "Failed to add notice. Please try again."
       });
     }
   };
@@ -204,10 +196,8 @@ export function NoticeBoard() {
 
   const handleUpdateNotice = () => {
     if (!selectedNotice || !noticeData.title || !noticeData.description || !noticeData.semester) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all required fields",
-        variant: "destructive"
+      toast.error("Missing information", {
+        description: "Please fill in all required fields"
       });
       return;
     }
@@ -226,9 +216,8 @@ export function NoticeBoard() {
       
       set(noticeRef, updatedNotice);
       
-      toast({
-        title: "Notice updated",
-        description: "Your notice has been updated successfully",
+      toast.success("Notice updated", {
+        description: "Your notice has been updated successfully"
       });
       
       setSelectedNotice(null);
@@ -242,10 +231,8 @@ export function NoticeBoard() {
       setIsAddDialogOpen(false);
     } catch (error) {
       console.error("Error updating notice:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update notice. Please try again.",
-        variant: "destructive"
+      toast.error("Error", {
+        description: "Failed to update notice. Please try again."
       });
     }
   };
@@ -262,19 +249,16 @@ export function NoticeBoard() {
       const noticeRef = ref(db, `notices/${selectedNotice.id}`);
       remove(noticeRef);
       
-      toast({
-        title: "Notice deleted",
-        description: "The notice has been deleted successfully",
+      toast.success("Notice deleted", {
+        description: "The notice has been deleted successfully"
       });
       
       setSelectedNotice(null);
       setIsDeleteDialogOpen(false);
     } catch (error) {
       console.error("Error deleting notice:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete notice. Please try again.",
-        variant: "destructive"
+      toast.error("Error", {
+        description: "Failed to delete notice. Please try again."
       });
     }
   };
