@@ -224,26 +224,22 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   }, [isInstructionsOpen, isSectionIntroOpen, toast, examComplete]);
 
   const startFaceDetection = () => {
-    // Clear any existing interval
     if (faceDetectionIntervalRef.current) {
       clearInterval(faceDetectionIntervalRef.current);
     }
 
-    // Set up face detection monitoring
     const interval = window.setInterval(async () => {
       if (examComplete || isInstructionsOpen || isSectionIntroOpen || !videoRef.current || !videoRef.current.srcObject) return;
       
-      // Simulate face detection for demo purposes
-      // In a real app, you'd use a face detection API like face-api.js, TensorFlow.js, etc.
       const randomValue = Math.random();
       let randomFaces;
       
       if (randomValue > 0.95) {
-        randomFaces = 2;  // 5% chance of multiple faces
+        randomFaces = 2;
       } else if (randomValue > 0.1) {
-        randomFaces = 1;  // 85% chance of one face
+        randomFaces = 1;
       } else {
-        randomFaces = 0;  // 10% chance of no face
+        randomFaces = 0;
       }
       
       setFaceCount(randomFaces);
@@ -252,7 +248,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         setWarningCount(prev => prev + 1);
         setShowWarning(true);
         
-        // Capture warning photo
         await handleCaptureWarningImage('No face detected');
         
         toast({
@@ -264,7 +259,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         setWarningCount(prev => prev + 1);
         setShowWarning(true);
         
-        // Capture warning photo
         await handleCaptureWarningImage('Multiple faces detected');
         
         toast({
@@ -273,26 +267,23 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           variant: "destructive",
         });
       }
-    }, 10000); // Check every 10 seconds
-    
+    }, 10000);
+
     faceDetectionIntervalRef.current = interval;
     setIsFaceDetectionActive(true);
   };
 
   const initializeCamera = async () => {
     try {
-      // Make sure any existing stream is stopped before requesting a new one
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
         setCameraStream(null);
       }
       
-      // Clear video source
       if (videoRef.current && videoRef.current.srcObject) {
         videoRef.current.srcObject = null;
       }
 
-      // Request camera with explicit constraints for better compatibility
       const constraints = { 
         video: { 
           width: { ideal: 320, max: 640 },
@@ -313,35 +304,28 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       
       console.log("Camera access granted, stream tracks:", stream.getTracks().length);
       
-      // Store the stream in state for later cleanup
       setCameraStream(stream);
       
-      // Apply the stream to the video element
       if (videoRef.current) {
         console.log("Setting video source");
         
-        // Set important video properties BEFORE setting srcObject
-        videoRef.current.playsInline = true; // Helps with iOS
-        videoRef.current.muted = true; // Prevent audio feedback
-        videoRef.current.autoplay = true; // Try autoplay
+        videoRef.current.playsInline = true;
+        videoRef.current.muted = true;
+        videoRef.current.autoplay = true;
         
-        // Ensure video dimensions are explicitly set
         videoRef.current.width = 320;
         videoRef.current.height = 240;
         videoRef.current.style.width = "100%";
         videoRef.current.style.height = "auto";
         
-        // Set video source
         videoRef.current.srcObject = stream;
         
-        // Start playing with promise handling
         const playPromise = videoRef.current.play();
         if (playPromise !== undefined) {
           playPromise
             .then(() => console.log("Video playback started successfully"))
             .catch(err => {
               console.error("Error playing video:", err);
-              // Try once more with a delay
               setTimeout(() => {
                 if (videoRef.current) videoRef.current.play().catch(e => console.error("Second play attempt failed:", e));
               }, 1000);
@@ -351,13 +335,11 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       
       setIsCameraError(false);
       
-      // Ensure we have a canvas properly sized for video capture
       if (canvasRef.current) {
         canvasRef.current.width = 320;
         canvasRef.current.height = 240;
       }
       
-      // Start face detection after camera is initialized
       startFaceDetection();
       
     } catch (error) {
@@ -371,7 +353,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     }
   };
 
-  // Add a function to check if video is actually playing data
   const checkVideoStream = () => {
     if (videoRef.current) {
       const { videoWidth, videoHeight } = videoRef.current;
@@ -380,7 +361,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       if (videoWidth === 0 || videoHeight === 0) {
         console.warn("Video element has zero width or height, possible stream issue");
         
-        // Try reinitializing with a delay if we have a stream but no video displaying
         if (cameraStream && cameraStream.active && cameraStream.getVideoTracks()[0]?.readyState === 'live') {
           console.log("Attempting to reattach stream to video element");
           if (videoRef.current) {
@@ -399,12 +379,9 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     }
   };
 
-  // Clean up camera on component unmount
   useEffect(() => {
     return () => {
-      // Clean up camera and intervals when component unmounts
       if (cameraStream) {
-        console.log("Cleaning up camera stream");
         cameraStream.getTracks().forEach(track => {
           console.log("Stopping track:", track.kind, track.readyState);
           track.stop();
@@ -418,10 +395,8 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     };
   }, [cameraStream]);
 
-  // Add new effect to check video status after it should be playing
   useEffect(() => {
     if (cameraStream && !isInstructionsOpen && !isSectionIntroOpen && !examComplete) {
-      // Check video state shortly after initialization
       const checkTimer = setTimeout(checkVideoStream, 2000);
       return () => clearTimeout(checkTimer);
     }
@@ -532,7 +507,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleConfirmSubmit = async () => {
-    // Stop face detection
     if (faceDetectionIntervalRef.current) {
       clearInterval(faceDetectionIntervalRef.current);
       faceDetectionIntervalRef.current = null;
@@ -545,7 +519,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         if (user) {
           const userData = JSON.parse(user);
           const endTime = new Date();
-          const timeTaken = startTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : 0; // time in minutes
+          const timeTaken = startTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : 0;
           
           const result = await submitExam(
             examId, 
@@ -591,7 +565,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleTimeUp = () => {
-    // Stop face detection
     if (faceDetectionIntervalRef.current) {
       clearInterval(faceDetectionIntervalRef.current);
       faceDetectionIntervalRef.current = null;
@@ -894,4 +867,174 @@ export function ExamTaker({ examId }: ExamTakerProps) {
               
               <div className="mt-4">
                 <div className="text-sm mb-1">Section Progress</div>
-                <Progress value={calculateSection
+                <Progress value={calculateSectionProgress()} className="h-2" />
+                <div className="text-xs text-right mt-1">
+                  {Math.round(calculateSectionProgress())}%
+                </div>
+              </div>
+              
+              <div className="mt-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <div className="text-sm">Webcam Monitor</div>
+                  {isCameraError ? (
+                    <Button variant="outline" size="sm" onClick={initializeCamera}>
+                      <Camera className="h-4 w-4 mr-1" />
+                      Retry
+                    </Button>
+                  ) : (
+                    <Badge variant={isFaceDetectionActive ? "default" : "destructive"} className="text-xs">
+                      {isFaceDetectionActive ? "Active" : "Inactive"}
+                    </Badge>
+                  )}
+                </div>
+                <div className="rounded border bg-muted overflow-hidden">
+                  {isCameraError ? (
+                    <div className="p-4 text-center">
+                      <CameraOff className="h-10 w-10 mx-auto mb-1 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">Camera access required</p>
+                    </div>
+                  ) : (
+                    <>
+                      <video ref={videoRef} playsInline muted autoPlay className="w-full h-auto" />
+                      <canvas ref={canvasRef} style={{ display: 'none' }} />
+                    </>
+                  )}
+                </div>
+                {faceCount > 1 && (
+                  <div className="text-xs text-destructive mt-1">
+                    Multiple faces detected
+                  </div>
+                )}
+                {faceCount === 0 && (
+                  <div className="text-xs text-destructive mt-1">
+                    No face detected
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div className="order-1 lg:order-2 lg:col-span-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">
+                Question {currentQuestionIndex + 1}: {currentQuestion.text}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {currentQuestion.type === "multiple-choice" && (
+                <RadioGroup
+                  value={answers[currentQuestion.id] || ""}
+                  onValueChange={(value) => handleAnswerChange(currentQuestion.id, value)}
+                >
+                  {currentQuestion.options.map((option: any) => (
+                    <div key={option.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded">
+                      <RadioGroupItem value={option.id} id={option.id} />
+                      <Label htmlFor={option.id}>{option.text}</Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              )}
+              
+              {currentQuestion.type === "text" && (
+                <div className="space-y-2">
+                  <Label htmlFor={currentQuestion.id}>Your Answer</Label>
+                  <Input
+                    id={currentQuestion.id}
+                    value={answers[currentQuestion.id] || ""}
+                    onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
+                    placeholder="Type your answer here..."
+                    className="w-full"
+                  />
+                </div>
+              )}
+              
+              {currentQuestion.image && (
+                <div className="border rounded overflow-hidden my-4">
+                  <img src={currentQuestion.image} alt="Question" className="w-full h-auto" />
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="border-t pt-4 flex justify-between">
+              <Button 
+                variant="outline" 
+                disabled={currentQuestionIndex === 0} 
+                onClick={() => handleNavigation('prev')}
+              >
+                Previous
+              </Button>
+              
+              {currentQuestionIndex < currentSection.questions.length - 1 ? (
+                <Button onClick={() => handleNavigation('next')}>
+                  Next
+                </Button>
+              ) : (
+                <Button onClick={handleMoveToNextSection}>
+                  {exam.sections && currentSectionIndex < exam.sections.length - 1 
+                    ? "Next Section" 
+                    : "Submit Exam"}
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
+      
+      <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit Exam</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to submit your exam? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Confirmation</AlertTitle>
+              <AlertDescription>
+                Make sure you have reviewed all your answers before submitting.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="grid grid-cols-2 gap-4 text-center">
+              <div className="border rounded-md p-3">
+                <div className="text-sm text-muted-foreground">Questions</div>
+                <div className="mt-1 font-semibold">
+                  {exam.sections 
+                    ? exam.sections.reduce((total: number, section: any) => total + section.questions.length, 0) 
+                    : currentSection.questions.length}
+                </div>
+              </div>
+              <div className="border rounded-md p-3">
+                <div className="text-sm text-muted-foreground">Answered</div>
+                <div className="mt-1 font-semibold">
+                  {Object.values(answers).filter(a => a !== "").length}
+                </div>
+              </div>
+            </div>
+            
+            {warningCount > 0 && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Warnings detected</AlertTitle>
+                <AlertDescription>
+                  Your exam has {warningCount} recorded warning(s). This may affect your results.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSubmitDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmSubmit}>
+              Confirm Submission
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
