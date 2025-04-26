@@ -57,13 +57,14 @@ interface Submission {
 
 interface Question {
   id: string;
-  type: "multiple-choice" | "true-false" | "short-answer";
+  type: "multiple-choice" | "true-false" | "short-answer" | "text";
   text: string;
-  options?: string[];
+  options?: {id: string, text: string}[];
   correctAnswer?: string | string[];
   points: number;
   section?: string;
   timeLimit?: number;
+  image?: string;
 }
 
 export const getExamsForTeacher = async (teacherId: string) => {
@@ -96,17 +97,29 @@ export const getExamById = async (examId: string) => {
     
     if (snapshot.exists()) {
       const examData = snapshot.val();
-      return {
-        success: true,
-        exam: { 
-          id: examId,
-          ...examData,
-          sections: examData.sections.map((section: any, index: number) => ({
+      
+      let examObject = { 
+        id: examId,
+        ...examData
+      };
+      
+      if (examData.sections && Array.isArray(examData.sections)) {
+        examObject.sections = examData.sections.map((section: any, index: number) => {
+          const sectionQuestions = examData.questions && Array.isArray(examData.questions)
+            ? examData.questions.filter((q: any) => q.section === section.name)
+            : [];
+            
+          return {
             ...section,
             id: `section-${index + 1}`,
-            questions: examData.questions.filter((q: any) => q.section === section.name)
-          }))
-        },
+            questions: sectionQuestions
+          };
+        });
+      }
+      
+      return {
+        success: true,
+        exam: examObject
       };
     }
     
@@ -115,6 +128,7 @@ export const getExamById = async (examId: string) => {
       error: "Exam not found",
     };
   } catch (error) {
+    console.error("Failed to fetch exam:", error);
     return {
       success: false,
       error: "Failed to fetch exam",
@@ -133,9 +147,13 @@ export const submitExam = async (
   timeTaken: number = 0
 ) => {
   try {
+    console.log("Starting exam submission process for:", examId, studentId);
+    console.log("Warnings:", warningCount, warnings.length);
+    
     const { success, exam } = await getExamById(examId);
     
     if (!success || !exam) {
+      console.error("Exam not found during submission");
       return {
         success: false,
         error: "Exam not found",
@@ -151,12 +169,27 @@ export const submitExam = async (
     let score = 0;
     let maxScore = 0;
     
-    exam.questions.forEach(question => {
-      maxScore += question.points;
+    let allQuestions: Question[] = [];
+    if (exam.sections) {
+      exam.sections.forEach(section => {
+        if (section.questions) {
+          allQuestions = [...allQuestions, ...section.questions];
+        }
+      });
+    } else if (exam.questions) {
+      allQuestions = exam.questions;
+    }
+    
+    allQuestions.forEach(question => {
+      maxScore += question.points || 0;
       if (answers[question.id] === question.correctAnswer) {
-        score += question.points;
+        score += question.points || 0;
       }
     });
+    
+    const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+    
+    console.log("Calculated score:", score, "/", maxScore, "=", percentage, "%");
     
     const submission = {
       examId,
@@ -171,13 +204,14 @@ export const submitExam = async (
       maxScore,
       warningCount,
       warnings,
-      percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
+      percentage
     };
     
     await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
     
     await set(ref(db, `students/${studentId}/exams/${examId}/status`), "completed");
     
+    console.log("Exam submission completed successfully");
     return {
       success: true,
       submission,

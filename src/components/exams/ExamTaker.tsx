@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, AlertCircle, CheckCircle, Clock, Camera, CameraOff } from "lucide-react";
@@ -56,7 +57,11 @@ export function ExamTaker({ examId }: ExamTakerProps) {
             setExam(result.exam);
             
             const initialAnswers: Record<string, string> = {};
-            const allQuestions = result.exam.questions || [];
+            // Handle both sections and direct questions array
+            const allQuestions = result.exam.sections 
+              ? result.exam.sections.flatMap((section: any) => section.questions || []) 
+              : result.exam.questions || [];
+              
             allQuestions.forEach((question: any) => {
               initialAnswers[question.id] = "";
             });
@@ -67,6 +72,13 @@ export function ExamTaker({ examId }: ExamTakerProps) {
             if (result.exam.sections && result.exam.sections.length > 0) {
               setSectionRemainingSeconds(result.exam.sections[0].timeLimit * 60);
             }
+          } else {
+            toast({
+              title: "Error",
+              description: result.error || "Failed to load exam data",
+              variant: "destructive",
+            });
+            navigate("/dashboard");
           }
         } catch (error) {
           console.error("Error fetching exam:", error);
@@ -77,6 +89,13 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           });
           navigate("/dashboard");
         }
+      } else {
+        toast({
+          title: "Error",
+          description: "No exam ID provided",
+          variant: "destructive",
+        });
+        navigate("/dashboard");
       }
       setLoading(false);
     };
@@ -436,8 +455,10 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleNavigation = (direction: 'prev' | 'next') => {
+    if (!exam) return;
+    
     const currentSection = exam.sections ? exam.sections[currentSectionIndex] : { questions: exam.questions };
-    const questions = currentSection.questions;
+    const questions = currentSection.questions || [];
     
     if (direction === 'prev' && currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
@@ -447,8 +468,10 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleJumpToQuestion = (index: number) => {
+    if (!exam) return;
+    
     const currentSection = exam.sections ? exam.sections[currentSectionIndex] : { questions: exam.questions };
-    const questions = currentSection.questions;
+    const questions = currentSection.questions || [];
     
     if (index >= 0 && index < questions.length) {
       setCurrentQuestionIndex(index);
@@ -456,6 +479,8 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleMoveToNextSection = () => {
+    if (!exam) return;
+    
     if (exam.sections && currentSectionIndex < exam.sections.length - 1) {
       setCurrentSectionIndex(currentSectionIndex + 1);
       setCurrentQuestionIndex(0);
@@ -477,16 +502,20 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleSubmitExam = () => {
+    if (!exam) return;
+    
     let unansweredQuestions = 0;
     
     if (exam.sections) {
       exam.sections.forEach((section: any) => {
-        section.questions.forEach((question: any) => {
-          if (!answers[question.id]) unansweredQuestions++;
-        });
+        if (section.questions) {
+          section.questions.forEach((question: any) => {
+            if (!answers[question.id]) unansweredQuestions++;
+          });
+        }
       });
-    } else {
-      unansweredQuestions = Object.values(answers).filter(answer => answer === "").length;
+    } else if (exam.questions) {
+      unansweredQuestions = exam.questions.filter((q: any) => !answers[q.id]).length;
     }
     
     if (unansweredQuestions > 0) {
@@ -521,6 +550,17 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           const endTime = new Date();
           const timeTaken = startTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : 0;
           
+          console.log("Submitting exam with:", {
+            examId, 
+            studentId: userData.id,
+            answerCount: Object.keys(answers).length,
+            warningCount, 
+            warningsRecorded: warnings.length,
+            startTime: startTime?.toISOString(),
+            endTime: endTime.toISOString(),
+            timeTaken
+          });
+          
           const result = await submitExam(
             examId, 
             userData.id, 
@@ -551,7 +591,20 @@ export function ExamTaker({ examId }: ExamTakerProps) {
               title: "Exam submitted",
               description: "Your exam has been submitted successfully",
             });
+          } else {
+            console.error("Error submitting exam:", result.error);
+            toast({
+              title: "Error",
+              description: result.error || "There was an error submitting your exam. Please try again.",
+              variant: "destructive",
+            });
           }
+        } else {
+          toast({
+            title: "Error",
+            description: "User information not found. Please log in again.",
+            variant: "destructive",
+          });
         }
       }
     } catch (error) {
@@ -692,7 +745,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
                 ) : (
                   <>
                     <li>This exam contains {exam.sections 
-                      ? exam.sections.reduce((total: number, section: any) => total + section.questions.length, 0) 
+                      ? exam.sections.reduce((total: number, section: any) => total + (section.questions?.length || 0), 0) 
                       : exam.totalQuestions} questions and has a time limit of {exam.duration} minutes.</li>
                     <li>You must complete the exam in one session - do not close the browser or refresh the page.</li>
                     <li>The exam will be in fullscreen mode. Attempts to exit fullscreen will be recorded.</li>
@@ -732,7 +785,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     );
   }
 
-  if (isSectionIntroOpen) {
+  if (isSectionIntroOpen && exam.sections) {
     const currentSection = exam.sections[currentSectionIndex];
     
     return (
@@ -744,7 +797,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <p><strong>Time Limit:</strong> {currentSection.timeLimit} minutes</p>
-              <p><strong>Questions:</strong> {currentSection.questions.length}</p>
+              <p><strong>Questions:</strong> {currentSection.questions ? currentSection.questions.length : 0}</p>
               
               <Alert>
                 <AlertCircle className="h-4 w-4" />
@@ -769,13 +822,43 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     );
   }
 
+  if (!exam || (exam.sections && (!exam.sections[currentSectionIndex] || !exam.sections[currentSectionIndex].questions))) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-muted-foreground">Error loading exam questions.</p>
+        <Button variant="outline" className="mt-4" onClick={() => navigate("/dashboard")}>
+          Return to Dashboard
+        </Button>
+      </div>
+    );
+  }
+  
+  // Get current section and question
   const currentSection = exam.sections ? exam.sections[currentSectionIndex] : { questions: exam.questions };
-  const currentQuestion = currentSection.questions[currentQuestionIndex];
+  const questions = currentSection.questions || [];
+  
+  if (currentQuestionIndex >= questions.length) {
+    setCurrentQuestionIndex(0);
+    return null; // Prevent error while state updates
+  }
+  
+  const currentQuestion = questions[currentQuestionIndex];
+  
+  if (!currentQuestion) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-muted-foreground">Question not found.</p>
+        <Button variant="outline" className="mt-4" onClick={() => navigate("/dashboard")}>
+          Return to Dashboard
+        </Button>
+      </div>
+    );
+  }
 
   const calculateSectionProgress = () => {
-    if (!currentSection) return 0;
-    const answered = currentSection.questions.filter((q: any) => answers[q.id] && answers[q.id] !== "").length;
-    return (answered / currentSection.questions.length) * 100;
+    if (!currentSection || !currentSection.questions) return 0;
+    const answeredCount = currentSection.questions.filter((q: any) => answers[q.id] && answers[q.id] !== "").length;
+    return (answeredCount / currentSection.questions.length) * 100;
   };
 
   return (
@@ -790,7 +873,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
             </span>
             <span className="mx-2">•</span>
             <span>
-              Question {currentQuestionIndex + 1}/{currentSection.questions.length}
+              Question {currentQuestionIndex + 1}/{questions.length}
             </span>
           </div>
         </div>
@@ -834,7 +917,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex flex-wrap gap-2">
-                {currentSection.questions.map((q: any, index: number) => (
+                {questions.map((q: any, index: number) => (
                   <Button
                     key={q.id}
                     variant="outline"
@@ -928,10 +1011,10 @@ export function ExamTaker({ examId }: ExamTakerProps) {
                   value={answers[currentQuestion.id] || ""}
                   onValueChange={(value) => handleAnswerChange(currentQuestion.id, value)}
                 >
-                  {currentQuestion.options.map((option: any) => (
+                  {currentQuestion.options && currentQuestion.options.map((option: any) => (
                     <div key={option.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded">
                       <RadioGroupItem value={option.id} id={option.id} />
-                      <Label htmlFor={option.id}>{option.text}</Label>
+                      <Label htmlFor={option.id} className="cursor-pointer w-full">{option.text}</Label>
                     </div>
                   ))}
                 </RadioGroup>
@@ -965,7 +1048,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
                 Previous
               </Button>
               
-              {currentQuestionIndex < currentSection.questions.length - 1 ? (
+              {currentQuestionIndex < questions.length - 1 ? (
                 <Button onClick={() => handleNavigation('next')}>
                   Next
                 </Button>
@@ -1003,8 +1086,8 @@ export function ExamTaker({ examId }: ExamTakerProps) {
                 <div className="text-sm text-muted-foreground">Questions</div>
                 <div className="mt-1 font-semibold">
                   {exam.sections 
-                    ? exam.sections.reduce((total: number, section: any) => total + section.questions.length, 0) 
-                    : currentSection.questions.length}
+                    ? exam.sections.reduce((total: number, section: any) => total + (section.questions?.length || 0), 0) 
+                    : questions.length}
                 </div>
               </div>
               <div className="border rounded-md p-3">
