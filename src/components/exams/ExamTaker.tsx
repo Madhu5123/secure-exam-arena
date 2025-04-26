@@ -38,7 +38,9 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   const [loading, setLoading] = useState(true);
   const [examComplete, setExamComplete] = useState(false);
   const [examResult, setExamResult] = useState<any>(null);
+  const [startTime, setStartTime] = useState<string>("");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -259,6 +261,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       return;
     }
     
+    setStartTime(new Date().toISOString());
     setIsInstructionsOpen(false);
     
     if (exam?.sections && exam.sections.length > 0) {
@@ -350,11 +353,11 @@ export function ExamTaker({ examId }: ExamTakerProps) {
 
   const handleConfirmSubmit = async () => {
     try {
-      if (examId) {
+      if (examId && startTime) {
         const user = localStorage.getItem('examUser');
         if (user) {
           const userData = JSON.parse(user);
-          const result = await submitExam(examId, userData.id, answers, warningCount);
+          const result = await submitExam(examId, userData.id, answers, warningCount, startTime);
           
           if (result.success) {
             setExamResult(result.submission);
@@ -400,6 +403,50 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   const handleFinishReview = () => {
     navigate("/dashboard");
   };
+
+  const capturePhoto = async () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        canvas.toBlob(async (blob) => {
+          if (blob && examId) {
+            const user = localStorage.getItem('examUser');
+            if (user) {
+              const userData = JSON.parse(user);
+              
+              let warningType: "no_face" | "multiple_faces" | "unclear_face" | "fullscreen_exit";
+              
+              if (faceCount === 0) {
+                warningType = "no_face";
+              } else if (faceCount > 1) {
+                warningType = "multiple_faces";
+              } else if (!isFullscreen) {
+                warningType = "fullscreen_exit";
+              } else {
+                warningType = "unclear_face";
+              }
+              
+              await captureWarning(examId, userData.id, warningType, blob);
+            }
+          }
+        }, 'image/jpeg', 0.8);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (showWarning) {
+      capturePhoto();
+    }
+  }, [showWarning]);
 
   if (loading) {
     return (
@@ -840,6 +887,8 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>
   );
 }

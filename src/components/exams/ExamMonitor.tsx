@@ -1,6 +1,5 @@
-
 import { useState, useEffect, ChangeEvent } from 'react';
-import { getExamById, getExamSubmissions } from '@/services/ExamService';
+import { getExamById, getExamSubmissions, getExamWarnings } from '@/services/ExamService';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +9,9 @@ import { Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ref, get } from 'firebase/database';
 import { db } from '@/config/firebase';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle } from 'lucide-react';
+import { ExamWarnings } from "./ExamWarnings";
 
 interface ExamMonitorProps {
   examId?: string;
@@ -36,6 +38,8 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showWarnings, setShowWarnings] = useState(false);
+  const [warnings, setWarnings] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchExamData = async () => {
@@ -46,7 +50,6 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
       }
       
       try {
-        // Fetch exam details
         const examResult = await getExamById(examId);
         
         if (!examResult.success || !examResult.exam) {
@@ -57,17 +60,14 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
         
         setExam(examResult.exam);
         
-        // Fetch submissions
         const submissionsResult = await getExamSubmissions(examId);
         
-        // Fetch student data
         const studentsRef = ref(db, 'users');
         const studentSnapshot = await get(studentsRef);
         
         const studentsData: Student[] = [];
         const studentProfiles: Record<string, { name: string, photo: string }> = {};
         
-        // Get student profile information
         if (studentSnapshot.exists()) {
           studentSnapshot.forEach((childSnapshot) => {
             const studentData = childSnapshot.val();
@@ -80,7 +80,6 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
           });
         }
         
-        // Get assigned students and submissions
         if (examResult.exam.assignedStudents) {
           for (const studentId of examResult.exam.assignedStudents) {
             const submission = submissionsResult.success ? 
@@ -93,7 +92,6 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
             };
             
             if (submission) {
-              // Student has a submission
               const startTime = new Date(submission.startTime);
               const endTime = new Date(submission.endTime);
               const timeTaken = (endTime.getTime() - startTime.getTime()) / 60000; // in minutes
@@ -110,10 +108,9 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                 answers: submission.answers,
                 warningCount: submission.warningCount || 0,
                 status: 'completed',
-                timeTaken: Math.round(timeTaken * 10) / 10 // Round to 1 decimal
+                timeTaken: Math.round(timeTaken * 10) / 10
               });
             } else {
-              // Student hasn't taken the exam
               studentsData.push({
                 id: studentId,
                 name: studentProfile.name,
@@ -140,6 +137,19 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
   const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  useEffect(() => {
+    const fetchWarnings = async () => {
+      if (examId) {
+        const result = await getExamWarnings(examId);
+        if (result.success) {
+          setWarnings(result.warnings);
+        }
+      }
+    };
+    
+    fetchWarnings();
+  }, [examId]);
 
   if (loading) {
     return (
@@ -365,6 +375,24 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold tracking-tight">Exam Monitoring</h2>
+        <Button
+          variant="outline"
+          onClick={() => setShowWarnings(true)}
+          className="gap-2"
+        >
+          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+          View Warnings ({warnings.length})
+        </Button>
+      </div>
+
+      <ExamWarnings
+        warnings={warnings}
+        isOpen={showWarnings}
+        onClose={() => setShowWarnings(false)}
+      />
     </div>
   );
 }
