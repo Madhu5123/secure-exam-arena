@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Calendar, Bell, FileText, X, Edit, Trash2 } from "lucide-react";
-import { ref, onValue, push, set, remove } from 'firebase/database';
+import { ref, onValue, push, set, remove, get } from 'firebase/database';
 import { db } from '@/config/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -55,25 +55,13 @@ export function NoticeBoard() {
         const teacherData = snapshot.val();
         setTeacherDepartment(teacherData.department || '');
         setTeacherName(teacherData.name || userData.name || '');
+        
+        // Fetch semesters when department is available
+        if (teacherData.department) {
+          fetchSemesters(teacherData.department);
+        }
       }
     });
-    
-    // Get department academic data (for semesters)
-    if (userData.department) {
-      const academicRef = ref(db, `departments/${userData.department}/academic`);
-      onValue(academicRef, (snapshot) => {
-        if (snapshot.exists()) {
-          const academicData = snapshot.val();
-          if (academicData.semesters) {
-            setAvailableSemesters(academicData.semesters);
-            // Set default semester
-            if (academicData.semesters.length > 0 && !noticeData.semester) {
-              setNoticeData(prev => ({ ...prev, semester: academicData.semesters[0] }));
-            }
-          }
-        }
-      });
-    }
     
     // Get notices
     const noticesRef = ref(db, 'notices');
@@ -100,6 +88,40 @@ export function NoticeBoard() {
     
     return () => unsubscribeNotices();
   }, [teacherDepartment]);
+  
+  const fetchSemesters = async (department: string) => {
+    try {
+      const academicRef = ref(db, `departments/${department}/academic`);
+      const snapshot = await get(academicRef);
+      
+      if (snapshot.exists()) {
+        const academicData = snapshot.val();
+        if (academicData.semesters) {
+          setAvailableSemesters(academicData.semesters);
+          // Set default semester
+          if (academicData.semesters.length > 0 && !noticeData.semester) {
+            setNoticeData(prev => ({ ...prev, semester: academicData.semesters[0] }));
+          }
+        } else {
+          // Fallback semesters if none found
+          const fallbackSemesters = ["1st Semester", "2nd Semester", "3rd Semester", "4th Semester"];
+          setAvailableSemesters(fallbackSemesters);
+          setNoticeData(prev => ({ ...prev, semester: fallbackSemesters[0] }));
+        }
+      } else {
+        // Fallback semesters if academic data not found
+        const fallbackSemesters = ["1st Semester", "2nd Semester", "3rd Semester", "4th Semester"];
+        setAvailableSemesters(fallbackSemesters);
+        setNoticeData(prev => ({ ...prev, semester: fallbackSemesters[0] }));
+      }
+    } catch (error) {
+      console.error("Error fetching semesters:", error);
+      // Fallback semesters on error
+      const fallbackSemesters = ["1st Semester", "2nd Semester", "3rd Semester", "4th Semester"];
+      setAvailableSemesters(fallbackSemesters);
+      setNoticeData(prev => ({ ...prev, semester: fallbackSemesters[0] }));
+    }
+  };
   
   const handleAddNotice = () => {
     if (!noticeData.title || !noticeData.description || !noticeData.semester) {

@@ -9,16 +9,21 @@ export const uploadToCloudinary = async (file: File): Promise<string> => {
     formData.append('file', file);
     formData.append('upload_preset', uploadPreset);
     
+    console.log('Starting Cloudinary upload for file:', file.name, 'size:', file.size);
+    
     const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
       method: 'POST',
       body: formData,
     });
     
     if (!response.ok) {
-      throw new Error('Upload failed');
+      const errorText = await response.text();
+      console.error('Cloudinary upload failed:', errorText);
+      throw new Error(`Upload failed: ${response.status} ${errorText}`);
     }
     
     const data = await response.json();
+    console.log('Cloudinary upload successful, URL:', data.secure_url);
     return data.secure_url;
   } catch (error) {
     console.error('Error uploading to Cloudinary:', error);

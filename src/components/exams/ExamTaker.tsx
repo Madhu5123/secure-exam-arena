@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, AlertCircle, CheckCircle, Clock, Camera, CameraOff } from "lucide-react";
@@ -14,7 +13,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { getExamById, submitExam, captureWarning } from "@/services/ExamService";
-import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
 
 interface ExamTakerProps {
   examId?: string;
@@ -169,7 +167,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         };
         
         setWarnings(prev => [...prev, newWarning]);
-        return newWarning;
+        return imageUrl;
       }
       return null;
     } catch (error) {
@@ -233,19 +231,19 @@ export function ExamTaker({ examId }: ExamTakerProps) {
 
     // Set up face detection monitoring
     const interval = window.setInterval(async () => {
-      if (examComplete || isInstructionsOpen || isSectionIntroOpen) return;
+      if (examComplete || isInstructionsOpen || isSectionIntroOpen || !videoRef.current || !videoRef.current.srcObject) return;
       
       // Simulate face detection for demo purposes
       // In a real app, you'd use a face detection API like face-api.js, TensorFlow.js, etc.
       const randomValue = Math.random();
       let randomFaces;
       
-      if (randomValue > 0.9) {
-        randomFaces = 2;  // 10% chance of multiple faces
-      } else if (randomValue > 0.05) {
+      if (randomValue > 0.95) {
+        randomFaces = 2;  // 5% chance of multiple faces
+      } else if (randomValue > 0.1) {
         randomFaces = 1;  // 85% chance of one face
       } else {
-        randomFaces = 0;  // 5% chance of no face
+        randomFaces = 0;  // 10% chance of no face
       }
       
       setFaceCount(randomFaces);
@@ -275,17 +273,10 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           variant: "destructive",
         });
       }
-    }, 15000); // Check every 15 seconds
+    }, 10000); // Check every 10 seconds
     
     faceDetectionIntervalRef.current = interval;
     setIsFaceDetectionActive(true);
-    
-    return () => {
-      if (faceDetectionIntervalRef.current) {
-        clearInterval(faceDetectionIntervalRef.current);
-        faceDetectionIntervalRef.current = null;
-      }
-    };
   };
 
   const initializeCamera = async () => {
@@ -302,6 +293,15 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Need to wait for video to be loaded before measuring dimensions
+        videoRef.current.onloadedmetadata = () => {
+          if (videoRef.current) {
+            console.log("Camera initialized with dimensions:", 
+              videoRef.current.videoWidth, 
+              videoRef.current.videoHeight
+            );
+          }
+        };
       }
       
       setIsCameraError(false);
@@ -829,9 +829,9 @@ export function ExamTaker({ examId }: ExamTakerProps) {
                       autoPlay
                       muted
                       playsInline
-                      className="w-full h-40 object-cover rounded-lg"
+                      className="w-full h-40 object-cover rounded-lg bg-gray-100"
                     />
-                    {faceCount !== 1 && (
+                    {faceCount !== 1 && !isInstructionsOpen && !isSectionIntroOpen && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
                         <div className="text-white text-center">
                           <AlertTriangle className="h-8 w-8 mx-auto mb-1 text-amber-500" />

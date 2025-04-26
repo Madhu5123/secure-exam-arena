@@ -560,10 +560,10 @@ export const captureWarning = async (
     if (context) {
       context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
       
-      const blob = await new Promise<Blob>((resolve) => {
+      const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((b) => {
           if (b) resolve(b);
-          else resolve(new Blob([]));
+          else reject(new Error("Failed to create blob from canvas"));
         }, 'image/jpeg', 0.8);
       });
       
@@ -583,10 +583,10 @@ export const captureWarning = async (
 export const getExamWarnings = async (examId: string, studentId: string) => {
   try {
     const role = await checkUserRole();
-    if (role !== "teacher" && role !== "admin") {
+    if (role !== "teacher" && role !== "admin" && role !== "student") {
       return {
         success: false,
-        error: "Only teachers and admins can view warnings",
+        error: "Unauthorized access",
       };
     }
     
