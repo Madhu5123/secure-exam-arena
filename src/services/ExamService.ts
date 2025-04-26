@@ -1,7 +1,7 @@
 import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
-import { uploadToCloudinary } from '@/utils/CloudinaryUpload';
+import { uploadToCloudinary, dataURLtoFile } from '@/utils/CloudinaryUpload';
 
 interface ExamSection {
   id: string;
@@ -549,31 +549,42 @@ export const captureWarning = async (
   videoElement: HTMLVideoElement | null, 
   warningType: string
 ): Promise<string | null> => {
-  if (!videoElement) return null;
+  if (!videoElement) {
+    console.error("No video element provided for capture");
+    return null;
+  }
   
   try {
+    console.log("Capturing warning image...");
+    console.log("Video element status:", {
+      readyState: videoElement.readyState,
+      paused: videoElement.paused,
+      ended: videoElement.ended,
+      videoWidth: videoElement.videoWidth,
+      videoHeight: videoElement.videoHeight
+    });
+    
     const canvas = document.createElement('canvas');
-    canvas.width = videoElement.videoWidth;
-    canvas.height = videoElement.videoHeight;
+    canvas.width = videoElement.videoWidth || 640;
+    canvas.height = videoElement.videoHeight || 480;
     
     const context = canvas.getContext('2d');
-    if (context) {
-      context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-      
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((b) => {
-          if (b) resolve(b);
-          else reject(new Error("Failed to create blob from canvas"));
-        }, 'image/jpeg', 0.8);
-      });
-      
-      const file = new File([blob], `warning-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      
-      const imageUrl = await uploadToCloudinary(file);
-      return imageUrl;
+    if (!context) {
+      console.error("Could not get canvas context");
+      return null;
     }
     
-    return null;
+    context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+    
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    const file = dataURLtoFile(dataUrl, `warning-${Date.now()}.jpg`);
+    
+    console.log("Successfully captured image:", file.size, "bytes");
+    
+    const imageUrl = await uploadToCloudinary(file);
+    console.log("Upload complete, returning URL:", imageUrl);
+    
+    return imageUrl;
   } catch (error) {
     console.error("Error capturing warning image:", error);
     return null;

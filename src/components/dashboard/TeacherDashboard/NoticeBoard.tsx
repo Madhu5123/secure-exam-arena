@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +12,7 @@ import { ref, onValue, push, set, remove, get } from 'firebase/database';
 import { db } from '@/config/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { fetchAcademicData } from "@/services/AcademicService";
 
 interface Notice {
   id: string;
@@ -36,11 +36,10 @@ export function NoticeBoard() {
     title: "",
     description: "",
     semester: "",
-    category: "academic" // Default category
+    category: "academic"
   });
   const [teacherDepartment, setTeacherDepartment] = useState("");
   const [teacherName, setTeacherName] = useState("");
-  const { toast } = useToast();
 
   useEffect(() => {
     const user = localStorage.getItem('examUser');
@@ -48,22 +47,30 @@ export function NoticeBoard() {
     
     const userData = JSON.parse(user);
     
-    // Get teacher department and name
-    const teacherRef = ref(db, `users/${userData.id}`);
-    onValue(teacherRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const teacherData = snapshot.val();
-        setTeacherDepartment(teacherData.department || '');
-        setTeacherName(teacherData.name || userData.name || '');
+    const fetchTeacherData = async () => {
+      try {
+        const teacherRef = ref(db, `users/${userData.id}`);
+        const snapshot = await get(teacherRef);
         
-        // Fetch semesters when department is available
-        if (teacherData.department) {
-          fetchSemesters(teacherData.department);
+        if (snapshot.exists()) {
+          const teacherData = snapshot.val();
+          const department = teacherData.department || '';
+          const name = teacherData.name || userData.name || '';
+          
+          setTeacherDepartment(department);
+          setTeacherName(name);
+          
+          if (department) {
+            await fetchSemestersFromAcademicService(department);
+          }
         }
+      } catch (error) {
+        console.error("Error fetching teacher data:", error);
       }
-    });
+    };
     
-    // Get notices
+    fetchTeacherData();
+    
     const noticesRef = ref(db, 'notices');
     const unsubscribeNotices = onValue(noticesRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -78,7 +85,6 @@ export function NoticeBoard() {
           }
         });
         
-        // Sort notices by created date (latest first)
         noticesData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setNotices(noticesData);
       } else {
@@ -87,41 +93,40 @@ export function NoticeBoard() {
     });
     
     return () => unsubscribeNotices();
-  }, [teacherDepartment]);
+  }, []);
   
-  const fetchSemesters = async (department: string) => {
+  const fetchSemestersFromAcademicService = async (department: string) => {
     try {
-      const academicRef = ref(db, `departments/${department}/academic`);
-      const snapshot = await get(academicRef);
+      console.log("Fetching semesters for department:", department);
+      const academicData = await fetchAcademicData(department);
       
-      if (snapshot.exists()) {
-        const academicData = snapshot.val();
-        if (academicData.semesters) {
-          setAvailableSemesters(academicData.semesters);
-          // Set default semester
-          if (academicData.semesters.length > 0 && !noticeData.semester) {
-            setNoticeData(prev => ({ ...prev, semester: academicData.semesters[0] }));
-          }
-        } else {
-          // Fallback semesters if none found
-          const fallbackSemesters = ["1st Semester", "2nd Semester", "3rd Semester", "4th Semester"];
-          setAvailableSemesters(fallbackSemesters);
-          setNoticeData(prev => ({ ...prev, semester: fallbackSemesters[0] }));
+      if (academicData && academicData.semesters && academicData.semesters.length > 0) {
+        console.log("Semesters fetched from academic service:", academicData.semesters);
+        setAvailableSemesters(academicData.semesters);
+        
+        if (!noticeData.semester) {
+          setNoticeData(prev => ({ ...prev, semester: academicData.semesters[0] }));
         }
       } else {
-        // Fallback semesters if academic data not found
+        console.log("No semesters found in academic service, using fallback");
         const fallbackSemesters = ["1st Semester", "2nd Semester", "3rd Semester", "4th Semester"];
         setAvailableSemesters(fallbackSemesters);
         setNoticeData(prev => ({ ...prev, semester: fallbackSemesters[0] }));
       }
     } catch (error) {
-      console.error("Error fetching semesters:", error);
-      // Fallback semesters on error
+      console.error("Error in fetchSemestersFromAcademicService:", error);
+      
       const fallbackSemesters = ["1st Semester", "2nd Semester", "3rd Semester", "4th Semester"];
       setAvailableSemesters(fallbackSemesters);
       setNoticeData(prev => ({ ...prev, semester: fallbackSemesters[0] }));
     }
   };
+  
+  useEffect(() => {
+    if (teacherDepartment) {
+      fetchSemestersFromAcademicService(teacherDepartment);
+    }
+  }, [teacherDepartment]);
   
   const handleAddNotice = () => {
     if (!noticeData.title || !noticeData.description || !noticeData.semester) {
@@ -167,11 +172,10 @@ export function NoticeBoard() {
         description: "Your notice has been published successfully",
       });
       
-      // Reset form
       setNoticeData({
         title: "",
         description: "",
-        semester: noticeData.semester, // Keep the semester
+        semester: noticeData.semester,
         category: "academic"
       });
       
@@ -370,7 +374,6 @@ export function NoticeBoard() {
         )}
       </div>
 
-      {/* Add/Edit Notice Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -440,7 +443,6 @@ export function NoticeBoard() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

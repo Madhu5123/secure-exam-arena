@@ -281,30 +281,42 @@ export function ExamTaker({ examId }: ExamTakerProps) {
 
   const initializeCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const constraints = { 
         video: { 
           width: { ideal: 640 },
           height: { ideal: 480 },
           facingMode: "user"
         } 
-      });
+      };
       
+      console.log("Requesting camera access with constraints:", constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      console.log("Camera access granted, setting up video stream");
       setCameraStream(stream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        // Need to wait for video to be loaded before measuring dimensions
         videoRef.current.onloadedmetadata = () => {
           if (videoRef.current) {
-            console.log("Camera initialized with dimensions:", 
+            console.log("Video metadata loaded. Dimensions:", 
               videoRef.current.videoWidth, 
               videoRef.current.videoHeight
             );
+            videoRef.current.play().catch(err => {
+              console.error("Error playing video:", err);
+            });
           }
         };
       }
       
       setIsCameraError(false);
+      
+      // Ensure we have a canvas properly sized for video capture
+      if (canvasRef.current && videoRef.current) {
+        canvasRef.current.width = 640;
+        canvasRef.current.height = 480;
+      }
       
       // Start face detection after camera is initialized
       startFaceDetection();
@@ -827,8 +839,8 @@ export function ExamTaker({ examId }: ExamTakerProps) {
                     <video
                       ref={videoRef}
                       autoPlay
-                      muted
                       playsInline
+                      muted
                       className="w-full h-40 object-cover rounded-lg bg-gray-100"
                     />
                     {faceCount !== 1 && !isInstructionsOpen && !isSectionIntroOpen && (
@@ -845,7 +857,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
                 )}
                 
                 {/* Hidden canvas for capturing images */}
-                <canvas ref={canvasRef} className="hidden" />
+                <canvas ref={canvasRef} className="hidden" width="640" height="480" />
               </div>
             </CardContent>
           </Card>
