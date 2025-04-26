@@ -154,7 +154,7 @@ export function Analysis({ studentId }: AnalysisProps) {
             <CardDescription>Your average scores by subject</CardDescription>
           </CardHeader>
           <CardContent className="px-2">
-            <div className="h-[320px] w-full">
+            <div className="h-[400px] w-full">
               <ChartContainer
                 config={{
                   score: {

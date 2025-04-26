@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { LogOut, Menu, Users, Settings, Calendar, BarChart, FileText, Building, Bell } from "lucide-react";
+import { LogOut, Menu, Users, Settings, Calendar, BarChart, FileText, Building, Bell, Book } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -62,6 +62,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     
     const studentItems = [
       ...commonItems,
+      { title: "My Exams", icon: Book, url: "/dashboard/myexams" },
       { title: "Results", icon: FileText, url: "/dashboard/results" },
       { title: "Notice Board", icon: Bell, url: "/dashboard/notices" },
     ];

@@ -295,10 +295,12 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       
       const constraints = { 
         video: { 
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: "user"
-        } 
+          width: { ideal: 320, max: 640 },
+          height: { ideal: 240, max: 480 },
+          facingMode: "user",
+          frameRate: { ideal: 30 }
+        },
+        audio: false
       };
       
       console.log("Requesting camera access with constraints:", constraints);
@@ -311,42 +313,48 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         });
       
       console.log("Camera access granted, stream tracks:", stream.getTracks().length);
+      
       setCameraStream(stream);
       
+      // Apply the stream to the video element
       if (videoRef.current) {
         console.log("Setting video source");
+        
+        // Set important video properties BEFORE setting srcObject
+        videoRef.current.playsInline = true; // Helps with iOS
+        videoRef.current.muted = true; // Prevent audio feedback
+        videoRef.current.autoplay = true; // Try autoplay
+        
+        // Ensure video dimensions are explicitly set
+        videoRef.current.width = 320;
+        videoRef.current.height = 240;
+        videoRef.current.style.width = "100%";
+        videoRef.current.style.height = "auto";
+        
+        // Set video source
         videoRef.current.srcObject = stream;
-        videoRef.current.muted = true; // Ensure it's muted to prevent feedback
         
-        // Force dimensions
-        videoRef.current.width = 640;
-        videoRef.current.height = 480;
-        
-        // Handle video loaded event
-        videoRef.current.onloadedmetadata = () => {
-          if (videoRef.current) {
-            console.log("Video metadata loaded. Dimensions:", 
-              videoRef.current.videoWidth, 
-              videoRef.current.videoHeight
-            );
-            
-            // Explicitly call play with error handling
-            videoRef.current.play()
-              .then(() => console.log("Video playback started"))
-              .catch(err => {
-                console.error("Error playing video:", err);
-                throw err;
-              });
-          }
-        };
+        // Start playing with promise handling
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => console.log("Video playback started successfully"))
+            .catch(err => {
+              console.error("Error playing video:", err);
+              // Try once more with a delay
+              setTimeout(() => {
+                if (videoRef.current) videoRef.current.play().catch(e => console.error("Second play attempt failed:", e));
+              }, 1000);
+            });
+        }
       }
       
       setIsCameraError(false);
       
       // Ensure we have a canvas properly sized for video capture
       if (canvasRef.current) {
-        canvasRef.current.width = 640;
-        canvasRef.current.height = 480;
+        canvasRef.current.width = 320;
+        canvasRef.current.height = 240;
       }
       
       // Start face detection after camera is initialized
@@ -360,6 +368,33 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         description: "Please allow camera access to continue with the exam. Check your browser permissions.",
         variant: "destructive",
       });
+    }
+  };
+
+  const checkVideoStream = () => {
+    if (videoRef.current) {
+      const { videoWidth, videoHeight } = videoRef.current;
+      console.log("Current video dimensions:", videoWidth, videoHeight);
+      
+      if (videoWidth === 0 || videoHeight === 0) {
+        console.warn("Video element has zero width or height, possible stream issue");
+        
+        // Try reinitializing with a delay if we have a stream but no video displaying
+        if (cameraStream && cameraStream.active && cameraStream.getVideoTracks()[0]?.readyState === 'live') {
+          console.log("Attempting to reattach stream to video element");
+          if (videoRef.current) {
+            videoRef.current.srcObject = null;
+            setTimeout(() => {
+              if (videoRef.current && cameraStream) {
+                videoRef.current.srcObject = cameraStream;
+                videoRef.current.play().catch(e => console.error("Reattach play failed:", e));
+              }
+            }, 500);
+          }
+        }
+      } else {
+        console.log("Video is displaying correctly");
+      }
     }
   };
 
@@ -382,6 +417,16 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     };
   }, [cameraStream]);
 
+   // Add new effect to check video status after it should be playing
+   useEffect(() => {
+    if (cameraStream && !isInstructionsOpen && !isSectionIntroOpen && !examComplete) {
+      // Check video state shortly after initialization
+      const checkTimer = setTimeout(checkVideoStream, 2000);
+      return () => clearTimeout(checkTimer);
+    }
+  }, [cameraStream, isInstructionsOpen, isSectionIntroOpen, examComplete]);
+  
+  
   const handleStartExam = async () => {
     setStartTime(new Date());
     await initializeCamera();
