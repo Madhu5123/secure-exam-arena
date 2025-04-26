@@ -250,20 +250,22 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     const interval = window.setInterval(async () => {
       if (examComplete || isInstructionsOpen || isSectionIntroOpen || !videoRef.current || !videoRef.current.srcObject) return;
       
-      const randomValue = Math.random();
-      let randomFaces;
+      // Simulate face detection
+      // In a real app, you would use a library like face-api.js
+      const detectionChance = Math.random();
+      let detectedFaces;
       
-      if (randomValue > 0.95) {
-        randomFaces = 2;
-      } else if (randomValue > 0.1) {
-        randomFaces = 1;
+      if (detectionChance > 0.85) {
+        detectedFaces = 2; // Multiple faces
+      } else if (detectionChance > 0.1) {
+        detectedFaces = 1; // One face (normal)
       } else {
-        randomFaces = 0;
+        detectedFaces = 0; // No face
       }
       
-      setFaceCount(randomFaces);
+      setFaceCount(detectedFaces);
       
-      if (randomFaces === 0 && !examComplete) {
+      if (detectedFaces === 0 && !examComplete) {
         setWarningCount(prev => prev + 1);
         setShowWarning(true);
         
@@ -274,7 +276,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           description: "No face detected! Please ensure your face is visible.",
           variant: "destructive",
         });
-      } else if (randomFaces > 1 && !examComplete) {
+      } else if (detectedFaces > 1 && !examComplete) {
         setWarningCount(prev => prev + 1);
         setShowWarning(true);
         
@@ -1006,15 +1008,16 @@ export function ExamTaker({ examId }: ExamTakerProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {currentQuestion.type === "multiple-choice" && (
+              {currentQuestion.type === "multiple-choice" && currentQuestion.options && (
                 <RadioGroup
                   value={answers[currentQuestion.id] || ""}
                   onValueChange={(value) => handleAnswerChange(currentQuestion.id, value)}
+                  className="space-y-2"
                 >
-                  {currentQuestion.options && currentQuestion.options.map((option: any) => (
-                    <div key={option.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded">
-                      <RadioGroupItem value={option.id} id={option.id} />
-                      <Label htmlFor={option.id} className="cursor-pointer w-full">{option.text}</Label>
+                  {currentQuestion.options.map((option: any) => (
+                    <div key={option.id} className="flex items-center space-x-2 p-3 border rounded hover:bg-muted">
+                      <RadioGroupItem value={option.id} id={`option-${option.id}`} />
+                      <Label htmlFor={`option-${option.id}`} className="cursor-pointer w-full">{option.text}</Label>
                     </div>
                   ))}
                 </RadioGroup>
@@ -1053,7 +1056,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
                   Next
                 </Button>
               ) : (
-                <Button onClick={handleMoveToNextSection}>
+                <Button onClick={handleSubmitExam}>
                   {exam.sections && currentSectionIndex < exam.sections.length - 1 
                     ? "Next Section" 
                     : "Submit Exam"}

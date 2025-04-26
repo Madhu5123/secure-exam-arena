@@ -1,3 +1,4 @@
+
 import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
@@ -190,6 +191,7 @@ export const submitExam = async (
     const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
     
     console.log("Calculated score:", score, "/", maxScore, "=", percentage, "%");
+    console.log("Submitting with warning count:", warningCount);
     
     const submission = {
       examId,
@@ -207,8 +209,8 @@ export const submitExam = async (
       percentage
     };
     
+    // Store submission in the database
     await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
-    
     await set(ref(db, `students/${studentId}/exams/${examId}/status`), "completed");
     
     console.log("Exam submission completed successfully");
