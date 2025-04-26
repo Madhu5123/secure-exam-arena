@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { getExamById, submitExam } from "@/services/ExamService";
+import { getExamById, submitExam, captureWarning } from "@/services/ExamService";
 import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
 
 interface ExamTakerProps {
@@ -42,10 +42,12 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   const [examResult, setExamResult] = useState<any>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [warnings, setWarnings] = useState<Array<{type: string, timestamp: string, imageUrl: string}>>([]);
+  const [isFaceDetectionActive, setIsFaceDetectionActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const faceDetectionIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     const fetchExam = async () => {
@@ -153,47 +155,23 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  const captureWarningImage = async (warningType: string) => {
-    if (!videoRef.current || !canvasRef.current) return;
+  const handleCaptureWarningImage = async (warningType: string) => {
+    if (!videoRef.current || !canvasRef.current || examComplete || isInstructionsOpen || isSectionIntroOpen) return null;
 
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-
-    if (!context) return;
-
-    // Set canvas size to video dimensions
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    // Draw video frame onto canvas
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
     try {
-      // Convert canvas to blob
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((b) => {
-          if (b) resolve(b);
-        }, 'image/jpeg', 0.8);
-      });
-
-      // Create a File object from the blob
-      const file = new File([blob], `warning-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      const imageUrl = await captureWarning(videoRef.current, warningType);
       
-      // Upload to Cloudinary
-      const imageUrl = await uploadToCloudinary(file);
-      
-      // Add to warnings array
-      const newWarning = {
-        type: warningType,
-        timestamp: new Date().toISOString(),
-        imageUrl
-      };
-      
-      setWarnings(prev => [...prev, newWarning]);
-      console.log(`Warning captured: ${warningType}`, imageUrl);
-      
-      return newWarning;
+      if (imageUrl) {
+        const newWarning = {
+          type: warningType,
+          timestamp: new Date().toISOString(),
+          imageUrl
+        };
+        
+        setWarnings(prev => [...prev, newWarning]);
+        return newWarning;
+      }
+      return null;
     } catch (error) {
       console.error("Error capturing warning image:", error);
       return null;
@@ -202,12 +180,12 @@ export function ExamTaker({ examId }: ExamTakerProps) {
 
   useEffect(() => {
     const handleFullscreenChange = async () => {
-      if (document.fullscreenElement === null && isFullscreen) {
+      if (document.fullscreenElement === null && isFullscreen && !examComplete) {
         setShowWarning(true);
         setWarningCount(prev => prev + 1);
         
         // Capture warning photo
-        await captureWarningImage('Exited fullscreen');
+        await handleCaptureWarningImage('Exited fullscreen');
         
         document.documentElement.requestFullscreen().catch(err => {
           console.error("Error attempting to re-enable fullscreen:", err);
@@ -225,15 +203,15 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, [isFullscreen, toast]);
+  }, [isFullscreen, toast, examComplete]);
 
   useEffect(() => {
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'hidden' && !isInstructionsOpen && !isSectionIntroOpen) {
+      if (document.visibilityState === 'hidden' && !isInstructionsOpen && !isSectionIntroOpen && !examComplete) {
         setWarningCount(prev => prev + 1);
         
         // Capture warning photo
-        await captureWarningImage('Tab switched');
+        await handleCaptureWarningImage('Tab switched');
         
         toast({
           title: "Warning",
@@ -245,11 +223,81 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [isInstructionsOpen, isSectionIntroOpen, toast]);
+  }, [isInstructionsOpen, isSectionIntroOpen, toast, examComplete]);
+
+  const startFaceDetection = () => {
+    // Clear any existing interval
+    if (faceDetectionIntervalRef.current) {
+      clearInterval(faceDetectionIntervalRef.current);
+    }
+
+    // Set up face detection monitoring
+    const interval = window.setInterval(async () => {
+      if (examComplete || isInstructionsOpen || isSectionIntroOpen) return;
+      
+      // Simulate face detection for demo purposes
+      // In a real app, you'd use a face detection API like face-api.js, TensorFlow.js, etc.
+      const randomValue = Math.random();
+      let randomFaces;
+      
+      if (randomValue > 0.9) {
+        randomFaces = 2;  // 10% chance of multiple faces
+      } else if (randomValue > 0.05) {
+        randomFaces = 1;  // 85% chance of one face
+      } else {
+        randomFaces = 0;  // 5% chance of no face
+      }
+      
+      setFaceCount(randomFaces);
+      
+      if (randomFaces === 0 && !examComplete) {
+        setWarningCount(prev => prev + 1);
+        setShowWarning(true);
+        
+        // Capture warning photo
+        await handleCaptureWarningImage('No face detected');
+        
+        toast({
+          title: "Warning",
+          description: "No face detected! Please ensure your face is visible.",
+          variant: "destructive",
+        });
+      } else if (randomFaces > 1 && !examComplete) {
+        setWarningCount(prev => prev + 1);
+        setShowWarning(true);
+        
+        // Capture warning photo
+        await handleCaptureWarningImage('Multiple faces detected');
+        
+        toast({
+          title: "Warning",
+          description: "Multiple faces detected! Only you should be visible.",
+          variant: "destructive",
+        });
+      }
+    }, 15000); // Check every 15 seconds
+    
+    faceDetectionIntervalRef.current = interval;
+    setIsFaceDetectionActive(true);
+    
+    return () => {
+      if (faceDetectionIntervalRef.current) {
+        clearInterval(faceDetectionIntervalRef.current);
+        faceDetectionIntervalRef.current = null;
+      }
+    };
+  };
 
   const initializeCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: "user"
+        } 
+      });
+      
       setCameraStream(stream);
       
       if (videoRef.current) {
@@ -258,41 +306,8 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       
       setIsCameraError(false);
       
-      // Set up face detection monitoring
-      const faceDetectionInterval = setInterval(async () => {
-        // Simulate face detection for demo purposes
-        // In a real app, you'd use a face detection API like face-api.js, TensorFlow.js, etc.
-        const randomFaces = Math.random() > 0.9 ? 2 : Math.random() > 0.05 ? 1 : 0;
-        setFaceCount(randomFaces);
-        
-        if (randomFaces === 0) {
-          setWarningCount(prev => prev + 1);
-          setShowWarning(true);
-          
-          // Capture warning photo
-          await captureWarningImage('No face detected');
-          
-          toast({
-            title: "Warning",
-            description: "No face detected! Please ensure your face is visible.",
-            variant: "destructive",
-          });
-        } else if (randomFaces > 1) {
-          setWarningCount(prev => prev + 1);
-          setShowWarning(true);
-          
-          // Capture warning photo
-          await captureWarningImage('Multiple faces detected');
-          
-          toast({
-            title: "Warning",
-            description: "Multiple faces detected! Only you should be visible.",
-            variant: "destructive",
-          });
-        }
-      }, 30000); // Check every 30 seconds
-      
-      return () => clearInterval(faceDetectionInterval);
+      // Start face detection after camera is initialized
+      startFaceDetection();
       
     } catch (error) {
       console.error("Error accessing camera:", error);
@@ -307,15 +322,21 @@ export function ExamTaker({ examId }: ExamTakerProps) {
 
   useEffect(() => {
     return () => {
+      // Clean up camera and intervals when component unmounts
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
+      }
+      
+      if (faceDetectionIntervalRef.current) {
+        clearInterval(faceDetectionIntervalRef.current);
+        faceDetectionIntervalRef.current = null;
       }
     };
   }, [cameraStream]);
 
   const handleStartExam = async () => {
     setStartTime(new Date());
-    const cleanupFn = await initializeCamera();
+    await initializeCamera();
     
     try {
       await document.documentElement.requestFullscreen();
@@ -335,8 +356,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     if (exam?.sections && exam.sections.length > 0) {
       setIsSectionIntroOpen(true);
     }
-    
-    return cleanupFn;
   };
 
   const handleStartSection = () => {
@@ -420,6 +439,13 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleConfirmSubmit = async () => {
+    // Stop face detection
+    if (faceDetectionIntervalRef.current) {
+      clearInterval(faceDetectionIntervalRef.current);
+      faceDetectionIntervalRef.current = null;
+    }
+    setIsFaceDetectionActive(false);
+    
     try {
       if (examId) {
         const user = localStorage.getItem('examUser');
@@ -451,6 +477,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
             
             if (cameraStream) {
               cameraStream.getTracks().forEach(track => track.stop());
+              setCameraStream(null);
             }
             
             toast({
@@ -471,6 +498,13 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleTimeUp = () => {
+    // Stop face detection
+    if (faceDetectionIntervalRef.current) {
+      clearInterval(faceDetectionIntervalRef.current);
+      faceDetectionIntervalRef.current = null;
+    }
+    setIsFaceDetectionActive(false);
+    
     toast({
       title: "Time's up!",
       description: "Your exam time has ended. Your answers will be automatically submitted.",

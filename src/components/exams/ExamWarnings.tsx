@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle, Camera, AlertOctagon } from "lucide-react";
 import { getExamWarnings } from "@/services/ExamService";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ExamWarningsProps {
   examId: string;
@@ -27,7 +28,7 @@ export function ExamWarnings({ examId, studentId }: ExamWarningsProps) {
         try {
           const result = await getExamWarnings(examId, studentId);
           if (result.success) {
-            setWarnings(result.warnings);
+            setWarnings(result.warnings || []);
           }
         } catch (error) {
           console.error("Error fetching warnings:", error);
@@ -78,36 +79,38 @@ export function ExamWarnings({ examId, studentId }: ExamWarningsProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {warnings.map((warning, index) => {
-            const date = new Date(warning.timestamp);
-            const formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            
-            return (
-              <div key={index} className="border rounded-md p-4">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2">
-                  <div className="mb-2 sm:mb-0">
-                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 mb-2">
-                      {warning.type}
-                    </Badge>
-                    <p className="text-sm text-muted-foreground">
-                      {date.toLocaleDateString()} at {formattedTime}
-                    </p>
+        <ScrollArea className="h-[400px] pr-4">
+          <div className="space-y-4">
+            {warnings.map((warning, index) => {
+              const date = new Date(warning.timestamp);
+              const formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              
+              return (
+                <div key={index} className="border rounded-md p-4">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2">
+                    <div className="mb-2 sm:mb-0">
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 mb-2">
+                        {warning.type}
+                      </Badge>
+                      <p className="text-sm text-muted-foreground">
+                        {date.toLocaleDateString()} at {formattedTime}
+                      </p>
+                    </div>
                   </div>
+                  {warning.imageUrl && (
+                    <div className="mt-2 border rounded-md overflow-hidden">
+                      <img 
+                        src={warning.imageUrl} 
+                        alt={`Warning: ${warning.type}`}
+                        className="w-full h-auto max-h-64 object-cover"
+                      />
+                    </div>
+                  )}
                 </div>
-                {warning.imageUrl && (
-                  <div className="mt-2 border rounded-md overflow-hidden">
-                    <img 
-                      src={warning.imageUrl} 
-                      alt={`Warning: ${warning.type}`}
-                      className="w-full h-auto max-h-64 object-cover"
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </ScrollArea>
       </CardContent>
     </Card>
   );

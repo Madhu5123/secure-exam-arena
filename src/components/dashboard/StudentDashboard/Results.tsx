@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { getStudentResults } from "@/services/ExamService";
 import { format } from "date-fns";
 
@@ -187,7 +188,7 @@ export function Results({ studentId }: ResultsProps) {
             </Card>
           </div>
           
-          <div className="border rounded-lg p-4 mb-2">
+          <ScrollArea className="border rounded-lg p-4 mb-2 h-[350px]">
             <h3 className="font-medium mb-4">Your Answers</h3>
             <div className="space-y-4">
               {selectedExam?.answers && Object.entries(selectedExam.answers).map(([questionId, answer]: [string, any], index) => {
@@ -240,7 +241,7 @@ export function Results({ studentId }: ResultsProps) {
                 );
               })}
             </div>
-          </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>
