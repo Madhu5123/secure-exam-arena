@@ -23,7 +23,7 @@ interface Question {
   id: string;
   type: QuestionType;
   text: string;
-  options?: { id: string; text: string }[]; // Updated to match ExamService.ts
+  options?: string[];
   correctAnswer?: string;
   points: number;
   section?: string;
@@ -46,12 +46,7 @@ export function ExamCreator() {
     id: "1",
     type: "multiple-choice",
     text: "",
-    options: [
-      { id: "0", text: "" },
-      { id: "1", text: "" },
-      { id: "2", text: "" },
-      { id: "3", text: "" }
-    ],
+    options: ["", "", "", ""],
     correctAnswer: "",
     points: 1,
     section: "Section 1",
@@ -141,7 +136,7 @@ export function ExamCreator() {
 
     // Validate based on question type
     if (currentQuestion.type === "multiple-choice") {
-      if (!currentQuestion.options?.every(option => option.text.trim())) {
+      if (!currentQuestion.options?.every(option => option.trim())) {
         toast({
           title: "Incomplete options",
           description: "Please fill in all options",
@@ -168,12 +163,7 @@ export function ExamCreator() {
       id: newId,
       type: "multiple-choice",
       text: "",
-      options: [
-        { id: "0", text: "" },
-        { id: "1", text: "" },
-        { id: "2", text: "" },
-        { id: "3", text: "" }
-      ],
+      options: ["", "", "", ""],
       correctAnswer: "",
       points: 1,
       section: currentSection,
@@ -196,7 +186,7 @@ export function ExamCreator() {
 
   const handleOptionChange = (index: number, value: string) => {
     const newOptions = [...(currentQuestion.options || [])];
-    newOptions[index] = { id: String(index), text: value };
+    newOptions[index] = value;
     setCurrentQuestion({ ...currentQuestion, options: newOptions });
   };
 
@@ -204,18 +194,10 @@ export function ExamCreator() {
     let newQuestion = { ...currentQuestion, type };
     
     if (type === "multiple-choice") {
-      newQuestion.options = [
-        { id: "0", text: "" },
-        { id: "1", text: "" },
-        { id: "2", text: "" },
-        { id: "3", text: "" }
-      ];
+      newQuestion.options = ["", "", "", ""];
       newQuestion.correctAnswer = "";
     } else if (type === "true-false") {
-      newQuestion.options = [
-        { id: "0", text: "True" },
-        { id: "1", text: "False" }
-      ];
+      newQuestion.options = ["True", "False"];
       newQuestion.correctAnswer = "";
     } else {
       delete newQuestion.options;
@@ -534,7 +516,7 @@ export function ExamCreator() {
                               }`}>
                                 {question.correctAnswer === String(i) && "✓"}
                               </div>
-                              <span>{option.text}</span>
+                              <span>{option}</span>
                             </div>
                           ))}
                         </div>
@@ -625,7 +607,7 @@ export function ExamCreator() {
                         </RadioGroup>
                         <Input
                           placeholder={`Option ${index + 1}`}
-                          value={option.text}
+                          value={option}
                           onChange={(e) => handleOptionChange(index, e.target.value)}
                           className="flex-grow"
                         />

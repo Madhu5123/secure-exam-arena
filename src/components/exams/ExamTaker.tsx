@@ -57,11 +57,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
             setExam(result.exam);
             
             const initialAnswers: Record<string, string> = {};
-            // Handle both sections and direct questions array
-            const allQuestions = result.exam.sections 
-              ? result.exam.sections.flatMap((section: any) => section.questions || []) 
-              : result.exam.questions || [];
-              
+            const allQuestions = result.exam.questions || [];
             allQuestions.forEach((question: any) => {
               initialAnswers[question.id] = "";
             });
@@ -72,13 +68,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
             if (result.exam.sections && result.exam.sections.length > 0) {
               setSectionRemainingSeconds(result.exam.sections[0].timeLimit * 60);
             }
-          } else {
-            toast({
-              title: "Error",
-              description: result.error || "Failed to load exam data",
-              variant: "destructive",
-            });
-            navigate("/dashboard");
           }
         } catch (error) {
           console.error("Error fetching exam:", error);
@@ -89,13 +78,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           });
           navigate("/dashboard");
         }
-      } else {
-        toast({
-          title: "Error",
-          description: "No exam ID provided",
-          variant: "destructive",
-        });
-        navigate("/dashboard");
       }
       setLoading(false);
     };
@@ -243,32 +225,35 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   }, [isInstructionsOpen, isSectionIntroOpen, toast, examComplete]);
 
   const startFaceDetection = () => {
+    // Clear any existing interval
     if (faceDetectionIntervalRef.current) {
       clearInterval(faceDetectionIntervalRef.current);
     }
 
+    // Set up face detection monitoring
     const interval = window.setInterval(async () => {
       if (examComplete || isInstructionsOpen || isSectionIntroOpen || !videoRef.current || !videoRef.current.srcObject) return;
       
-      // Simulate face detection
-      // In a real app, you would use a library like face-api.js
-      const detectionChance = Math.random();
-      let detectedFaces;
+      // Simulate face detection for demo purposes
+      // In a real app, you'd use a face detection API like face-api.js, TensorFlow.js, etc.
+      const randomValue = Math.random();
+      let randomFaces;
       
-      if (detectionChance > 0.85) {
-        detectedFaces = 2; // Multiple faces
-      } else if (detectionChance > 0.1) {
-        detectedFaces = 1; // One face (normal)
+      if (randomValue > 0.95) {
+        randomFaces = 2;  // 5% chance of multiple faces
+      } else if (randomValue > 0.1) {
+        randomFaces = 1;  // 85% chance of one face
       } else {
-        detectedFaces = 0; // No face
+        randomFaces = 0;  // 10% chance of no face
       }
       
-      setFaceCount(detectedFaces);
+      setFaceCount(randomFaces);
       
-      if (detectedFaces === 0 && !examComplete) {
+      if (randomFaces === 0 && !examComplete) {
         setWarningCount(prev => prev + 1);
         setShowWarning(true);
         
+        // Capture warning photo
         await handleCaptureWarningImage('No face detected');
         
         toast({
@@ -276,10 +261,11 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           description: "No face detected! Please ensure your face is visible.",
           variant: "destructive",
         });
-      } else if (detectedFaces > 1 && !examComplete) {
+      } else if (randomFaces > 1 && !examComplete) {
         setWarningCount(prev => prev + 1);
         setShowWarning(true);
         
+        // Capture warning photo
         await handleCaptureWarningImage('Multiple faces detected');
         
         toast({
@@ -288,35 +274,36 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           variant: "destructive",
         });
       }
-    }, 10000);
-
+    }, 10000); // Check every 10 seconds
+    
     faceDetectionIntervalRef.current = interval;
     setIsFaceDetectionActive(true);
   };
 
   const initializeCamera = async () => {
     try {
+      // Make sure any existing stream is stopped before requesting a new one
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
         setCameraStream(null);
       }
       
+      // Clear video source
       if (videoRef.current && videoRef.current.srcObject) {
         videoRef.current.srcObject = null;
       }
-
+      
       const constraints = { 
         video: { 
-          width: { ideal: 320, max: 640 },
-          height: { ideal: 240, max: 480 },
-          facingMode: "user",
-          frameRate: { ideal: 30 }
-        },
-        audio: false
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: "user"
+        } 
       };
       
-      console.log("Requesting camera access with constraints:", JSON.stringify(constraints));
+      console.log("Requesting camera access with constraints:", constraints);
       
+      // Request camera access with explicit error handling
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
         .catch(err => {
           console.error("Camera access error:", err.name, err.message);
@@ -324,43 +311,45 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         });
       
       console.log("Camera access granted, stream tracks:", stream.getTracks().length);
-      
       setCameraStream(stream);
       
       if (videoRef.current) {
         console.log("Setting video source");
-        
-        videoRef.current.playsInline = true;
-        videoRef.current.muted = true;
-        videoRef.current.autoplay = true;
-        
-        videoRef.current.width = 320;
-        videoRef.current.height = 240;
-        videoRef.current.style.width = "100%";
-        videoRef.current.style.height = "auto";
-        
         videoRef.current.srcObject = stream;
+        videoRef.current.muted = true; // Ensure it's muted to prevent feedback
         
-        const playPromise = videoRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => console.log("Video playback started successfully"))
-            .catch(err => {
-              console.error("Error playing video:", err);
-              setTimeout(() => {
-                if (videoRef.current) videoRef.current.play().catch(e => console.error("Second play attempt failed:", e));
-              }, 1000);
-            });
-        }
+        // Force dimensions
+        videoRef.current.width = 640;
+        videoRef.current.height = 480;
+        
+        // Handle video loaded event
+        videoRef.current.onloadedmetadata = () => {
+          if (videoRef.current) {
+            console.log("Video metadata loaded. Dimensions:", 
+              videoRef.current.videoWidth, 
+              videoRef.current.videoHeight
+            );
+            
+            // Explicitly call play with error handling
+            videoRef.current.play()
+              .then(() => console.log("Video playback started"))
+              .catch(err => {
+                console.error("Error playing video:", err);
+                throw err;
+              });
+          }
+        };
       }
       
       setIsCameraError(false);
       
+      // Ensure we have a canvas properly sized for video capture
       if (canvasRef.current) {
-        canvasRef.current.width = 320;
-        canvasRef.current.height = 240;
+        canvasRef.current.width = 640;
+        canvasRef.current.height = 480;
       }
       
+      // Start face detection after camera is initialized
       startFaceDetection();
       
     } catch (error) {
@@ -374,35 +363,12 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     }
   };
 
-  const checkVideoStream = () => {
-    if (videoRef.current) {
-      const { videoWidth, videoHeight } = videoRef.current;
-      console.log("Current video dimensions:", videoWidth, videoHeight);
-      
-      if (videoWidth === 0 || videoHeight === 0) {
-        console.warn("Video element has zero width or height, possible stream issue");
-        
-        if (cameraStream && cameraStream.active && cameraStream.getVideoTracks()[0]?.readyState === 'live') {
-          console.log("Attempting to reattach stream to video element");
-          if (videoRef.current) {
-            videoRef.current.srcObject = null;
-            setTimeout(() => {
-              if (videoRef.current && cameraStream) {
-                videoRef.current.srcObject = cameraStream;
-                videoRef.current.play().catch(e => console.error("Reattach play failed:", e));
-              }
-            }, 500);
-          }
-        }
-      } else {
-        console.log("Video is displaying correctly");
-      }
-    }
-  };
-
+  // Cleanup camera on component unmount
   useEffect(() => {
     return () => {
+      // Clean up camera and intervals when component unmounts
       if (cameraStream) {
+        console.log("Cleaning up camera stream");
         cameraStream.getTracks().forEach(track => {
           console.log("Stopping track:", track.kind, track.readyState);
           track.stop();
@@ -416,13 +382,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     };
   }, [cameraStream]);
 
-  useEffect(() => {
-    if (cameraStream && !isInstructionsOpen && !isSectionIntroOpen && !examComplete) {
-      const checkTimer = setTimeout(checkVideoStream, 2000);
-      return () => clearTimeout(checkTimer);
-    }
-  }, [cameraStream, isInstructionsOpen, isSectionIntroOpen, examComplete]);
-  
   const handleStartExam = async () => {
     setStartTime(new Date());
     await initializeCamera();
@@ -457,10 +416,8 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleNavigation = (direction: 'prev' | 'next') => {
-    if (!exam) return;
-    
     const currentSection = exam.sections ? exam.sections[currentSectionIndex] : { questions: exam.questions };
-    const questions = currentSection.questions || [];
+    const questions = currentSection.questions;
     
     if (direction === 'prev' && currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
@@ -470,10 +427,8 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleJumpToQuestion = (index: number) => {
-    if (!exam) return;
-    
     const currentSection = exam.sections ? exam.sections[currentSectionIndex] : { questions: exam.questions };
-    const questions = currentSection.questions || [];
+    const questions = currentSection.questions;
     
     if (index >= 0 && index < questions.length) {
       setCurrentQuestionIndex(index);
@@ -481,8 +436,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleMoveToNextSection = () => {
-    if (!exam) return;
-    
     if (exam.sections && currentSectionIndex < exam.sections.length - 1) {
       setCurrentSectionIndex(currentSectionIndex + 1);
       setCurrentQuestionIndex(0);
@@ -504,20 +457,16 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleSubmitExam = () => {
-    if (!exam) return;
-    
     let unansweredQuestions = 0;
     
     if (exam.sections) {
       exam.sections.forEach((section: any) => {
-        if (section.questions) {
-          section.questions.forEach((question: any) => {
-            if (!answers[question.id]) unansweredQuestions++;
-          });
-        }
+        section.questions.forEach((question: any) => {
+          if (!answers[question.id]) unansweredQuestions++;
+        });
       });
-    } else if (exam.questions) {
-      unansweredQuestions = exam.questions.filter((q: any) => !answers[q.id]).length;
+    } else {
+      unansweredQuestions = Object.values(answers).filter(answer => answer === "").length;
     }
     
     if (unansweredQuestions > 0) {
@@ -538,6 +487,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleConfirmSubmit = async () => {
+    // Stop face detection
     if (faceDetectionIntervalRef.current) {
       clearInterval(faceDetectionIntervalRef.current);
       faceDetectionIntervalRef.current = null;
@@ -550,18 +500,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         if (user) {
           const userData = JSON.parse(user);
           const endTime = new Date();
-          const timeTaken = startTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : 0;
-          
-          console.log("Submitting exam with:", {
-            examId, 
-            studentId: userData.id,
-            answerCount: Object.keys(answers).length,
-            warningCount, 
-            warningsRecorded: warnings.length,
-            startTime: startTime?.toISOString(),
-            endTime: endTime.toISOString(),
-            timeTaken
-          });
+          const timeTaken = startTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : 0; // time in minutes
           
           const result = await submitExam(
             examId, 
@@ -593,20 +532,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
               title: "Exam submitted",
               description: "Your exam has been submitted successfully",
             });
-          } else {
-            console.error("Error submitting exam:", result.error);
-            toast({
-              title: "Error",
-              description: result.error || "There was an error submitting your exam. Please try again.",
-              variant: "destructive",
-            });
           }
-        } else {
-          toast({
-            title: "Error",
-            description: "User information not found. Please log in again.",
-            variant: "destructive",
-          });
         }
       }
     } catch (error) {
@@ -620,6 +546,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   };
 
   const handleTimeUp = () => {
+    // Stop face detection
     if (faceDetectionIntervalRef.current) {
       clearInterval(faceDetectionIntervalRef.current);
       faceDetectionIntervalRef.current = null;
@@ -747,7 +674,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
                 ) : (
                   <>
                     <li>This exam contains {exam.sections 
-                      ? exam.sections.reduce((total: number, section: any) => total + (section.questions?.length || 0), 0) 
+                      ? exam.sections.reduce((total: number, section: any) => total + section.questions.length, 0) 
                       : exam.totalQuestions} questions and has a time limit of {exam.duration} minutes.</li>
                     <li>You must complete the exam in one session - do not close the browser or refresh the page.</li>
                     <li>The exam will be in fullscreen mode. Attempts to exit fullscreen will be recorded.</li>
@@ -787,7 +714,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     );
   }
 
-  if (isSectionIntroOpen && exam.sections) {
+  if (isSectionIntroOpen) {
     const currentSection = exam.sections[currentSectionIndex];
     
     return (
@@ -799,7 +726,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <p><strong>Time Limit:</strong> {currentSection.timeLimit} minutes</p>
-              <p><strong>Questions:</strong> {currentSection.questions ? currentSection.questions.length : 0}</p>
+              <p><strong>Questions:</strong> {currentSection.questions.length}</p>
               
               <Alert>
                 <AlertCircle className="h-4 w-4" />
@@ -824,43 +751,13 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     );
   }
 
-  if (!exam || (exam.sections && (!exam.sections[currentSectionIndex] || !exam.sections[currentSectionIndex].questions))) {
-    return (
-      <div className="text-center py-10">
-        <p className="text-muted-foreground">Error loading exam questions.</p>
-        <Button variant="outline" className="mt-4" onClick={() => navigate("/dashboard")}>
-          Return to Dashboard
-        </Button>
-      </div>
-    );
-  }
-  
-  // Get current section and question
   const currentSection = exam.sections ? exam.sections[currentSectionIndex] : { questions: exam.questions };
-  const questions = currentSection.questions || [];
-  
-  if (currentQuestionIndex >= questions.length) {
-    setCurrentQuestionIndex(0);
-    return null; // Prevent error while state updates
-  }
-  
-  const currentQuestion = questions[currentQuestionIndex];
-  
-  if (!currentQuestion) {
-    return (
-      <div className="text-center py-10">
-        <p className="text-muted-foreground">Question not found.</p>
-        <Button variant="outline" className="mt-4" onClick={() => navigate("/dashboard")}>
-          Return to Dashboard
-        </Button>
-      </div>
-    );
-  }
+  const currentQuestion = currentSection.questions[currentQuestionIndex];
 
   const calculateSectionProgress = () => {
-    if (!currentSection || !currentSection.questions) return 0;
-    const answeredCount = currentSection.questions.filter((q: any) => answers[q.id] && answers[q.id] !== "").length;
-    return (answeredCount / currentSection.questions.length) * 100;
+    if (!currentSection) return 0;
+    const answered = currentSection.questions.filter((q: any) => answers[q.id] && answers[q.id] !== "").length;
+    return (answered / currentSection.questions.length) * 100;
   };
 
   return (
@@ -875,7 +772,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
             </span>
             <span className="mx-2">•</span>
             <span>
-              Question {currentQuestionIndex + 1}/{questions.length}
+              Question {currentQuestionIndex + 1}/{currentSection.questions.length}
             </span>
           </div>
         </div>
@@ -919,7 +816,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex flex-wrap gap-2">
-                {questions.map((q: any, index: number) => (
+                {currentSection.questions.map((q: any, index: number) => (
                   <Button
                     key={q.id}
                     variant="outline"
@@ -953,120 +850,145 @@ export function ExamTaker({ examId }: ExamTakerProps) {
               <div className="mt-4">
                 <div className="text-sm mb-1">Section Progress</div>
                 <Progress value={calculateSectionProgress()} className="h-2" />
-                <div className="text-xs text-right mt-1">
-                  {Math.round(calculateSectionProgress())}%
+                <div className="text-xs text-muted-foreground mt-1">
+                  {currentSection.questions.filter((q: any) => answers[q.id] && answers[q.id] !== "").length} 
+                  {" "}of{" "}
+                  {currentSection.questions.length} answered
                 </div>
               </div>
               
-              <div className="mt-4">
-                <div className="mb-1 flex items-center justify-between">
-                  <div className="text-sm">Webcam Monitor</div>
-                  {isCameraError ? (
-                    <Button variant="outline" size="sm" onClick={initializeCamera}>
-                      <Camera className="h-4 w-4 mr-1" />
-                      Retry
-                    </Button>
-                  ) : (
-                    <Badge variant={isFaceDetectionActive ? "default" : "destructive"} className="text-xs">
-                      {isFaceDetectionActive ? "Active" : "Inactive"}
-                    </Badge>
-                  )}
+              <div className="camera-container mt-4">
+                <div className="mb-2 text-sm font-semibold flex items-center justify-between">
+                  <span>Camera Feed</span>
+                  <div className={`h-2 w-2 rounded-full ${faceCount === 1 ? 'bg-green-500 animate-pulse' : 'bg-red-500 animate-pulse'}`}></div>
                 </div>
-                <div className="rounded border bg-muted overflow-hidden">
-                  {isCameraError ? (
-                    <div className="p-4 text-center">
-                      <CameraOff className="h-10 w-10 mx-auto mb-1 text-muted-foreground" />
+                
+                {isCameraError ? (
+                  <div className="flex items-center justify-center h-32 bg-muted rounded-lg">
+                    <div className="text-center">
+                      <CameraOff className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                       <p className="text-sm text-muted-foreground">Camera access required</p>
                     </div>
-                  ) : (
-                    <>
-                      <video ref={videoRef} playsInline muted autoPlay className="w-full h-auto" />
-                      <canvas ref={canvasRef} style={{ display: 'none' }} />
-                    </>
-                  )}
-                </div>
-                {faceCount > 1 && (
-                  <div className="text-xs text-destructive mt-1">
-                    Multiple faces detected
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-40 object-cover rounded-lg bg-gray-100"
+                    />
+                    {faceCount !== 1 && !isInstructionsOpen && !isSectionIntroOpen && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+                        <div className="text-white text-center">
+                          <AlertTriangle className="h-8 w-8 mx-auto mb-1 text-amber-500" />
+                          <p className="text-sm">
+                            {faceCount === 0 ? "No face detected" : "Multiple faces detected"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
-                {faceCount === 0 && (
-                  <div className="text-xs text-destructive mt-1">
-                    No face detected
-                  </div>
-                )}
+                
+                {/* Hidden canvas for capturing images */}
+                <canvas ref={canvasRef} className="hidden" width="640" height="480" />
               </div>
             </CardContent>
           </Card>
         </div>
         
         <div className="order-1 lg:order-2 lg:col-span-3">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">
-                Question {currentQuestionIndex + 1}: {currentQuestion.text}
-              </CardTitle>
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Question {currentQuestionIndex + 1}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {currentQuestion.type === "multiple-choice" && currentQuestion.options && (
-                <RadioGroup
-                  value={answers[currentQuestion.id] || ""}
+              <div className="text-lg font-medium">{currentQuestion.text}</div>
+              
+              {currentQuestion.type === "multiple-choice" && (
+                <RadioGroup 
+                  value={answers[currentQuestion.id]}
                   onValueChange={(value) => handleAnswerChange(currentQuestion.id, value)}
-                  className="space-y-2"
+                  className="space-y-3"
                 >
-                  {currentQuestion.options.map((option: any) => (
-                    <div key={option.id} className="flex items-center space-x-2 p-3 border rounded hover:bg-muted">
-                      <RadioGroupItem value={option.id} id={`option-${option.id}`} />
-                      <Label htmlFor={`option-${option.id}`} className="cursor-pointer w-full">{option.text}</Label>
+                  {currentQuestion.options.map((option: string, index: number) => (
+                    <div key={index} className="flex items-center space-x-2 border p-3 rounded-md">
+                      <RadioGroupItem value={String(index)} id={`option-${currentQuestion.id}-${index}`} />
+                      <Label htmlFor={`option-${currentQuestion.id}-${index}`} className="flex-grow cursor-pointer">
+                        {option}
+                      </Label>
                     </div>
                   ))}
                 </RadioGroup>
               )}
               
-              {currentQuestion.type === "text" && (
+              {currentQuestion.type === "true-false" && (
+                <RadioGroup 
+                  value={answers[currentQuestion.id]}
+                  onValueChange={(value) => handleAnswerChange(currentQuestion.id, value)}
+                  className="space-y-3"
+                >
+                  <div className="flex items-center space-x-2 border p-3 rounded-md">
+                    <RadioGroupItem value="0" id={`true-${currentQuestion.id}`} />
+                    <Label htmlFor={`true-${currentQuestion.id}`} className="flex-grow cursor-pointer">
+                      True
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 border p-3 rounded-md">
+                    <RadioGroupItem value="1" id={`false-${currentQuestion.id}`} />
+                    <Label htmlFor={`false-${currentQuestion.id}`} className="flex-grow cursor-pointer">
+                      False
+                    </Label>
+                  </div>
+                </RadioGroup>
+              )}
+              
+              {currentQuestion.type === "short-answer" && (
                 <div className="space-y-2">
-                  <Label htmlFor={currentQuestion.id}>Your Answer</Label>
+                  <Label htmlFor={`answer-${currentQuestion.id}`}>Your Answer</Label>
                   <Input
-                    id={currentQuestion.id}
-                    value={answers[currentQuestion.id] || ""}
+                    id={`answer-${currentQuestion.id}`}
+                    value={answers[currentQuestion.id]}
                     onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
                     placeholder="Type your answer here..."
-                    className="w-full"
                   />
                 </div>
               )}
-              
-              {currentQuestion.image && (
-                <div className="border rounded overflow-hidden my-4">
-                  <img src={currentQuestion.image} alt="Question" className="w-full h-auto" />
-                </div>
-              )}
             </CardContent>
-            <CardFooter className="border-t pt-4 flex justify-between">
-              <Button 
-                variant="outline" 
-                disabled={currentQuestionIndex === 0} 
-                onClick={() => handleNavigation('prev')}
-              >
-                Previous
-              </Button>
-              
-              {currentQuestionIndex < questions.length - 1 ? (
-                <Button onClick={() => handleNavigation('next')}>
-                  Next
+            <CardFooter className="flex justify-between border-t pt-4">
+              <div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleNavigation('prev')}
+                  disabled={currentQuestionIndex === 0}
+                >
+                  Previous
                 </Button>
-              ) : (
-                <Button onClick={handleSubmitExam}>
-                  {exam.sections && currentSectionIndex < exam.sections.length - 1 
-                    ? "Next Section" 
-                    : "Submit Exam"}
-                </Button>
-              )}
+              </div>
+              <div>
+                {currentQuestionIndex === currentSection.questions.length - 1 ? (
+                  exam.sections && currentSectionIndex < exam.sections.length - 1 ? (
+                    <Button onClick={handleMoveToNextSection}>
+                      Next Section
+                    </Button>
+                  ) : (
+                    <Button onClick={handleSubmitExam}>
+                      Submit Exam
+                    </Button>
+                  )
+                ) : (
+                  <Button onClick={() => handleNavigation('next')}>
+                    Next
+                  </Button>
+                )}
+              </div>
             </CardFooter>
           </Card>
         </div>
       </div>
-      
+
       <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1075,38 +997,24 @@ export function ExamTaker({ examId }: ExamTakerProps) {
               Are you sure you want to submit your exam? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Confirmation</AlertTitle>
-              <AlertDescription>
-                Make sure you have reviewed all your answers before submitting.
-              </AlertDescription>
-            </Alert>
-            
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div className="border rounded-md p-3">
-                <div className="text-sm text-muted-foreground">Questions</div>
-                <div className="mt-1 font-semibold">
-                  {exam.sections 
-                    ? exam.sections.reduce((total: number, section: any) => total + (section.questions?.length || 0), 0) 
-                    : questions.length}
-                </div>
-              </div>
-              <div className="border rounded-md p-3">
-                <div className="text-sm text-muted-foreground">Answered</div>
-                <div className="mt-1 font-semibold">
-                  {Object.values(answers).filter(a => a !== "").length}
-                </div>
-              </div>
+          <div className="py-4">
+            <div className="flex items-center justify-center gap-2 text-primary">
+              <CheckCircle className="h-6 w-6" />
+              <span className="text-lg font-medium">
+                {Object.values(answers).filter(a => a !== "").length} of {
+                  exam.sections 
+                    ? exam.sections.reduce((total: number, section: any) => total + section.questions.length, 0)
+                    : exam.questions ? exam.questions.length : exam.totalQuestions
+                } questions answered
+              </span>
             </div>
             
-            {warningCount > 0 && (
-              <Alert variant="destructive">
+            {Object.values(answers).some(a => a === "") && (
+              <Alert className="mt-4">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Warnings detected</AlertTitle>
+                <AlertTitle>Warning</AlertTitle>
                 <AlertDescription>
-                  Your exam has {warningCount} recorded warning(s). This may affect your results.
+                  You have {Object.values(answers).filter(a => a === "").length} unanswered questions. Unanswered questions will be marked as incorrect.
                 </AlertDescription>
               </Alert>
             )}
@@ -1116,7 +1024,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
               Cancel
             </Button>
             <Button onClick={handleConfirmSubmit}>
-              Confirm Submission
+              Submit Exam
             </Button>
           </DialogFooter>
         </DialogContent>

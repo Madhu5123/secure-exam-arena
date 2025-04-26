@@ -1,4 +1,3 @@
-
 import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
@@ -58,14 +57,13 @@ interface Submission {
 
 interface Question {
   id: string;
-  type: "multiple-choice" | "true-false" | "short-answer" | "text";
+  type: "multiple-choice" | "true-false" | "short-answer";
   text: string;
-  options?: {id: string, text: string}[];
+  options?: string[];
   correctAnswer?: string | string[];
   points: number;
   section?: string;
   timeLimit?: number;
-  image?: string;
 }
 
 export const getExamsForTeacher = async (teacherId: string) => {
@@ -98,29 +96,17 @@ export const getExamById = async (examId: string) => {
     
     if (snapshot.exists()) {
       const examData = snapshot.val();
-      
-      let examObject = { 
-        id: examId,
-        ...examData
-      };
-      
-      if (examData.sections && Array.isArray(examData.sections)) {
-        examObject.sections = examData.sections.map((section: any, index: number) => {
-          const sectionQuestions = examData.questions && Array.isArray(examData.questions)
-            ? examData.questions.filter((q: any) => q.section === section.name)
-            : [];
-            
-          return {
-            ...section,
-            id: `section-${index + 1}`,
-            questions: sectionQuestions
-          };
-        });
-      }
-      
       return {
         success: true,
-        exam: examObject
+        exam: { 
+          id: examId,
+          ...examData,
+          sections: examData.sections.map((section: any, index: number) => ({
+            ...section,
+            id: `section-${index + 1}`,
+            questions: examData.questions.filter((q: any) => q.section === section.name)
+          }))
+        },
       };
     }
     
@@ -129,7 +115,6 @@ export const getExamById = async (examId: string) => {
       error: "Exam not found",
     };
   } catch (error) {
-    console.error("Failed to fetch exam:", error);
     return {
       success: false,
       error: "Failed to fetch exam",
@@ -148,13 +133,9 @@ export const submitExam = async (
   timeTaken: number = 0
 ) => {
   try {
-    console.log("Starting exam submission process for:", examId, studentId);
-    console.log("Warnings:", warningCount, warnings.length);
-    
     const { success, exam } = await getExamById(examId);
     
     if (!success || !exam) {
-      console.error("Exam not found during submission");
       return {
         success: false,
         error: "Exam not found",
@@ -170,28 +151,12 @@ export const submitExam = async (
     let score = 0;
     let maxScore = 0;
     
-    let allQuestions: Question[] = [];
-    if (exam.sections) {
-      exam.sections.forEach(section => {
-        if (section.questions) {
-          allQuestions = [...allQuestions, ...section.questions];
-        }
-      });
-    } else if (exam.questions) {
-      allQuestions = exam.questions;
-    }
-    
-    allQuestions.forEach(question => {
-      maxScore += question.points || 0;
+    exam.questions.forEach(question => {
+      maxScore += question.points;
       if (answers[question.id] === question.correctAnswer) {
-        score += question.points || 0;
+        score += question.points;
       }
     });
-    
-    const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
-    
-    console.log("Calculated score:", score, "/", maxScore, "=", percentage, "%");
-    console.log("Submitting with warning count:", warningCount);
     
     const submission = {
       examId,
@@ -206,14 +171,13 @@ export const submitExam = async (
       maxScore,
       warningCount,
       warnings,
-      percentage
+      percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
     };
     
-    // Store submission in the database
     await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
+    
     await set(ref(db, `students/${studentId}/exams/${examId}/status`), "completed");
     
-    console.log("Exam submission completed successfully");
     return {
       success: true,
       submission,

@@ -5,7 +5,6 @@ import { ExamCreator } from "@/components/exams/ExamCreator";
 import { ExamMonitor } from "@/components/exams/ExamMonitor";
 import { ExamTaker } from "@/components/exams/ExamTaker";
 import { checkUserRole } from "@/services/AuthService";
-import { useToast } from "@/components/ui/use-toast";
 
 interface ExamProps {
   action?: "create" | "monitor" | "take";
@@ -16,7 +15,6 @@ const Exam = ({ action: propAction }: ExamProps) => {
   const [loading, setLoading] = useState(true);
   const { action: urlAction, id } = useParams<{ action?: string; id?: string }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
   
   // Use the action from props or from URL params
   const action = propAction || urlAction;
@@ -27,11 +25,6 @@ const Exam = ({ action: propAction }: ExamProps) => {
       
       if (!role) {
         // User is not authenticated, redirect to login
-        toast({
-          title: "Authentication required",
-          description: "Please login to continue",
-          variant: "destructive",
-        });
         navigate("/");
         return;
       }
@@ -41,7 +34,7 @@ const Exam = ({ action: propAction }: ExamProps) => {
     };
 
     fetchUserRole();
-  }, [navigate, toast]);
+  }, [navigate]);
 
   // Prevent unauthorized access based on role and action
   useEffect(() => {
@@ -50,40 +43,25 @@ const Exam = ({ action: propAction }: ExamProps) => {
     const validateAccess = () => {
       // Create action is only for teachers and admins
       if (action === "create" && userRole !== "teacher" && userRole !== "admin") {
-        toast({
-          title: "Access denied",
-          description: "Only teachers and administrators can create exams",
-          variant: "destructive",
-        });
         navigate("/dashboard");
         return;
       }
 
       // Monitor action is only for teachers and admins
       if (action === "monitor" && userRole !== "teacher" && userRole !== "admin") {
-        toast({
-          title: "Access denied",
-          description: "Only teachers and administrators can monitor exams",
-          variant: "destructive",
-        });
         navigate("/dashboard");
         return;
       }
 
       // Take action is only for students
       if (action === "take" && userRole !== "student") {
-        toast({
-          title: "Access denied",
-          description: "Only students can take exams",
-          variant: "destructive",
-        });
         navigate("/dashboard");
         return;
       }
     };
 
     validateAccess();
-  }, [action, userRole, loading, navigate, toast]);
+  }, [action, userRole, loading, navigate]);
 
   if (loading) {
     return (
