@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, AlertCircle, CheckCircle, Clock, Camera, CameraOff } from "lucide-react";
@@ -292,18 +291,20 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       if (videoRef.current && videoRef.current.srcObject) {
         videoRef.current.srcObject = null;
       }
-      
+
+      // Request camera with explicit constraints for better compatibility
       const constraints = { 
         video: { 
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: "user"
-        } 
+          width: { ideal: 320, max: 640 },
+          height: { ideal: 240, max: 480 },
+          facingMode: "user",
+          frameRate: { ideal: 30 }
+        },
+        audio: false
       };
       
-      console.log("Requesting camera access with constraints:", constraints);
+      console.log("Requesting camera access with constraints:", JSON.stringify(constraints));
       
-      // Request camera access with explicit error handling
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
         .catch(err => {
           console.error("Camera access error:", err.name, err.message);
@@ -311,42 +312,49 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         });
       
       console.log("Camera access granted, stream tracks:", stream.getTracks().length);
+      
+      // Store the stream in state for later cleanup
       setCameraStream(stream);
       
+      // Apply the stream to the video element
       if (videoRef.current) {
         console.log("Setting video source");
+        
+        // Set important video properties BEFORE setting srcObject
+        videoRef.current.playsInline = true; // Helps with iOS
+        videoRef.current.muted = true; // Prevent audio feedback
+        videoRef.current.autoplay = true; // Try autoplay
+        
+        // Ensure video dimensions are explicitly set
+        videoRef.current.width = 320;
+        videoRef.current.height = 240;
+        videoRef.current.style.width = "100%";
+        videoRef.current.style.height = "auto";
+        
+        // Set video source
         videoRef.current.srcObject = stream;
-        videoRef.current.muted = true; // Ensure it's muted to prevent feedback
         
-        // Force dimensions
-        videoRef.current.width = 640;
-        videoRef.current.height = 480;
-        
-        // Handle video loaded event
-        videoRef.current.onloadedmetadata = () => {
-          if (videoRef.current) {
-            console.log("Video metadata loaded. Dimensions:", 
-              videoRef.current.videoWidth, 
-              videoRef.current.videoHeight
-            );
-            
-            // Explicitly call play with error handling
-            videoRef.current.play()
-              .then(() => console.log("Video playback started"))
-              .catch(err => {
-                console.error("Error playing video:", err);
-                throw err;
-              });
-          }
-        };
+        // Start playing with promise handling
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => console.log("Video playback started successfully"))
+            .catch(err => {
+              console.error("Error playing video:", err);
+              // Try once more with a delay
+              setTimeout(() => {
+                if (videoRef.current) videoRef.current.play().catch(e => console.error("Second play attempt failed:", e));
+              }, 1000);
+            });
+        }
       }
       
       setIsCameraError(false);
       
       // Ensure we have a canvas properly sized for video capture
       if (canvasRef.current) {
-        canvasRef.current.width = 640;
-        canvasRef.current.height = 480;
+        canvasRef.current.width = 320;
+        canvasRef.current.height = 240;
       }
       
       // Start face detection after camera is initialized
@@ -363,7 +371,35 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     }
   };
 
-  // Cleanup camera on component unmount
+  // Add a function to check if video is actually playing data
+  const checkVideoStream = () => {
+    if (videoRef.current) {
+      const { videoWidth, videoHeight } = videoRef.current;
+      console.log("Current video dimensions:", videoWidth, videoHeight);
+      
+      if (videoWidth === 0 || videoHeight === 0) {
+        console.warn("Video element has zero width or height, possible stream issue");
+        
+        // Try reinitializing with a delay if we have a stream but no video displaying
+        if (cameraStream && cameraStream.active && cameraStream.getVideoTracks()[0]?.readyState === 'live') {
+          console.log("Attempting to reattach stream to video element");
+          if (videoRef.current) {
+            videoRef.current.srcObject = null;
+            setTimeout(() => {
+              if (videoRef.current && cameraStream) {
+                videoRef.current.srcObject = cameraStream;
+                videoRef.current.play().catch(e => console.error("Reattach play failed:", e));
+              }
+            }, 500);
+          }
+        }
+      } else {
+        console.log("Video is displaying correctly");
+      }
+    }
+  };
+
+  // Clean up camera on component unmount
   useEffect(() => {
     return () => {
       // Clean up camera and intervals when component unmounts
@@ -382,6 +418,15 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     };
   }, [cameraStream]);
 
+  // Add new effect to check video status after it should be playing
+  useEffect(() => {
+    if (cameraStream && !isInstructionsOpen && !isSectionIntroOpen && !examComplete) {
+      // Check video state shortly after initialization
+      const checkTimer = setTimeout(checkVideoStream, 2000);
+      return () => clearTimeout(checkTimer);
+    }
+  }, [cameraStream, isInstructionsOpen, isSectionIntroOpen, examComplete]);
+  
   const handleStartExam = async () => {
     setStartTime(new Date());
     await initializeCamera();
@@ -849,186 +894,4 @@ export function ExamTaker({ examId }: ExamTakerProps) {
               
               <div className="mt-4">
                 <div className="text-sm mb-1">Section Progress</div>
-                <Progress value={calculateSectionProgress()} className="h-2" />
-                <div className="text-xs text-muted-foreground mt-1">
-                  {currentSection.questions.filter((q: any) => answers[q.id] && answers[q.id] !== "").length} 
-                  {" "}of{" "}
-                  {currentSection.questions.length} answered
-                </div>
-              </div>
-              
-              <div className="camera-container mt-4">
-                <div className="mb-2 text-sm font-semibold flex items-center justify-between">
-                  <span>Camera Feed</span>
-                  <div className={`h-2 w-2 rounded-full ${faceCount === 1 ? 'bg-green-500 animate-pulse' : 'bg-red-500 animate-pulse'}`}></div>
-                </div>
-                
-                {isCameraError ? (
-                  <div className="flex items-center justify-center h-32 bg-muted rounded-lg">
-                    <div className="text-center">
-                      <CameraOff className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground">Camera access required</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-40 object-cover rounded-lg bg-gray-100"
-                    />
-                    {faceCount !== 1 && !isInstructionsOpen && !isSectionIntroOpen && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-                        <div className="text-white text-center">
-                          <AlertTriangle className="h-8 w-8 mx-auto mb-1 text-amber-500" />
-                          <p className="text-sm">
-                            {faceCount === 0 ? "No face detected" : "Multiple faces detected"}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Hidden canvas for capturing images */}
-                <canvas ref={canvasRef} className="hidden" width="640" height="480" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <div className="order-1 lg:order-2 lg:col-span-3">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle>Question {currentQuestionIndex + 1}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="text-lg font-medium">{currentQuestion.text}</div>
-              
-              {currentQuestion.type === "multiple-choice" && (
-                <RadioGroup 
-                  value={answers[currentQuestion.id]}
-                  onValueChange={(value) => handleAnswerChange(currentQuestion.id, value)}
-                  className="space-y-3"
-                >
-                  {currentQuestion.options.map((option: string, index: number) => (
-                    <div key={index} className="flex items-center space-x-2 border p-3 rounded-md">
-                      <RadioGroupItem value={String(index)} id={`option-${currentQuestion.id}-${index}`} />
-                      <Label htmlFor={`option-${currentQuestion.id}-${index}`} className="flex-grow cursor-pointer">
-                        {option}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              )}
-              
-              {currentQuestion.type === "true-false" && (
-                <RadioGroup 
-                  value={answers[currentQuestion.id]}
-                  onValueChange={(value) => handleAnswerChange(currentQuestion.id, value)}
-                  className="space-y-3"
-                >
-                  <div className="flex items-center space-x-2 border p-3 rounded-md">
-                    <RadioGroupItem value="0" id={`true-${currentQuestion.id}`} />
-                    <Label htmlFor={`true-${currentQuestion.id}`} className="flex-grow cursor-pointer">
-                      True
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 border p-3 rounded-md">
-                    <RadioGroupItem value="1" id={`false-${currentQuestion.id}`} />
-                    <Label htmlFor={`false-${currentQuestion.id}`} className="flex-grow cursor-pointer">
-                      False
-                    </Label>
-                  </div>
-                </RadioGroup>
-              )}
-              
-              {currentQuestion.type === "short-answer" && (
-                <div className="space-y-2">
-                  <Label htmlFor={`answer-${currentQuestion.id}`}>Your Answer</Label>
-                  <Input
-                    id={`answer-${currentQuestion.id}`}
-                    value={answers[currentQuestion.id]}
-                    onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                    placeholder="Type your answer here..."
-                  />
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex justify-between border-t pt-4">
-              <div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => handleNavigation('prev')}
-                  disabled={currentQuestionIndex === 0}
-                >
-                  Previous
-                </Button>
-              </div>
-              <div>
-                {currentQuestionIndex === currentSection.questions.length - 1 ? (
-                  exam.sections && currentSectionIndex < exam.sections.length - 1 ? (
-                    <Button onClick={handleMoveToNextSection}>
-                      Next Section
-                    </Button>
-                  ) : (
-                    <Button onClick={handleSubmitExam}>
-                      Submit Exam
-                    </Button>
-                  )
-                ) : (
-                  <Button onClick={() => handleNavigation('next')}>
-                    Next
-                  </Button>
-                )}
-              </div>
-            </CardFooter>
-          </Card>
-        </div>
-      </div>
-
-      <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Submit Exam</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to submit your exam? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="flex items-center justify-center gap-2 text-primary">
-              <CheckCircle className="h-6 w-6" />
-              <span className="text-lg font-medium">
-                {Object.values(answers).filter(a => a !== "").length} of {
-                  exam.sections 
-                    ? exam.sections.reduce((total: number, section: any) => total + section.questions.length, 0)
-                    : exam.questions ? exam.questions.length : exam.totalQuestions
-                } questions answered
-              </span>
-            </div>
-            
-            {Object.values(answers).some(a => a === "") && (
-              <Alert className="mt-4">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Warning</AlertTitle>
-                <AlertDescription>
-                  You have {Object.values(answers).filter(a => a === "").length} unanswered questions. Unanswered questions will be marked as incorrect.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsSubmitDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmSubmit}>
-              Submit Exam
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
+                <Progress value={calculateSection
