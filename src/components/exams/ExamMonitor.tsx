@@ -1,17 +1,18 @@
+
 import { useState, useEffect, ChangeEvent } from 'react';
-import { getExamById, getExamSubmissions, getExamWarnings } from '@/services/ExamService';
+import { getExamById, getExamSubmissions, getStudentWarnings } from '@/services/ExamService';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Search } from 'lucide-react';
+import { Search, AlertTriangle, Camera, Clock, Timer } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ref, get } from 'firebase/database';
 import { db } from '@/config/firebase';
-import { Button } from '@/components/ui/button';
-import { AlertTriangle } from 'lucide-react';
-import { ExamWarnings } from "./ExamWarnings";
 
 interface ExamMonitorProps {
   examId?: string;
@@ -29,6 +30,11 @@ interface Student {
   answers?: Record<string, string>;
   warningCount?: number;
   timeTaken?: number;
+  warnings?: Array<{
+    type: string;
+    timestamp: string;
+    imageUrl: string;
+  }>;
   status: 'completed' | 'in-progress' | 'not-started';
 }
 
@@ -38,8 +44,13 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showWarnings, setShowWarnings] = useState(false);
-  const [warnings, setWarnings] = useState<any[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [warningsDialogOpen, setWarningsDialogOpen] = useState(false);
+  const [studentWarnings, setStudentWarnings] = useState<Array<{
+    type: string;
+    timestamp: string;
+    imageUrl: string;
+  }>>([]);
 
   useEffect(() => {
     const fetchExamData = async () => {
@@ -50,6 +61,7 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
       }
       
       try {
+        // Fetch exam details
         const examResult = await getExamById(examId);
         
         if (!examResult.success || !examResult.exam) {
@@ -60,14 +72,17 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
         
         setExam(examResult.exam);
         
+        // Fetch submissions
         const submissionsResult = await getExamSubmissions(examId);
         
+        // Fetch student data
         const studentsRef = ref(db, 'users');
         const studentSnapshot = await get(studentsRef);
         
         const studentsData: Student[] = [];
         const studentProfiles: Record<string, { name: string, photo: string }> = {};
         
+        // Get student profile information
         if (studentSnapshot.exists()) {
           studentSnapshot.forEach((childSnapshot) => {
             const studentData = childSnapshot.val();
@@ -80,6 +95,7 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
           });
         }
         
+        // Get assigned students and submissions
         if (examResult.exam.assignedStudents) {
           for (const studentId of examResult.exam.assignedStudents) {
             const submission = submissionsResult.success ? 
@@ -92,9 +108,11 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
             };
             
             if (submission) {
+              // Student has a submission
               const startTime = new Date(submission.startTime);
               const endTime = new Date(submission.endTime);
-              const timeTaken = (endTime.getTime() - startTime.getTime()) / 60000; // in minutes
+              const timeTaken = submission.timeTaken || 
+                Math.round((endTime.getTime() - startTime.getTime()) / 60000); // in minutes
               
               studentsData.push({
                 id: studentId,
@@ -107,10 +125,12 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                 endTime: endTime.toLocaleString(),
                 answers: submission.answers,
                 warningCount: submission.warningCount || 0,
+                warnings: submission.warnings || [],
                 status: 'completed',
-                timeTaken: Math.round(timeTaken * 10) / 10
+                timeTaken: timeTaken
               });
             } else {
+              // Student hasn't taken the exam
               studentsData.push({
                 id: studentId,
                 name: studentProfile.name,
@@ -137,19 +157,17 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
   const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  useEffect(() => {
-    const fetchWarnings = async () => {
-      if (examId) {
-        const result = await getExamWarnings(examId);
-        if (result.success) {
-          setWarnings(result.warnings);
-        }
-      }
-    };
-    
-    fetchWarnings();
-  }, [examId]);
+  
+  const handleViewWarnings = (student: Student) => {
+    setSelectedStudent(student);
+    if (student.warnings && student.warnings.length > 0) {
+      setStudentWarnings(student.warnings);
+      setWarningsDialogOpen(true);
+    } else {
+      setStudentWarnings([]);
+      setWarningsDialogOpen(true);
+    }
+  };
 
   if (loading) {
     return (
@@ -256,6 +274,7 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                       <th className="text-center py-3 px-4">Percentage</th>
                       <th className="text-center py-3 px-4">Time Taken</th>
                       <th className="text-center py-3 px-4">Warnings</th>
+                      <th className="text-center py-3 px-4">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -303,17 +322,37 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                           </td>
                           <td className="text-center py-3 px-4">
                             {student.status === 'completed' ? 
-                              `${student.timeTaken} min` : '-'}
+                              <span className="flex items-center justify-center">
+                                <Timer className="h-4 w-4 mr-1 text-primary" />
+                                {student.timeTaken} min
+                              </span> : '-'}
                           </td>
                           <td className="text-center py-3 px-4">
                             {student.status === 'completed' ? 
-                              student.warningCount : '-'}
+                              <span className={`font-medium ${
+                                (student.warningCount || 0) > 0 ? 'text-amber-600' : 'text-green-600'
+                              }`}>
+                                {student.warningCount || 0}
+                              </span> : '-'}
+                          </td>
+                          <td className="text-center py-3 px-4">
+                            {student.status === 'completed' && (student.warningCount || 0) > 0 && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleViewWarnings(student)}
+                                className="flex items-center gap-1"
+                              >
+                                <AlertTriangle className="h-4 w-4" />
+                                View
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="text-center py-10 text-muted-foreground">
+                        <td colSpan={7} className="text-center py-10 text-muted-foreground">
                           No students found matching your search.
                         </td>
                       </tr>
@@ -376,23 +415,60 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Exam Monitoring</h2>
-        <Button
-          variant="outline"
-          onClick={() => setShowWarnings(true)}
-          className="gap-2"
-        >
-          <AlertTriangle className="h-4 w-4 text-yellow-500" />
-          View Warnings ({warnings.length})
-        </Button>
-      </div>
-
-      <ExamWarnings
-        warnings={warnings}
-        isOpen={showWarnings}
-        onClose={() => setShowWarnings(false)}
-      />
+      {/* Warnings Dialog */}
+      <Dialog open={warningsDialogOpen} onOpenChange={setWarningsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Warnings for {selectedStudent?.name}
+            </DialogTitle>
+            <DialogDescription>
+              {studentWarnings.length} warnings detected during the exam
+            </DialogDescription>
+          </DialogHeader>
+          
+          {studentWarnings.length > 0 ? (
+            <div className="space-y-6 mt-4">
+              {studentWarnings.map((warning, index) => (
+                <Card key={index} className="border border-amber-200">
+                  <CardHeader className="bg-amber-50 py-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        <CardTitle className="text-base">{warning.type}</CardTitle>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(warning.timestamp).toLocaleString()}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <div className="flex flex-col items-center">
+                      <img 
+                        src={warning.imageUrl} 
+                        alt={`Warning: ${warning.type}`} 
+                        className="rounded-md max-h-64 object-contain mb-2"
+                      />
+                      <div className="text-sm text-muted-foreground mt-2">
+                        Warning {index + 1} of {studentWarnings.length}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Camera className="h-12 w-12 text-muted-foreground/50 mb-4" />
+              <p className="text-lg font-semibold">No warning images available</p>
+              <p className="text-sm text-muted-foreground">
+                This student has warnings recorded, but no images were captured.
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

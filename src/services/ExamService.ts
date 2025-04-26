@@ -41,8 +41,12 @@ interface Submission {
   maxScore: number;
   warningCount: number;
   percentage?: number;
-  timeTaken: string;
-  warnings?: Warning[];
+  timeTaken?: number;
+  warnings?: Array<{
+    type: string;
+    timestamp: string;
+    imageUrl: string;
+  }>;
   sectionScores?: {
     sectionId: string;
     score: number;
@@ -59,17 +63,6 @@ interface Question {
   points: number;
   section?: string;
   timeLimit?: number;
-}
-
-interface Warning {
-  id: string;
-  examId: string;
-  studentId: string;
-  studentName: string;
-  timestamp: string;
-  type: "no_face" | "multiple_faces" | "unclear_face" | "fullscreen_exit";
-  imageUrl: string;
-  description: string;
 }
 
 export const getExamsForTeacher = async (teacherId: string) => {
@@ -128,106 +121,15 @@ export const getExamById = async (examId: string) => {
   }
 };
 
-export const captureWarning = async (
-  examId: string,
-  studentId: string,
-  type: Warning["type"],
-  imageBlob: Blob
-) => {
-  try {
-    const studentRef = ref(db, `users/${studentId}`);
-    const studentSnapshot = await get(studentRef);
-    const studentData = studentSnapshot.exists() ? studentSnapshot.val() : null;
-    const studentName = studentData?.name || `Student ${studentId.slice(-4)}`;
-
-    const formData = new FormData();
-    formData.append('file', imageBlob);
-    formData.append('upload_preset', 'examwarnings');
-    
-    const response = await fetch(`https://api.cloudinary.com/v1_1/dyp2q6oy1/image/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to upload warning image');
-    }
-    
-    const imageData = await response.json();
-    
-    const warningRef = ref(db, `exams/${examId}/warnings/${Date.now()}`);
-    const warning: Warning = {
-      id: warningRef.key || '',
-      examId,
-      studentId,
-      studentName,
-      timestamp: new Date().toISOString(),
-      type,
-      imageUrl: imageData.secure_url,
-      description: getWarningDescription(type)
-    };
-    
-    await set(warningRef, warning);
-    return { success: true, warning };
-  } catch (error) {
-    console.error('Error capturing warning:', error);
-    return { success: false, error: 'Failed to capture warning' };
-  }
-};
-
-const getWarningDescription = (type: Warning["type"]): string => {
-  switch (type) {
-    case "no_face":
-      return "No face detected in camera feed";
-    case "multiple_faces":
-      return "Multiple faces detected in camera feed";
-    case "unclear_face":
-      return "Face is not clearly visible";
-    case "fullscreen_exit":
-      return "Attempted to exit fullscreen mode";
-    default:
-      return "Unknown warning type";
-  }
-};
-
-export const getExamWarnings = async (examId: string) => {
-  try {
-    const warningsRef = ref(db, `exams/${examId}/warnings`);
-    const snapshot = await get(warningsRef);
-    
-    if (snapshot.exists()) {
-      const warnings: Warning[] = [];
-      snapshot.forEach((childSnapshot) => {
-        warnings.push({
-          id: childSnapshot.key || '',
-          ...childSnapshot.val()
-        });
-      });
-      return {
-        success: true,
-        warnings: warnings.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      };
-    }
-    
-    return {
-      success: true,
-      warnings: []
-    };
-  } catch (error) {
-    console.error('Error fetching warnings:', error);
-    return {
-      success: false,
-      error: "Failed to fetch warnings"
-    };
-  }
-};
-
 export const submitExam = async (
   examId: string,
   studentId: string,
   answers: Record<string, string>,
   warningCount: number,
-  startTime: string
+  warnings: Array<{type: string, timestamp: string, imageUrl: string}> = [],
+  startTime: string = new Date().toISOString(),
+  endTime: string = new Date().toISOString(),
+  timeTaken: number = 0
 ) => {
   try {
     const { success, exam } = await getExamById(examId);
@@ -254,13 +156,6 @@ export const submitExam = async (
         score += question.points;
       }
     });
-
-    const endTime = new Date().toISOString();
-    const timeTakenMs = new Date(endTime).getTime() - new Date(startTime).getTime();
-    const hours = Math.floor(timeTakenMs / (1000 * 60 * 60));
-    const minutes = Math.floor((timeTakenMs % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((timeTakenMs % (1000 * 60)) / 1000);
-    const timeTaken = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     
     const submission = {
       examId,
@@ -274,10 +169,12 @@ export const submitExam = async (
       score,
       maxScore,
       warningCount,
+      warnings,
       percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
     };
     
     await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
+    
     await set(ref(db, `students/${studentId}/exams/${examId}/status`), "completed");
     
     return {
@@ -609,6 +506,40 @@ export const getTopStudents = async (examId: string) => {
       success: false,
       error: "Failed to fetch top students",
       topStudents: []
+    };
+  }
+};
+
+export const getStudentWarnings = async (examId: string, studentId: string) => {
+  try {
+    const role = await checkUserRole();
+    if (role !== "teacher" && role !== "admin") {
+      return {
+        success: false,
+        error: "Only teachers and admins can view warnings",
+      };
+    }
+    
+    const warningsRef = ref(db, `exams/${examId}/submissions/${studentId}/warnings`);
+    const snapshot = await get(warningsRef);
+    
+    if (snapshot.exists()) {
+      const warningsData = snapshot.val();
+      return {
+        success: true,
+        warnings: warningsData || [],
+      };
+    }
+    
+    return {
+      success: true,
+      warnings: [],
+    };
+  } catch (error) {
+    console.error('Error fetching student warnings:', error);
+    return {
+      success: false,
+      error: "Failed to fetch warnings",
     };
   }
 };
