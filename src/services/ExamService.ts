@@ -1,6 +1,7 @@
 import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
+import { uploadToCloudinary } from '@/utils/CloudinaryUpload';
 
 interface ExamSection {
   id: string;
@@ -511,6 +512,75 @@ export const getTopStudents = async (examId: string) => {
 };
 
 export const getStudentWarnings = async (examId: string, studentId: string) => {
+  try {
+    const role = await checkUserRole();
+    if (role !== "teacher" && role !== "admin") {
+      return {
+        success: false,
+        error: "Only teachers and admins can view warnings",
+      };
+    }
+    
+    const warningsRef = ref(db, `exams/${examId}/submissions/${studentId}/warnings`);
+    const snapshot = await get(warningsRef);
+    
+    if (snapshot.exists()) {
+      const warningsData = snapshot.val();
+      return {
+        success: true,
+        warnings: warningsData || [],
+      };
+    }
+    
+    return {
+      success: true,
+      warnings: [],
+    };
+  } catch (error) {
+    console.error('Error fetching student warnings:', error);
+    return {
+      success: false,
+      error: "Failed to fetch warnings",
+    };
+  }
+};
+
+export const captureWarning = async (
+  videoElement: HTMLVideoElement | null, 
+  warningType: string
+): Promise<string | null> => {
+  if (!videoElement) return null;
+  
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = videoElement.videoWidth;
+    canvas.height = videoElement.videoHeight;
+    
+    const context = canvas.getContext('2d');
+    if (context) {
+      context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+      
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((b) => {
+          if (b) resolve(b);
+          else resolve(new Blob([]));
+        }, 'image/jpeg', 0.8);
+      });
+      
+      const file = new File([blob], `warning-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      
+      const imageUrl = await uploadToCloudinary(file);
+      return imageUrl;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Error capturing warning image:", error);
+    return null;
+  }
+};
+
+export const getExamWarnings = async (examId: string, studentId: string) => {
   try {
     const role = await checkUserRole();
     if (role !== "teacher" && role !== "admin") {
