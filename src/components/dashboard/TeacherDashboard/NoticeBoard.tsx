@@ -11,6 +11,7 @@ import { Calendar, Bell, FileText, X, Edit, Trash2 } from "lucide-react";
 import { ref, onValue, push, set, remove, get } from 'firebase/database';
 import { db } from '@/config/firebase';
 import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
 import { fetchAcademicData } from "@/services/AcademicService";
 
