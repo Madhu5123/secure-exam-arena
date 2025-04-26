@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getStudentResults } from "@/services/ExamService";
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
@@ -17,6 +17,7 @@ export function Analysis({ studentId }: AnalysisProps) {
     passedExams: 0,
     averageScore: 0
   });
+  const [subjectData, setSubjectData] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -35,16 +36,28 @@ export function Analysis({ studentId }: AnalysisProps) {
           passedExams: passed,
           averageScore: Math.round(avgScore)
         });
+
+        // Process subject-wise data
+        const subjectScores: { [key: string]: { total: number; count: number } } = {};
+        response.results.forEach((result: any) => {
+          if (!subjectScores[result.examSubject]) {
+            subjectScores[result.examSubject] = { total: 0, count: 0 };
+          }
+          subjectScores[result.examSubject].total += result.percentage;
+          subjectScores[result.examSubject].count += 1;
+        });
+
+        const subjectChartData = Object.entries(subjectScores).map(([subject, data]) => ({
+          subject,
+          averageScore: Math.round(data.total / data.count)
+        }));
+
+        setSubjectData(subjectChartData);
       }
     };
 
     fetchResults();
   }, [studentId]);
-
-  const chartData = results.map(result => ({
-    name: result.examTitle,
-    score: result.percentage
-  }));
 
   return (
     <div className="space-y-6">
@@ -89,8 +102,8 @@ export function Analysis({ studentId }: AnalysisProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Performance Overview</CardTitle>
-          <CardDescription>Your exam scores over time</CardDescription>
+          <CardTitle>Subject Performance</CardTitle>
+          <CardDescription>Your average scores by subject</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-[300px]">
@@ -105,18 +118,13 @@ export function Analysis({ studentId }: AnalysisProps) {
               }}
             >
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
+                <BarChart data={subjectData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
+                  <XAxis dataKey="subject" />
                   <YAxis />
                   <ChartTooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="score"
-                    stroke="hsl(var(--primary))"
-                    fill="hsl(var(--primary)/.2)"
-                  />
-                </AreaChart>
+                  <Bar dataKey="averageScore" fill="hsl(var(--primary))" name="Average Score %" />
+                </BarChart>
               </ResponsiveContainer>
             </ChartContainer>
           </div>
