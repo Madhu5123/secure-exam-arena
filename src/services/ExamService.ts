@@ -350,6 +350,7 @@ export const getStudentResults = async (studentId: string) => {
           examTitle: exam.title,
           examSubject: exam.subject,
           examDate: exam.date,
+          _questions: exam.questions,
           ...submissionData
         };
       });
