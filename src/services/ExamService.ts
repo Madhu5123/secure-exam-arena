@@ -41,6 +41,12 @@ interface Submission {
   maxScore: number;
   warningCount: number;
   percentage?: number;
+  timeTaken?: number;
+  warnings?: Array<{
+    type: string;
+    timestamp: string;
+    imageUrl: string;
+  }>;
   sectionScores?: {
     sectionId: string;
     score: number;
@@ -119,7 +125,11 @@ export const submitExam = async (
   examId: string,
   studentId: string,
   answers: Record<string, string>,
-  warningCount: number
+  warningCount: number,
+  warnings: Array<{type: string, timestamp: string, imageUrl: string}> = [],
+  startTime: string = new Date().toISOString(),
+  endTime: string = new Date().toISOString(),
+  timeTaken: number = 0
 ) => {
   try {
     const { success, exam } = await getExamById(examId);
@@ -153,11 +163,13 @@ export const submitExam = async (
       studentName,
       studentPhoto,
       answers,
-      startTime: new Date().toISOString(),
-      endTime: new Date().toISOString(),
+      startTime,
+      endTime,
+      timeTaken,
       score,
       maxScore,
       warningCount,
+      warnings,
       percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
     };
     
@@ -494,6 +506,40 @@ export const getTopStudents = async (examId: string) => {
       success: false,
       error: "Failed to fetch top students",
       topStudents: []
+    };
+  }
+};
+
+export const getStudentWarnings = async (examId: string, studentId: string) => {
+  try {
+    const role = await checkUserRole();
+    if (role !== "teacher" && role !== "admin") {
+      return {
+        success: false,
+        error: "Only teachers and admins can view warnings",
+      };
+    }
+    
+    const warningsRef = ref(db, `exams/${examId}/submissions/${studentId}/warnings`);
+    const snapshot = await get(warningsRef);
+    
+    if (snapshot.exists()) {
+      const warningsData = snapshot.val();
+      return {
+        success: true,
+        warnings: warningsData || [],
+      };
+    }
+    
+    return {
+      success: true,
+      warnings: [],
+    };
+  } catch (error) {
+    console.error('Error fetching student warnings:', error);
+    return {
+      success: false,
+      error: "Failed to fetch warnings",
     };
   }
 };

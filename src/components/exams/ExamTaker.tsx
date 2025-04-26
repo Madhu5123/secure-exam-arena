@@ -1,6 +1,7 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { AlertTriangle, AlertCircle, CheckCircle, Clock, Camera, CameraOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -13,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { getExamById, submitExam } from "@/services/ExamService";
+import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
 
 interface ExamTakerProps {
   examId?: string;
@@ -38,7 +40,10 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   const [loading, setLoading] = useState(true);
   const [examComplete, setExamComplete] = useState(false);
   const [examResult, setExamResult] = useState<any>(null);
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [warnings, setWarnings] = useState<Array<{type: string, timestamp: string, imageUrl: string}>>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -148,11 +153,61 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  const captureWarningImage = async (warningType: string) => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+
+    if (!context) return;
+
+    // Set canvas size to video dimensions
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    // Draw video frame onto canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    try {
+      // Convert canvas to blob
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((b) => {
+          if (b) resolve(b);
+        }, 'image/jpeg', 0.8);
+      });
+
+      // Create a File object from the blob
+      const file = new File([blob], `warning-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      
+      // Upload to Cloudinary
+      const imageUrl = await uploadToCloudinary(file);
+      
+      // Add to warnings array
+      const newWarning = {
+        type: warningType,
+        timestamp: new Date().toISOString(),
+        imageUrl
+      };
+      
+      setWarnings(prev => [...prev, newWarning]);
+      console.log(`Warning captured: ${warningType}`, imageUrl);
+      
+      return newWarning;
+    } catch (error) {
+      console.error("Error capturing warning image:", error);
+      return null;
+    }
+  };
+
   useEffect(() => {
-    const handleFullscreenChange = () => {
+    const handleFullscreenChange = async () => {
       if (document.fullscreenElement === null && isFullscreen) {
         setShowWarning(true);
         setWarningCount(prev => prev + 1);
+        
+        // Capture warning photo
+        await captureWarningImage('Exited fullscreen');
         
         document.documentElement.requestFullscreen().catch(err => {
           console.error("Error attempting to re-enable fullscreen:", err);
@@ -173,9 +228,13 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   }, [isFullscreen, toast]);
 
   useEffect(() => {
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (document.visibilityState === 'hidden' && !isInstructionsOpen && !isSectionIntroOpen) {
         setWarningCount(prev => prev + 1);
+        
+        // Capture warning photo
+        await captureWarningImage('Tab switched');
+        
         toast({
           title: "Warning",
           description: "Tab switching is not allowed during the exam!",
@@ -199,13 +258,20 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       
       setIsCameraError(false);
       
-      const faceDetectionInterval = setInterval(() => {
+      // Set up face detection monitoring
+      const faceDetectionInterval = setInterval(async () => {
+        // Simulate face detection for demo purposes
+        // In a real app, you'd use a face detection API like face-api.js, TensorFlow.js, etc.
         const randomFaces = Math.random() > 0.9 ? 2 : Math.random() > 0.05 ? 1 : 0;
         setFaceCount(randomFaces);
         
         if (randomFaces === 0) {
           setWarningCount(prev => prev + 1);
           setShowWarning(true);
+          
+          // Capture warning photo
+          await captureWarningImage('No face detected');
+          
           toast({
             title: "Warning",
             description: "No face detected! Please ensure your face is visible.",
@@ -214,13 +280,17 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         } else if (randomFaces > 1) {
           setWarningCount(prev => prev + 1);
           setShowWarning(true);
+          
+          // Capture warning photo
+          await captureWarningImage('Multiple faces detected');
+          
           toast({
             title: "Warning",
             description: "Multiple faces detected! Only you should be visible.",
             variant: "destructive",
           });
         }
-      }, 30000);
+      }, 30000); // Check every 30 seconds
       
       return () => clearInterval(faceDetectionInterval);
       
@@ -244,6 +314,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
   }, [cameraStream]);
 
   const handleStartExam = async () => {
+    setStartTime(new Date());
     const cleanupFn = await initializeCamera();
     
     try {
@@ -354,7 +425,19 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         const user = localStorage.getItem('examUser');
         if (user) {
           const userData = JSON.parse(user);
-          const result = await submitExam(examId, userData.id, answers, warningCount);
+          const endTime = new Date();
+          const timeTaken = startTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : 0; // time in minutes
+          
+          const result = await submitExam(
+            examId, 
+            userData.id, 
+            answers, 
+            warningCount,
+            warnings,
+            startTime?.toISOString() || new Date().toISOString(),
+            endTime.toISOString(),
+            timeTaken
+          );
           
           if (result.success) {
             setExamResult(result.submission);
@@ -430,7 +513,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="bg-muted p-6 rounded-lg text-center">
-              <CheckCircle className="h-12 w-12 text-exam-success mx-auto mb-2" />
+              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-2" />
               <h3 className="text-xl font-semibold">Exam Completed</h3>
               <p className="text-muted-foreground">Your answers have been submitted successfully</p>
             </div>
@@ -444,7 +527,18 @@ export function ExamTaker({ examId }: ExamTakerProps) {
                   </Card>
                   <Card className="p-4">
                     <div className="text-sm text-muted-foreground">Warnings</div>
-                    <div className="text-3xl font-bold text-exam-warning">{examResult.warningCount}</div>
+                    <div className="text-3xl font-bold text-amber-500">{examResult.warningCount}</div>
+                  </Card>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground">Time Taken</div>
+                    <div className="text-3xl font-bold">{examResult.timeTaken} min</div>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="text-sm text-muted-foreground">Percentage</div>
+                    <div className="text-3xl font-bold">{examResult.percentage}%</div>
                   </Card>
                 </div>
                 
@@ -603,8 +697,8 @@ export function ExamTaker({ examId }: ExamTakerProps) {
         <div className="flex items-center gap-3">
           {showWarning && (
             <Alert className="p-2 max-w-xs">
-              <AlertTriangle className="h-4 w-4 text-exam-warning" />
-              <AlertTitle className="text-exam-warning">Warning</AlertTitle>
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <AlertTitle className="text-amber-500">Warning</AlertTitle>
               <AlertDescription className="text-sm">
                 Irregular behavior detected. Warnings: {warningCount}
               </AlertDescription>
@@ -613,7 +707,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
           
           <div className="flex flex-col items-end">
             <div className="flex items-center gap-1 text-lg font-semibold">
-              <Clock className="h-5 w-5 text-exam-primary" />
+              <Clock className="h-5 w-5 text-primary" />
               <span>{remainingTime}</span>
             </div>
             {exam.sections && (
@@ -646,7 +740,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
                     variant="outline"
                     size="sm"
                     className={`w-10 h-10 p-0 ${
-                      index === currentQuestionIndex ? "bg-exam-primary text-white" : 
+                      index === currentQuestionIndex ? "bg-primary text-white" : 
                       answers[q.id] ? "bg-muted" : ""
                     }`}
                     onClick={() => handleJumpToQuestion(index)}
@@ -658,7 +752,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
               
               <div className="space-y-1 text-sm">
                 <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-exam-primary"></div>
+                  <div className="w-3 h-3 rounded-full bg-primary"></div>
                   <span>Current Question</span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -686,25 +780,38 @@ export function ExamTaker({ examId }: ExamTakerProps) {
                   <span>Camera Feed</span>
                   <div className={`h-2 w-2 rounded-full ${faceCount === 1 ? 'bg-green-500 animate-pulse' : 'bg-red-500 animate-pulse'}`}></div>
                 </div>
+                
                 {isCameraError ? (
                   <div className="flex items-center justify-center h-32 bg-muted rounded-lg">
-                    <Alert className="p-2">
-                      <AlertTriangle className="h-4 w-4 text-exam-warning" />
-                      <AlertTitle className="text-exam-warning">Camera Error</AlertTitle>
-                      <AlertDescription>
-                        Please enable camera access
-                      </AlertDescription>
-                    </Alert>
+                    <div className="text-center">
+                      <CameraOff className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">Camera access required</p>
+                    </div>
                   </div>
                 ) : (
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-40 object-cover rounded-lg"
-                  />
+                  <div className="relative">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      className="w-full h-40 object-cover rounded-lg"
+                    />
+                    {faceCount !== 1 && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+                        <div className="text-white text-center">
+                          <AlertTriangle className="h-8 w-8 mx-auto mb-1 text-amber-500" />
+                          <p className="text-sm">
+                            {faceCount === 0 ? "No face detected" : "Multiple faces detected"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
+                
+                {/* Hidden canvas for capturing images */}
+                <canvas ref={canvasRef} className="hidden" />
               </div>
             </CardContent>
           </Card>
@@ -809,7 +916,7 @@ export function ExamTaker({ examId }: ExamTakerProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <div className="flex items-center justify-center gap-2 text-exam-primary">
+            <div className="flex items-center justify-center gap-2 text-primary">
               <CheckCircle className="h-6 w-6" />
               <span className="text-lg font-medium">
                 {Object.values(answers).filter(a => a !== "").length} of {
