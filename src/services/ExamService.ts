@@ -128,7 +128,7 @@ export const getExamById = async (examId: string) => {
   }
 };
 
-const captureWarning = async (
+export const captureWarning = async (
   examId: string,
   studentId: string,
   type: Warning["type"],
@@ -190,7 +190,7 @@ const getWarningDescription = (type: Warning["type"]): string => {
   }
 };
 
-const getExamWarnings = async (examId: string) => {
+export const getExamWarnings = async (examId: string) => {
   try {
     const warningsRef = ref(db, `exams/${examId}/warnings`);
     const snapshot = await get(warningsRef);
@@ -614,7 +614,7 @@ export const getTopStudents = async (examId: string) => {
 };
 
 export {
-  captureWarning,
   getExamWarnings,
+  captureWarning,
   submitExam,
 };

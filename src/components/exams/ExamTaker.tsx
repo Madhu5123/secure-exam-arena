@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { getExamById, submitExam } from "@/services/ExamService";
+import { getExamById, submitExam, captureWarning } from "@/services/ExamService";
 
 interface ExamTakerProps {
   examId?: string;
