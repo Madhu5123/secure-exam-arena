@@ -3,12 +3,29 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, User } from "lucide-react";
+import { Camera, User, KeyRound } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
-import { updateUserProfile, getCurrentUser } from "@/services/AuthService";
+import { updateUserProfile, getCurrentUser, resetPassword } from "@/services/AuthService";
 
 export function ProfileManager() {
   const [loading, setLoading] = useState(false);
@@ -88,71 +105,133 @@ export function ProfileManager() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    try {
+      setLoading(true);
+      const { success, error } = await resetPassword(user.email);
+      
+      if (success) {
+        toast({
+          title: "Password reset email sent",
+          description: "Please check your email for the password reset link.",
+        });
+      } else {
+        throw new Error(error);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send password reset email",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <Card className="max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>Profile Settings</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="flex flex-col items-center space-y-4">
-            <Avatar className="h-24 w-24">
-              {formData.profileImage ? (
-                <AvatarImage src={formData.profileImage} alt={formData.name} />
-              ) : (
-                <AvatarFallback>
-                  <User className="h-12 w-12" />
-                </AvatarFallback>
-              )}
-            </Avatar>
-            <div>
-              <Label htmlFor="image" className="cursor-pointer">
-                <div className="flex items-center space-x-2 bg-secondary px-4 py-2 rounded-md">
-                  <Camera className="h-4 w-4" />
-                  <span>Change Photo</span>
-                </div>
+    <div className="container max-w-2xl mx-auto py-8">
+      <Card>
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold">Profile Settings</CardTitle>
+          <CardDescription>
+            Update your profile information and manage your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Profile Image Section */}
+            <div className="flex flex-col items-center space-y-4 pb-6 border-b">
+              <Avatar className="h-24 w-24">
+                {formData.profileImage ? (
+                  <AvatarImage src={formData.profileImage} alt={formData.name} />
+                ) : (
+                  <AvatarFallback>
+                    <User className="h-12 w-12" />
+                  </AvatarFallback>
+                )}
+              </Avatar>
+              <div>
+                <Label
+                  htmlFor="image"
+                  className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 py-2 px-4"
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  Change Photo
+                  <Input
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    disabled={loading}
+                  />
+                </Label>
+              </div>
+            </div>
+
+            {/* Profile Information */}
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
                 <Input
-                  id="image"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
+                  id="name"
+                  placeholder="Enter your name"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   disabled={loading}
                 />
-              </Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  disabled={true}
+                  className="bg-muted"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Password</Label>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="w-full" type="button">
+                      <KeyRound className="mr-2 h-4 w-4" />
+                      Change Password
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Change Password</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        We'll send you an email with instructions to reset your password.
+                        Are you sure you want to continue?
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handlePasswordReset}>
+                        Send Reset Link
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+            <Button
+              type="submit"
+              className="w-full"
               disabled={loading}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              disabled={true}
-            />
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading}
-          >
-            {loading ? "Saving..." : "Save Changes"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+            >
+              {loading ? "Saving..." : "Save Changes"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
