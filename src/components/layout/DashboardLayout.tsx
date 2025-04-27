@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { LogOut, Menu, User, FileText, Home, BookOpen, Users, Calendar, Bell } from "lucide-react";
+import { LogOut, Menu, User, FileText, Home, BookOpen, Users, Calendar, Bell, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { 
