@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +39,7 @@ interface ProfileData {
 }
 
 export function ProfileDialog() {
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [formData, setFormData] = useState<ProfileData>({
@@ -53,20 +54,35 @@ export function ProfileDialog() {
   const { toast } = useToast();
 
   const loadUser = async () => {
-    const currentUser = await getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-      setFormData({
-        name: currentUser.name || "",
-        email: currentUser.email || "",
-        profileImage: currentUser.profileImage || "",
-        registerNumber: currentUser.registerNumber || "",
-        department: currentUser.department || "",
-        adharNumber: currentUser.adharNumber || "",
-        address: currentUser.address || "",
+    try {
+      const currentUser = await getCurrentUser();
+      if (currentUser) {
+        setUser(currentUser);
+        setFormData({
+          name: currentUser.name || "",
+          email: currentUser.email || "",
+          profileImage: currentUser.profileImage || "",
+          registerNumber: currentUser.registerNumber || "",
+          department: currentUser.department || "",
+          adharNumber: currentUser.adharNumber || "",
+          address: currentUser.address || "",
+        });
+      }
+    } catch (error) {
+      console.error("Error loading user:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load user profile",
+        variant: "destructive",
       });
     }
   };
+
+  useEffect(() => {
+    if (open) {
+      loadUser();
+    }
+  }, [open]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -106,6 +122,7 @@ export function ProfileDialog() {
           title: "Profile updated",
           description: "Your profile has been updated successfully.",
         });
+        setOpen(false);
       } else {
         throw new Error(error);
       }
@@ -145,9 +162,9 @@ export function ProfileDialog() {
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" onClick={loadUser}>
+        <Button variant="outline">
           <User className="mr-2 h-4 w-4" />
           Profile
         </Button>
@@ -187,7 +204,7 @@ export function ProfileDialog() {
           </div>
 
           <div className="grid gap-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input
@@ -210,7 +227,7 @@ export function ProfileDialog() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="department">Department</Label>
                 <Input
@@ -295,4 +312,3 @@ export function ProfileDialog() {
     </Dialog>
   );
 }
-

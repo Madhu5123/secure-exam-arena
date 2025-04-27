@@ -1,15 +1,26 @@
 
 import React, { useState, useEffect } from "react";
-import { Plus, Folder, Calendar, Book } from "lucide-react";
+import { Plus, Folder, Calendar, Book, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { ref, get, push, set } from 'firebase/database';
+import { ref, get, push, set, remove } from 'firebase/database';
 import { db } from '@/config/firebase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { DepartmentCard } from "./DepartmentCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { 
   Select,
   SelectContent,
@@ -17,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Subject {
   id: string;
@@ -42,6 +54,8 @@ export function DepartmentManager() {
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
   const [newSemester, setNewSemester] = useState("");
   const [newSubject, setNewSubject] = useState({ name: "", code: "", semester: "" });
+  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState({ type: "", id: "", semesterId: "", subjectId: "" });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -191,6 +205,75 @@ export function DepartmentManager() {
     }
   };
 
+  const confirmDelete = (type: string, id: string, semesterId: string = "", subjectId: string = "") => {
+    setItemToDelete({ type, id, semesterId, subjectId });
+    setDeleteConfirmationOpen(true);
+  };
+
+  const handleDelete = async () => {
+    try {
+      const { type, id, semesterId, subjectId } = itemToDelete;
+      
+      if (type === "department") {
+        await remove(ref(db, `departments/${id}`));
+        toast({
+          title: "Department deleted",
+          description: "The department has been deleted successfully.",
+        });
+      } 
+      else if (type === "semester") {
+        // Get current semesters
+        const department = departments.find(d => d.id === id);
+        if (!department) return;
+        
+        const updatedSemesters = department.semesters.filter(sem => sem !== semesterId);
+        
+        // Update semesters
+        await set(ref(db, `departments/${id}/semesters`), updatedSemesters);
+        
+        // Remove subjects for this semester
+        if (department.subjects && department.subjects[semesterId]) {
+          const updatedSubjects = { ...department.subjects };
+          delete updatedSubjects[semesterId];
+          await set(ref(db, `departments/${id}/subjects`), updatedSubjects);
+        }
+        
+        toast({
+          title: "Semester deleted",
+          description: "The semester has been deleted successfully.",
+        });
+      } 
+      else if (type === "subject") {
+        // Get current subjects
+        const department = departments.find(d => d.id === id);
+        if (!department || !department.subjects || !department.subjects[semesterId]) return;
+        
+        const updatedSubjects = department.subjects[semesterId].filter(
+          (subject: Subject) => subject.id !== subjectId
+        );
+        
+        // Update subjects
+        await set(ref(db, `departments/${id}/subjects/${semesterId}`), updatedSubjects);
+        
+        toast({
+          title: "Subject deleted",
+          description: "The subject has been deleted successfully.",
+        });
+      }
+      
+      // Refresh the departments list
+      fetchDepartments();
+      setDeleteConfirmationOpen(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete item. Please try again.",
+        variant: "destructive",
+      });
+      console.error(error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
@@ -225,6 +308,27 @@ export function DepartmentManager() {
         </Dialog>
       </div>
 
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmationOpen} onOpenChange={setDeleteConfirmationOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {itemToDelete.type === "department" && "This will delete the department and all its semesters and subjects."}
+              {itemToDelete.type === "semester" && "This will delete the semester and all its subjects."}
+              {itemToDelete.type === "subject" && "This will delete the subject."}
+              {" This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Tabs defaultValue="departments" className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="departments">Departments</TabsTrigger>
@@ -235,11 +339,20 @@ export function DepartmentManager() {
         <TabsContent value="departments" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {departments.map((department) => (
-              <DepartmentCard
-                key={department.id}
-                department={department}
-                onUpdate={fetchDepartments}
-              />
+              <div key={department.id} className="relative">
+                <DepartmentCard
+                  department={department}
+                  onUpdate={fetchDepartments}
+                />
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => confirmDelete("department", department.id)}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
             ))}
           </div>
         </TabsContent>
@@ -305,6 +418,14 @@ export function DepartmentManager() {
                           <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
                           <span>{semester}</span>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => confirmDelete("semester", department.id, semester)}
+                        >
+                          <Trash className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
                     ))
                   ) : (
@@ -415,6 +536,14 @@ export function DepartmentManager() {
                                 Code: {subject.code}
                               </div>
                             </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => confirmDelete("subject", department.id, semester, subject.id)}
+                            >
+                              <Trash className="h-4 w-4 text-destructive" />
+                            </Button>
                           </div>
                         ))}
                       </div>
