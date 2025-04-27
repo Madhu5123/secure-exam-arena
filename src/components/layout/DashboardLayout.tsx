@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { LogOut, Menu, User } from "lucide-react";
+import { LogOut, Menu, User, FileText, Home, BookOpen, Users, Calendar, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { 
@@ -24,6 +25,42 @@ import { useToast } from "@/hooks/use-toast";
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
+
+// Define the getMenuItems function to return navigation items based on role
+const getMenuItems = (role?: string) => {
+  const commonItems = [
+    { title: "Dashboard", url: "/dashboard", icon: Home },
+  ];
+
+  const teacherItems = [
+    { title: "Manage Exams", url: "/dashboard/exams", icon: FileText },
+    { title: "Manage Students", url: "/dashboard/students", icon: Users },
+    { title: "Schedule", url: "/dashboard/schedule", icon: Calendar },
+    { title: "Notices", url: "/dashboard/notices", icon: Bell },
+  ];
+
+  const studentItems = [
+    { title: "My Exams", url: "/dashboard/myexams", icon: FileText },
+    { title: "Results", url: "/dashboard/results", icon: BookOpen },
+    { title: "Notices", url: "/dashboard/notices", icon: Bell },
+  ];
+
+  const adminItems = [
+    { title: "Manage Departments", url: "/departments", icon: BookOpen },
+    { title: "Users", url: "/dashboard/users", icon: Users },
+    { title: "System", url: "/dashboard/system", icon: Settings },
+  ];
+
+  if (role === "admin") {
+    return [...commonItems, ...adminItems];
+  } else if (role === "teacher") {
+    return [...commonItems, ...teacherItems];
+  } else if (role === "student") {
+    return [...commonItems, ...studentItems];
+  }
+
+  return commonItems;
+};
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [user, setUser] = useState<{ name: string; role: string } | null>(null);
@@ -70,7 +107,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <SidebarGroupLabel>Navigation</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {getMenuItems().map((item) => (
+                  {getMenuItems(user?.role).map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild>
                         <Link to={item.url} className="flex items-center gap-4">
