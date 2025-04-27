@@ -1,9 +1,23 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { LogOut, Menu, Users, Settings, Calendar, BarChart, FileText, Building, Bell, Book, User } from "lucide-react";
+import { LogOut, Menu, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { 
+  Sidebar, 
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger 
+} from "@/components/ui/sidebar";
+import { ProfileDialog } from "@/components/profile/ProfileDialog";
 import { logoutUser, getCurrentUser } from "@/services/AuthService";
 import { useToast } from "@/hooks/use-toast";
 
@@ -13,6 +27,7 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [user, setUser] = useState<{ name: string; role: string } | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -36,44 +51,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       description: "You have been successfully logged out.",
     });
     navigate("/");
-  };
-
-  const getMenuItems = () => {
-    if (!user) return [];
-
-    const commonItems = [
-      { title: "Dashboard", icon: BarChart, url: "/dashboard" },
-      { title: "Profile", icon: User, url: "/dashboard/profile" },
-    ];
-    
-    const adminItems = [
-      ...commonItems,
-      { title: "Manage Teachers", icon: Users, url: "/dashboard/teachers" },
-      { title: "Departments", icon: Building, url: "/departments" },
-      { title: "Settings", icon: Settings, url: "/dashboard/settings" },
-    ];
-    
-    const teacherItems = [
-      ...commonItems,
-      { title: "Students", icon: Users, url: "/dashboard/students" },
-      { title: "Exams", icon: FileText, url: "/dashboard/exams" },
-      { title: "Schedule", icon: Calendar, url: "/dashboard/schedule" },
-      { title: "Notice Board", icon: Bell, url: "/dashboard/notices" },
-    ];
-    
-    const studentItems = [
-      ...commonItems,
-      { title: "My Exams", icon: Book, url: "/dashboard/myexams" },
-      { title: "Results", icon: FileText, url: "/dashboard/results" },
-      { title: "Notice Board", icon: Bell, url: "/dashboard/notices" },
-    ];
-    
-    switch (user.role) {
-      case "admin": return adminItems;
-      case "teacher": return teacherItems;
-      case "student": return studentItems;
-      default: return commonItems;
-    }
   };
 
   return (
@@ -123,9 +100,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="flex gap-1">
                 <ThemeToggle />
                 <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setIsProfileOpen(true)}
+                >
+                  <User className="h-4 w-4" />
+                </Button>
+                <Button 
                   variant="outline" 
                   size="icon" 
-                  aria-label="Logout" 
                   onClick={handleLogout}
                 >
                   <LogOut className="h-4 w-4" />
@@ -159,6 +142,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
         </div>
       </div>
+      <ProfileDialog open={isProfileOpen} onOpenChange={setIsProfileOpen} />
     </SidebarProvider>
   );
 }
