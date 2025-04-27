@@ -8,12 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { loginUser } from "@/services/AuthService";
+import { ForgotPassword } from "./ForgotPassword";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -30,7 +32,6 @@ export function LoginForm() {
           description: `Welcome back, ${role}!`,
         });
         
-        // Add a small delay to ensure the toast appears before navigation
         setTimeout(() => {
           navigate("/dashboard");
         }, 100);
@@ -52,6 +53,10 @@ export function LoginForm() {
       setLoading(false);
     }
   };
+
+  if (showForgotPassword) {
+    return <ForgotPassword onBack={() => setShowForgotPassword(false)} />;
+  }
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -91,12 +96,19 @@ export function LoginForm() {
                 size="icon"
                 className="absolute right-0 top-0 h-full px-3"
                 onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </Button>
             </div>
           </div>
+          <Button
+            type="button"
+            variant="link"
+            className="w-full"
+            onClick={() => setShowForgotPassword(true)}
+          >
+            Forgot password?
+          </Button>
         </form>
       </CardContent>
       <CardFooter>

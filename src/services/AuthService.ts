@@ -3,6 +3,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   User as FirebaseUser
 } from 'firebase/auth';
 import { ref, set, get } from 'firebase/database';
@@ -179,4 +180,37 @@ export const checkUserRole = async (): Promise<"admin" | "teacher" | "student" |
   // If not in localStorage, get from Firebase
   const user = await getCurrentUser();
   return user ? user.role : null;
+};
+
+export const resetPassword = async (email: string) => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: "Failed to send reset email",
+    };
+  }
+};
+
+export const updateUserProfile = async (userData: {
+  id: string;
+  name: string;
+  email: string;
+  profileImage?: string;
+}) => {
+  try {
+    await set(ref(db, `users/${userData.id}`), {
+      ...userData,
+      updatedAt: new Date().toISOString(),
+    });
+    
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: "Failed to update profile",
+    };
+  }
 };
