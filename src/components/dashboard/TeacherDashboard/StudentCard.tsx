@@ -2,6 +2,17 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Image, Users } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface StudentCardProps {
   student: any;
@@ -32,14 +43,38 @@ export function StudentCard({ student, onEdit, onDelete }: StudentCardProps) {
         <p className="text-xs mt-1 text-[#7E69AB]">{student.regNumber}</p>
       </div>
       <div className="mt-4 flex justify-center gap-3 w-full">
-        <Button className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white text-xs px-4 py-1.5 rounded-lg font-semibold transition"
-          onClick={() => onEdit(student.id)}>
+        <Button 
+          className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white text-xs px-4 py-1.5 rounded-lg font-semibold transition"
+          onClick={() => onEdit(student.id)}
+        >
           Edit
         </Button>
-        <Button className="bg-[#ea384c] hover:bg-[#cf2840] text-white text-xs px-4 py-1.5 rounded-lg font-semibold transition"
-          onClick={() => onDelete(student.id)}>
-          Delete
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button 
+              className="bg-[#ea384c] hover:bg-[#cf2840] text-white text-xs px-4 py-1.5 rounded-lg font-semibold transition"
+            >
+              Delete
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Student</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete {student.name}? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => onDelete(student.id)}
+                className="bg-exam-danger hover:bg-exam-danger/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

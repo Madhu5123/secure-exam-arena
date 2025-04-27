@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { LogOut, Menu, Users, Settings, Calendar, BarChart, FileText, Building, Bell, Book, User } from "lucide-react";
@@ -45,7 +44,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
     const commonItems = [
       { title: "Dashboard", icon: BarChart, url: "/dashboard" },
-      { title: "Profile", icon: User, isComponent: true, component: ProfileDialog },
     ];
     
     const adminItems = [
@@ -98,14 +96,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   {getMenuItems().map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild>
-                        {item.isComponent ? (
-                          <item.component />
-                        ) : (
-                          <Link to={item.url} className="flex items-center gap-4">
-                            <item.icon className="h-5 w-5" />
-                            <span>{item.title}</span>
-                          </Link>
-                        )}
+                        <Link to={item.url} className="flex items-center gap-4">
+                          <item.icon className="h-5 w-5" />
+                          <span>{item.title}</span>
+                        </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
@@ -114,28 +108,31 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </SidebarGroup>
           </SidebarContent>
           <SidebarFooter className="border-t p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="rounded-full bg-primary/10 p-1">
-                  <div className="h-6 w-6 flex items-center justify-center text-primary font-medium">
-                    {user?.name?.charAt(0) || "U"}
+            <div className="flex flex-col gap-4">
+              <ProfileDialog />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-full bg-primary/10 p-1">
+                    <div className="h-6 w-6 flex items-center justify-center text-primary font-medium">
+                      {user?.name?.charAt(0) || "U"}
+                    </div>
+                  </div>
+                  <div className="text-sm">
+                    <div className="font-medium">{user?.name || "User"}</div>
+                    <div className="text-xs text-muted-foreground capitalize">{user?.role || "Loading..."}</div>
                   </div>
                 </div>
-                <div className="text-sm">
-                  <div className="font-medium">{user?.name || "User"}</div>
-                  <div className="text-xs text-muted-foreground capitalize">{user?.role || "Loading..."}</div>
+                <div className="flex gap-1">
+                  <ThemeToggle />
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    aria-label="Logout" 
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
                 </div>
-              </div>
-              <div className="flex gap-1">
-                <ThemeToggle />
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  aria-label="Logout" 
-                  onClick={handleLogout}
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
               </div>
             </div>
           </SidebarFooter>
