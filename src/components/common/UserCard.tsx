@@ -2,8 +2,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Trash, Edit, Trash2 } from "lucide-react";
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction, AlertDialogFooter } from "@/components/ui/alert-dialog";
+import { Eye, Trash, Edit } from "lucide-react";
 
 interface UserCardProps {
   id: string;
@@ -35,7 +34,7 @@ export function UserCard({
   onDelete 
 }: UserCardProps) {
   return (
-    <Card>
+    <Card className="overflow-hidden transition-all hover:shadow-md">
       <CardHeader className="pb-2">
         {profileImage && (
           <div className="w-16 h-16 rounded-full overflow-hidden mb-4">
@@ -79,7 +78,7 @@ export function UserCard({
           )}
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end space-x-2">
+      <CardFooter className="flex justify-end gap-2 border-t pt-4">
         {onView && (
           <Button variant="outline" size="sm" onClick={() => onView(id)}>
             <Eye className="h-4 w-4 mr-1" />
@@ -92,25 +91,12 @@ export function UserCard({
             Edit
           </Button>
         )}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete {role}</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete {name}? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => onDelete(id)}>Delete</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {onDelete && (
+          <Button variant="outline" size="sm" className="text-exam-danger hover:bg-exam-danger/10" onClick={() => onDelete(id)}>
+            <Trash className="h-4 w-4 mr-1" />
+            Delete
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );
