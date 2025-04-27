@@ -1,3 +1,4 @@
+
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
@@ -14,6 +15,7 @@ export interface User {
   name: string;
   email: string;
   role: "admin" | "teacher" | "student";
+  profileImage?: string; // Added profileImage property as optional
 }
 
 let currentUser: User | null = null;
@@ -112,6 +114,7 @@ export const getCurrentUser = async (): Promise<User | null> => {
             name: userData.name,
             email: userData.email,
             role: userData.role,
+            profileImage: userData.profileImage || '', // Added profileImage with fallback empty string
           };
           
           // Store the user in localStorage for future use
@@ -201,13 +204,47 @@ export const updateUserProfile = async (userData: {
   profileImage?: string;
 }) => {
   try {
-    await set(ref(db, `users/${userData.id}`), {
-      ...userData,
-      updatedAt: new Date().toISOString(),
-    });
+    const userRef = ref(db, `users/${userData.id}`);
+    const snapshot = await get(userRef);
+    
+    if (snapshot.exists()) {
+      const existingData = snapshot.val();
+      
+      // Update with new data while preserving existing data
+      await set(userRef, {
+        ...existingData,
+        name: userData.name,
+        email: userData.email,
+        profileImage: userData.profileImage || existingData.profileImage || '',
+        updatedAt: new Date().toISOString(),
+      });
+    } else {
+      // If user data doesn't exist yet, create it
+      await set(userRef, {
+        name: userData.name,
+        email: userData.email,
+        role: "student", // Default role
+        profileImage: userData.profileImage || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    
+    // Update currentUser and localStorage
+    if (currentUser && currentUser.id === userData.id) {
+      currentUser = {
+        ...currentUser,
+        name: userData.name,
+        email: userData.email,
+        profileImage: userData.profileImage || currentUser.profileImage || '',
+      };
+      
+      localStorage.setItem("examUser", JSON.stringify(currentUser));
+    }
     
     return { success: true };
   } catch (error) {
+    console.error("Error updating profile:", error);
     return {
       success: false,
       error: "Failed to update profile",
