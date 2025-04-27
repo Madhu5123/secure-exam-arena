@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { LogOut, Menu, Users, Settings, Calendar, BarChart, FileText, Building, Bell, Book, User } from "lucide-react";
@@ -6,6 +7,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { logoutUser, getCurrentUser } from "@/services/AuthService";
 import { useToast } from "@/hooks/use-toast";
+import { ProfileDialog } from "@/components/profile/ProfileDialog";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -43,7 +45,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
     const commonItems = [
       { title: "Dashboard", icon: BarChart, url: "/dashboard" },
-      { title: "Profile", icon: User, url: "/dashboard/profile" },
+      { title: "Profile", icon: User, isComponent: true, component: ProfileDialog },
     ];
     
     const adminItems = [
@@ -96,10 +98,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   {getMenuItems().map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild>
-                        <Link to={item.url} className="flex items-center gap-4">
-                          <item.icon className="h-5 w-5" />
-                          <span>{item.title}</span>
-                        </Link>
+                        {item.isComponent ? (
+                          <item.component />
+                        ) : (
+                          <Link to={item.url} className="flex items-center gap-4">
+                            <item.icon className="h-5 w-5" />
+                            <span>{item.title}</span>
+                          </Link>
+                        )}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
