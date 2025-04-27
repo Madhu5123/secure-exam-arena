@@ -34,6 +34,10 @@ export function ProfileManager() {
     name: "",
     email: "",
     profileImage: "",
+    registerNumber: "",
+    department: "",
+    adharNumber: "",
+    address: "",
   });
   const { toast } = useToast();
 
@@ -46,6 +50,10 @@ export function ProfileManager() {
           name: currentUser.name || "",
           email: currentUser.email || "",
           profileImage: currentUser.profileImage || "",
+          registerNumber: currentUser.registerNumber || "",
+          department: currentUser.department || "",
+          adharNumber: currentUser.adharNumber || "",
+          address: currentUser.address || "",
         });
       }
     };
@@ -172,25 +180,71 @@ export function ProfileManager() {
 
             {/* Profile Information */}
             <div className="grid gap-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
+                    placeholder="Enter your name"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    disabled={true}
+                    className="bg-muted"
+                  />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="registerNumber">Register Number</Label>
+                  <Input
+                    id="registerNumber"
+                    placeholder="Enter your register number"
+                    value={formData.registerNumber}
+                    onChange={(e) => setFormData(prev => ({ ...prev, registerNumber: e.target.value }))}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="department">Department</Label>
+                  <Input
+                    id="department"
+                    placeholder="Enter your department"
+                    value={formData.department}
+                    onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="adharNumber">Aadhaar Number</Label>
                 <Input
-                  id="name"
-                  placeholder="Enter your name"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  id="adharNumber"
+                  placeholder="Enter your Aadhaar number"
+                  value={formData.adharNumber}
+                  onChange={(e) => setFormData(prev => ({ ...prev, adharNumber: e.target.value }))}
                   disabled={loading}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="address">Address</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  disabled={true}
-                  className="bg-muted"
+                  id="address"
+                  placeholder="Enter your address"
+                  value={formData.address}
+                  onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                  disabled={loading}
                 />
               </div>
 

@@ -15,7 +15,11 @@ export interface User {
   name: string;
   email: string;
   role: "admin" | "teacher" | "student";
-  profileImage?: string; // Added profileImage property as optional
+  profileImage?: string;
+  registerNumber?: string;
+  department?: string;
+  adharNumber?: string;
+  address?: string;
 }
 
 let currentUser: User | null = null;
