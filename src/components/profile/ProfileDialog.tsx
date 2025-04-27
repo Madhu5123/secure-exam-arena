@@ -295,4 +295,3 @@ export function ProfileDialog() {
     </Dialog>
   );
 }
-
