@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Users, Settings, PlusCircle, Upload, BarChart, PieChart, Home } from "lucide-react";
+import { Users, Settings, PlusCircle, Upload, BarChart, PieChart, Home, Trash2, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserCard } from "@/components/common/UserCard";
@@ -8,8 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ref, get, push, set } from 'firebase/database';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/config/firebase';
+import { db } from '@/config/firebase';
 import { registerUser } from "@/services/AuthService";
 import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
 import {
@@ -26,6 +25,7 @@ import {
   ChartTooltipContent 
 } from "@/components/ui/chart";
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart as RechartsPieChart, Pie, Cell } from "recharts";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface AdminDashboardProps {
   section?: string;
@@ -61,13 +61,12 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     studentsByDepartment: [],
     examsByDepartment: []
   });
+  const [deleteTeacherId, setDeleteTeacherId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Colors for charts
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
 
-  // Load data on mount
   useEffect(() => {
     const fetchData = async () => {
       const teachersRef = ref(db, 'users');
@@ -80,7 +79,6 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         get(examsRef)
       ]);
       
-      // Process teachers data
       if (teachersSnapshot.exists()) {
         const teachersList: any[] = [];
         const studentsList: any[] = [];
@@ -106,7 +104,6 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         setStudents(studentsList);
       }
 
-      // Process departments data
       if (departmentsSnapshot.exists()) {
         const departmentsList = Object.entries(departmentsSnapshot.val()).map(([id, data]: [string, any]) => ({
           id,
@@ -115,7 +112,6 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         setDepartments(departmentsList);
       }
       
-      // Process exams data
       if (examsSnapshot.exists()) {
         const examsList = Object.entries(examsSnapshot.val() || {}).map(([id, data]: [string, any]) => ({
           id,
@@ -128,9 +124,7 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     fetchData();
   }, []);
 
-  // Update stats when department changes
   useEffect(() => {
-    // Generate statistics when selectedDepartment or data changes
     if (departments.length > 0) {
       if (!selectedDepartment && departments[0]) {
         setSelectedDepartment(departments[0].id);
@@ -140,14 +134,11 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     }
   }, [selectedDepartment, departments, teachers, students, exams]);
 
-  // Handle showing appropriate content based on section
   const renderContent = () => {
-    // If section is specified, show only that section
-    if (section === "teachers") {
+    if (section === "teachers" || !section) {
       return renderTeachersSection();
     }
     
-    // Otherwise show the main dashboard with stats
     return (
       <>
         <div className="flex justify-between items-center mb-4">
@@ -239,14 +230,13 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     );
   };
 
-  // Teacher management section
   const renderTeachersSection = () => {
     return (
       <>
         <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
           <div>
             <h2 className="text-2xl font-bold">Manage Teachers</h2>
-            <p className="text-muted-foreground">Add, edit or remove teacher accounts</p>
+            <p className="text-muted-foreground">Add, edit, or remove teacher accounts</p>
           </div>
           <div className="flex gap-2 w-full md:w-auto">
             <Input
@@ -255,156 +245,66 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="md:w-64"
             />
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Add Teacher
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Add New Teacher</DialogTitle>
-                  <DialogDescription>
-                    Create a new teacher account. They will receive login credentials via email.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="profileImage">Profile Image</Label>
-                    <div className="flex gap-2 items-center">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full flex items-center justify-center"
-                        disabled={uploadingImage}
-                      >
-                        <Upload className="h-4 w-4 mr-2" /> 
-                        {uploadingImage ? 'Uploading...' : profileImageFile ? 'Change Image' : 'Upload Image'}
-                      </Button>
-                      <input
-                        ref={fileInputRef}
-                        id="profileImage"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleProfileImageUpload}
-                      />
-                    </div>
-                    {uploadedImageUrl && (
-                      <div className="mt-2">
-                        <img 
-                          src={uploadedImageUrl} 
-                          alt="Profile preview" 
-                          className="w-16 h-16 rounded-full object-cover"
-                        />
-                      </div>
-                    )}
-                    {profileImageFile && !uploadedImageUrl && (
-                      <div className="text-sm text-muted-foreground">
-                        Selected: {profileImageFile.name}
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input
-                      id="name"
-                      value={newTeacher.name}
-                      onChange={(e) => setNewTeacher({ ...newTeacher, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newTeacher.email}
-                      onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="department">Department</Label>
-                    <Select
-                      value={newTeacher.department}
-                      onValueChange={(value) => handleDepartmentChange(value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Department" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {departments.map((dept) => (
-                          <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Subjects</Label>
-                    <div className="border rounded-md p-4 max-h-48 overflow-y-auto">
-                      {subjects.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No subjects available for this department</p>
-                      ) : (
-                        <div className="grid gap-3">
-                          {subjects.map((subject) => (
-                            <div key={subject.id} className="flex items-center space-x-2">
-                              <Checkbox 
-                                id={`subject-${subject.id}`} 
-                                checked={newTeacher.subjects.includes(subject.id)}
-                                onCheckedChange={() => handleSubjectCheckboxChange(subject.id)}
-                              />
-                              <label
-                                htmlFor={`subject-${subject.id}`}
-                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                              >
-                                {subject.name} ({subject.semester})
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="password">Initial Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={newTeacher.password}
-                      onChange={(e) => setNewTeacher({ ...newTeacher, password: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleAddTeacher} disabled={uploadingImage}>Add Teacher</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={() => setIsAddDialogOpen(true)}>
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Add Teacher
+            </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
           {filteredTeachers.length > 0 ? (
             filteredTeachers.map((teacher) => (
-              <UserCard
-                key={teacher.id}
-                id={teacher.id}
-                name={teacher.name}
-                email={teacher.email}
-                role="teacher"
-                status={teacher.status}
-                additionalInfo={Array.isArray(teacher.subjects) 
-                  ? teacher.subjects.map(sid => subjects.find(s => s.id === sid)?.name).filter(Boolean).join(", ")
-                  : subjects.find(s => s.id === teacher.subject)?.name || ""}
-                profileImage={teacher.profileImage}
-                department={departments.find(d => d.id === teacher.department)?.name}
-                onView={handleViewTeacher}
-                onEdit={handleEditTeacher}
-                onDelete={handleDeleteTeacher}
-              />
+              <div key={teacher.id} className="relative">
+                <UserCard
+                  id={teacher.id}
+                  name={teacher.name}
+                  email={teacher.email}
+                  role="teacher"
+                  status={teacher.status}
+                  additionalInfo={Array.isArray(teacher.subjects) 
+                    ? teacher.subjects.map(sid => subjects.find(s => s.id === sid)?.name).filter(Boolean).join(", ")
+                    : subjects.find(s => s.id === teacher.subject)?.name || ""}
+                  profileImage={teacher.profileImage}
+                  department={departments.find(d => d.id === teacher.department)?.name}
+                  onView={() => handleViewTeacher(teacher.id)}
+                  onEdit={() => handleEditTeacher(teacher.id)}
+                />
+                <div className="absolute top-2 right-2 flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => handleEditTeacher(teacher.id)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => setDeleteTeacherId(teacher.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the teacher's account and remove them from all associated departments.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmDeleteTeacher}>
+                          Continue
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
             ))
           ) : (
             <div className="col-span-full text-center py-10">
@@ -416,16 +316,13 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     );
   };
 
-  // Other functions
   const generateDepartmentStats = (departmentId: string) => {
     const selectedDeptData = departments.find(d => d.id === departmentId);
     if (!selectedDeptData) return;
 
-    // Teachers by semester
     const teachersBySemester: any[] = [];
     const semesters = selectedDeptData.semesters || [];
     
-    // Initialize with all semesters
     semesters.forEach(semester => {
       teachersBySemester.push({
         name: semester,
@@ -433,13 +330,11 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
       });
     });
 
-    // Count teachers by semester based on their subjects
     teachers.forEach(teacher => {
       if (teacher.department === departmentId) {
         const teacherSubjects = Array.isArray(teacher.subjects) ? teacher.subjects : [teacher.subject];
         
         teacherSubjects.forEach(subjectId => {
-          // Find which semester this subject belongs to
           if (selectedDeptData.subjects) {
             Object.entries(selectedDeptData.subjects).forEach(([semester, subjectList]: [string, any]) => {
               if (subjectList.some((s: any) => s.id === subjectId)) {
@@ -454,25 +349,21 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
       }
     });
 
-    // Students by semester
     const studentsBySemester = semesters.map(semester => ({
       name: semester,
       value: students.filter(student => student.department === departmentId && student.semester === semester).length
     }));
 
-    // Teachers by department (for comparison)
     const teachersByDepartment = departments.map(dept => ({
       name: dept.name,
       value: teachers.filter(teacher => teacher.department === dept.id).length
     }));
 
-    // Students by department (for comparison)
     const studentsByDepartment = departments.map(dept => ({
       name: dept.name,
       value: students.filter(student => student.department === dept.id).length
     }));
 
-    // Exams by department
     const examsByDepartment = departments.map(dept => ({
       name: dept.name,
       value: exams.filter(exam => exam.department === dept.id).length
@@ -504,7 +395,6 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         const allSubjects: any[] = [];
         const subjectsData = snapshot.val();
         
-        // Flatten the subjects from all semesters
         Object.entries(subjectsData).forEach(([semester, semesterSubjects]: [string, any]) => {
           semesterSubjects.forEach((subject: any) => {
             allSubjects.push({
@@ -531,7 +421,6 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
       
       try {
         setUploadingImage(true);
-        // Upload to Cloudinary
         const imageUrl = await uploadToCloudinary(file);
         setUploadedImageUrl(imageUrl);
         setNewTeacher({ ...newTeacher, profileImage: imageUrl });
@@ -685,15 +574,12 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         updates.profileImage = newTeacher.profileImage;
       }
       
-      // Update user data
       await set(ref(db, `users/${selectedTeacher.id}`), {
         ...selectedTeacher,
         ...updates
       });
       
-      // If department changed, update department references
       if (selectedTeacher.department !== newTeacher.department) {
-        // Remove from old department
         const oldDeptRef = ref(db, `departments/${selectedTeacher.department}/teachers`);
         const oldSnapshot = await get(oldDeptRef);
         if (oldSnapshot.exists()) {
@@ -701,7 +587,6 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
           await set(oldDeptRef, oldTeachers.filter((id: string) => id !== selectedTeacher.id));
         }
         
-        // Add to new department
         const newDeptRef = ref(db, `departments/${newTeacher.department}/teachers`);
         const newSnapshot = await get(newDeptRef);
         const newTeachers = newSnapshot.exists() ? newSnapshot.val() : [];
@@ -713,7 +598,6 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         description: `${newTeacher.name}'s information has been updated.`,
       });
 
-      // Refresh the teachers list
       const teachersRef = ref(db, 'users');
       const teachersSnapshot = await get(teachersRef);
       if (teachersSnapshot.exists()) {
@@ -755,7 +639,6 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     try {
       const teacher = teachers.find((t) => t.id === id);
       if (teacher && teacher.department) {
-        // Remove from department
         const deptRef = ref(db, `departments/${teacher.department}/teachers`);
         const snapshot = await get(deptRef);
         if (snapshot.exists()) {
@@ -764,7 +647,6 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         }
       }
       
-      // Delete user
       await set(ref(db, `users/${id}`), null);
       setTeachers(teachers.filter((teacher) => teacher.id !== id));
       
@@ -781,6 +663,38 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     }
   };
 
+  const handleConfirmDeleteTeacher = async () => {
+    if (deleteTeacherId) {
+      try {
+        const teacher = teachers.find((t) => t.id === deleteTeacherId);
+        if (teacher && teacher.department) {
+          const deptRef = ref(db, `departments/${teacher.department}/teachers`);
+          const snapshot = await get(deptRef);
+          if (snapshot.exists()) {
+            const deptTeachers = snapshot.val();
+            await set(deptRef, deptTeachers.filter((teacherId: string) => teacherId !== deleteTeacherId));
+          }
+        }
+        
+        await set(ref(db, `users/${deleteTeacherId}`), null);
+        setTeachers(teachers.filter((teacher) => teacher.id !== deleteTeacherId));
+        
+        toast({
+          title: "Teacher Deleted",
+          description: "The teacher has been deleted successfully.",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to delete teacher. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setDeleteTeacherId(null);
+      }
+    }
+  };
+
   const filteredTeachers = teachers.filter(
     (teacher) =>
       teacher.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -791,7 +705,129 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     <div className="flex flex-col space-y-6">
       {renderContent()}
 
-      {/* View Teacher Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add New Teacher</DialogTitle>
+            <DialogDescription>
+              Create a new teacher account. They will receive login credentials via email.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="profileImage">Profile Image</Label>
+              <div className="flex gap-2 items-center">
+                <Button 
+                  variant="outline" 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex items-center justify-center"
+                  disabled={uploadingImage}
+                >
+                  <Upload className="h-4 w-4 mr-2" /> 
+                  {uploadingImage ? 'Uploading...' : profileImageFile ? 'Change Image' : 'Upload Image'}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  id="profileImage"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleProfileImageUpload}
+                />
+              </div>
+              {uploadedImageUrl && (
+                <div className="mt-2">
+                  <img 
+                    src={uploadedImageUrl} 
+                    alt="Profile preview" 
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                </div>
+              )}
+              {profileImageFile && !uploadedImageUrl && (
+                <div className="text-sm text-muted-foreground">
+                  Selected: {profileImageFile.name}
+                </div>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                value={newTeacher.name}
+                onChange={(e) => setNewTeacher({ ...newTeacher, name: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={newTeacher.email}
+                onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="department">Department</Label>
+              <Select
+                value={newTeacher.department}
+                onValueChange={(value) => handleDepartmentChange(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Subjects</Label>
+              <div className="border rounded-md p-4 max-h-48 overflow-y-auto">
+                {subjects.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No subjects available for this department</p>
+                ) : (
+                  <div className="grid gap-3">
+                    {subjects.map((subject) => (
+                      <div key={subject.id} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`subject-${subject.id}`} 
+                          checked={newTeacher.subjects.includes(subject.id)}
+                          onCheckedChange={() => handleSubjectCheckboxChange(subject.id)}
+                        />
+                        <label
+                          htmlFor={`subject-${subject.id}`}
+                          className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {subject.name} ({subject.semester})
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password">Initial Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={newTeacher.password}
+                onChange={(e) => setNewTeacher({ ...newTeacher, password: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddTeacher} disabled={uploadingImage}>Add Teacher</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -845,7 +881,6 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Teacher Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
