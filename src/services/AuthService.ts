@@ -1,4 +1,3 @@
-
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
@@ -15,13 +14,16 @@ export interface User {
   name: string;
   email: string;
   role: "admin" | "teacher" | "student";
-  profileImage?: string; // Added profileImage property as optional
+  profileImage?: string;
+  registerNumber?: string;
+  department?: string;
+  adharNumber?: string;
+  address?: string;
 }
 
 let currentUser: User | null = null;
 
 export const loginUser = async (email: string, password: string) => {
-  // Special case for admin login
   if (email === "admin@gmail.com" && password === "admin") {
     const adminUser: User = {
       id: "admin-id",
@@ -86,7 +88,6 @@ export const logoutUser = async () => {
 };
 
 export const getCurrentUser = async (): Promise<User | null> => {
-  // First check if we have the admin user in localStorage
   const storedUser = localStorage.getItem("examUser");
   if (storedUser) {
     try {
@@ -100,7 +101,6 @@ export const getCurrentUser = async (): Promise<User | null> => {
     }
   }
 
-  // If not admin user in localStorage, check Firebase auth
   return new Promise((resolve) => {
     onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -114,10 +114,9 @@ export const getCurrentUser = async (): Promise<User | null> => {
             name: userData.name,
             email: userData.email,
             role: userData.role,
-            profileImage: userData.profileImage || '', // Added profileImage with fallback empty string
+            profileImage: userData.profileImage || '',
           };
           
-          // Store the user in localStorage for future use
           localStorage.setItem("examUser", JSON.stringify(currentUser));
           
           resolve(currentUser);
@@ -141,7 +140,6 @@ export const registerUser = async (
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
-    // Store additional user data in Realtime Database
     await set(ref(db, `users/${user.uid}`), {
       name,
       email,
@@ -167,7 +165,6 @@ export const registerUser = async (
 };
 
 export const checkUserRole = async (): Promise<"admin" | "teacher" | "student" | null> => {
-  // First check if we have a user in localStorage
   const storedUser = localStorage.getItem("examUser");
   if (storedUser) {
     try {
@@ -180,7 +177,6 @@ export const checkUserRole = async (): Promise<"admin" | "teacher" | "student" |
     }
   }
   
-  // If not in localStorage, get from Firebase
   const user = await getCurrentUser();
   return user ? user.role : null;
 };
@@ -202,6 +198,10 @@ export const updateUserProfile = async (userData: {
   name: string;
   email: string;
   profileImage?: string;
+  registerNumber?: string;
+  department?: string;
+  adharNumber?: string;
+  address?: string;
 }) => {
   try {
     const userRef = ref(db, `users/${userData.id}`);
@@ -210,33 +210,36 @@ export const updateUserProfile = async (userData: {
     if (snapshot.exists()) {
       const existingData = snapshot.val();
       
-      // Update with new data while preserving existing data
       await set(userRef, {
         ...existingData,
         name: userData.name,
         email: userData.email,
         profileImage: userData.profileImage || existingData.profileImage || '',
+        registerNumber: userData.registerNumber || existingData.registerNumber || '',
+        department: userData.department || existingData.department || '',
+        adharNumber: userData.adharNumber || existingData.adharNumber || '',
+        address: userData.address || existingData.address || '',
         updatedAt: new Date().toISOString(),
       });
     } else {
-      // If user data doesn't exist yet, create it
       await set(userRef, {
         name: userData.name,
         email: userData.email,
-        role: "student", // Default role
+        role: "student",
         profileImage: userData.profileImage || '',
+        registerNumber: userData.registerNumber || '',
+        department: userData.department || '',
+        adharNumber: userData.adharNumber || '',
+        address: userData.address || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
     }
     
-    // Update currentUser and localStorage
     if (currentUser && currentUser.id === userData.id) {
       currentUser = {
         ...currentUser,
-        name: userData.name,
-        email: userData.email,
-        profileImage: userData.profileImage || currentUser.profileImage || '',
+        ...userData,
       };
       
       localStorage.setItem("examUser", JSON.stringify(currentUser));
