@@ -78,11 +78,12 @@ const Exam = ({ action: propAction }: ExamProps) => {
       case "create":
         return <ExamCreator />;
       case "edit":
-        return <ExamCreator examId={id} />;
+        // Ensure we only pass the examId when it's defined
+        return id ? <ExamCreator examId={id} /> : <ExamCreator />;
       case "monitor":
-        return <ExamMonitor examId={id} />;
+        return id ? <ExamMonitor examId={id} /> : null;
       case "take":
-        return <ExamTaker examId={id} />;
+        return id ? <ExamTaker examId={id} /> : null;
       default:
         // Redirect to dashboard if action is invalid
         navigate("/dashboard");
