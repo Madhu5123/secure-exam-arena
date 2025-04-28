@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Plus, Trash, Save, ArrowLeft, Calendar } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Plus, Trash, Save, ArrowLeft, Calendar, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { createExam } from "@/services/ExamService";
+import { createExam, getExamById, updateExam } from "@/services/ExamService";
 import { fetchAcademicData, fetchDepartmentSubjects } from "@/services/AcademicService";
 import { db } from "@/config/firebase";
 import { ref, onValue } from "firebase/database";
@@ -30,7 +30,11 @@ interface Question {
   timeLimit?: number;
 }
 
-export function ExamCreator() {
+interface ExamCreatorProps {
+  examId?: string;
+}
+
+export function ExamCreator({ examId }: ExamCreatorProps) {
   const [activeTab, setActiveTab] = useState("details");
   const [examTitle, setExamTitle] = useState("");
   const [examSubject, setExamSubject] = useState("");
@@ -38,6 +42,9 @@ export function ExamCreator() {
   const [examDuration, setExamDuration] = useState("60");
   const [examStartDate, setExamStartDate] = useState("");
   const [examEndDate, setExamEndDate] = useState("");
+  const [minPassingScore, setMinPassingScore] = useState("40");
+  const [maxWarnings, setMaxWarnings] = useState("3");
+  const [isEditMode, setIsEditMode] = useState(false);
   const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
   const [availableSubjectsForSemester, setAvailableSubjectsForSemester] = useState<string[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -59,6 +66,62 @@ export function ExamCreator() {
   
   const { toast } = useToast();
   const navigate = useNavigate();
+  const params = useParams();
+
+  // Check if this is an edit operation
+  useEffect(() => {
+    const initExamId = examId || params.id;
+    if (initExamId) {
+      setIsEditMode(true);
+      loadExamData(initExamId);
+    }
+  }, [examId, params.id]);
+
+  const loadExamData = async (examId: string) => {
+    try {
+      const { success, exam } = await getExamById(examId);
+      
+      if (success && exam) {
+        setExamTitle(exam.title || "");
+        setExamSubject(exam.subject || "");
+        setExamSemester(exam.semester || "");
+        setExamDuration(exam.duration?.toString() || "60");
+        setExamStartDate(exam.startDate || "");
+        setExamEndDate(exam.endDate || "");
+        setMinPassingScore(exam.minPassingScore?.toString() || "40");
+        setMaxWarnings(exam.maxWarnings?.toString() || "3");
+        setQuestions(exam.questions || []);
+        setSelectedStudents(exam.assignedStudents || []);
+        
+        if (exam.sections && exam.sections.length > 0) {
+          setExamSections(exam.sections.map((section: any) => ({
+            id: section.id,
+            name: section.name,
+            timeLimit: section.timeLimit
+          })));
+          setCurrentSection(exam.sections[0].name);
+        }
+        
+        toast({
+          title: "Exam loaded",
+          description: "Exam details loaded successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load exam details",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error loading exam:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      });
+    }
+  };
 
   useEffect(() => {
     // Get teacher information and department
@@ -236,6 +299,11 @@ export function ExamCreator() {
     setExamSections(updatedSections);
   };
 
+  // Check if exam contains short answer questions
+  const hasShortAnswerQuestions = () => {
+    return questions.some(q => q.type === "short-answer");
+  };
+
   const handleSaveExam = async () => {
     // Validate required fields
     if (!examTitle || !examSubject || !examDuration || !examStartDate || !examEndDate) {
@@ -310,6 +378,9 @@ export function ExamCreator() {
       timeLimit: section.timeLimit,
       questions: questions.filter(q => q.section === section.name)
     }));
+
+    // Check if any questions are short answer type
+    const requiresManualGrading = hasShortAnswerQuestions();
     
     // Create exam data object
     const examData = {
@@ -320,27 +391,38 @@ export function ExamCreator() {
       startDate: examStartDate,
       endDate: examEndDate,
       duration: Number(examDuration),
+      minPassingScore: Number(minPassingScore),
+      maxWarnings: Number(maxWarnings),
       status: "scheduled" as const,
       questions: questions,
       assignedStudents: selectedStudents,
       sections: formattedSections,
-      department: teacherDepartment
+      department: teacherDepartment,
+      requiresManualGrading
     };
 
-    // Submit to API
-    const result = await createExam(examData);
+    let result;
+    if (isEditMode && (examId || params.id)) {
+      // Update existing exam
+      result = await updateExam(examId || params.id || "", examData);
+    } else {
+      // Create new exam
+      result = await createExam(examData);
+    }
     
     if (result.success) {
       toast({
-        title: "Exam created",
-        description: "The exam has been created and assigned successfully",
+        title: isEditMode ? "Exam updated" : "Exam created",
+        description: isEditMode 
+          ? "The exam has been updated successfully" 
+          : "The exam has been created and assigned successfully",
       });
       
       navigate("/dashboard");
     } else {
       toast({
         title: "Error",
-        description: result.error || "Failed to create exam",
+        description: result.error || `Failed to ${isEditMode ? 'update' : 'create'} exam`,
         variant: "destructive"
       });
     }
@@ -356,7 +438,7 @@ export function ExamCreator() {
         <Button variant="outline" size="icon" onClick={handleCancel}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-2xl font-bold">Create New Exam</h1>
+        <h1 className="text-2xl font-bold">{isEditMode ? 'Edit Exam' : 'Create New Exam'}</h1>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -439,6 +521,30 @@ export function ExamCreator() {
             </div>
           </div>
           
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="minPassingScore">Min. Passing Score (%)</Label>
+              <Input
+                id="minPassingScore"
+                type="number"
+                min="1"
+                max="100"
+                value={minPassingScore}
+                onChange={(e) => setMinPassingScore(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="maxWarnings">Min. Warnings to Auto-Submit</Label>
+              <Input
+                id="maxWarnings"
+                type="number"
+                min="1"
+                value={maxWarnings}
+                onChange={(e) => setMaxWarnings(e.target.value)}
+              />
+            </div>
+          </div>
+          
           <div className="mt-6">
             <Label className="text-lg font-medium mb-2 block">Exam Sections</Label>
             <p className="text-sm text-muted-foreground mb-4">
@@ -493,6 +599,9 @@ export function ExamCreator() {
                           <span className="uppercase">{question.type}</span>
                           <span>•</span>
                           <span>{question.points} {question.points === 1 ? "point" : "points"}</span>
+                          {question.type === "short-answer" && (
+                            <span className="text-amber-600">• Requires manual grading</span>
+                          )}
                         </div>
                       </div>
                       <Button 
@@ -720,7 +829,7 @@ export function ExamCreator() {
             <Button variant="outline" onClick={() => setActiveTab("questions")}>Back to Questions</Button>
             <Button onClick={handleSaveExam}>
               <Save className="h-4 w-4 mr-2" />
-              Save Exam
+              {isEditMode ? "Update Exam" : "Save Exam"}
             </Button>
           </div>
         </TabsContent>

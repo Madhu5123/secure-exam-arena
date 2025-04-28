@@ -1,4 +1,5 @@
-import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
+
+import { ref, set, get, push, query, orderByChild, equalTo, update } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
 import { uploadToCloudinary, dataURLtoFile } from '@/utils/CloudinaryUpload';
@@ -21,6 +22,8 @@ export interface Exam {
   startDate: string;
   endDate: string;
   duration: number;
+  minPassingScore?: number;
+  maxWarnings?: number;
   status: "draft" | "scheduled" | "active" | "completed" | "expired";
   questions?: Question[];
   sections?: ExamSection[];
@@ -28,6 +31,7 @@ export interface Exam {
   assignedStudents: string[];
   submissions?: Record<string, Submission>;
   department?: string;
+  requiresManualGrading?: boolean;
 }
 
 interface Submission {
@@ -43,6 +47,7 @@ interface Submission {
   warningCount: number;
   percentage?: number;
   timeTaken?: number;
+  manuallyGraded?: boolean;
   warnings?: Array<{
     type: string;
     timestamp: string;
@@ -101,11 +106,11 @@ export const getExamById = async (examId: string) => {
         exam: { 
           id: examId,
           ...examData,
-          sections: examData.sections.map((section: any, index: number) => ({
+          sections: examData.sections?.map((section: any, index: number) => ({
             ...section,
-            id: `section-${index + 1}`,
-            questions: examData.questions.filter((q: any) => q.section === section.name)
-          }))
+            id: section.id || `section-${index + 1}`,
+            questions: examData.questions?.filter((q: any) => q.section === section.name) || []
+          })) || []
         },
       };
     }
@@ -118,6 +123,52 @@ export const getExamById = async (examId: string) => {
     return {
       success: false,
       error: "Failed to fetch exam",
+    };
+  }
+};
+
+export const updateExam = async (examId: string, examData: Partial<Exam>) => {
+  try {
+    const role = await checkUserRole();
+    if (role !== "teacher" && role !== "admin") {
+      return {
+        success: false,
+        error: "Only teachers and admins can update exams",
+      };
+    }
+    
+    // Get existing exam to preserve submissions
+    const examRef = ref(db, `exams/${examId}`);
+    const snapshot = await get(examRef);
+    
+    if (!snapshot.exists()) {
+      return {
+        success: false,
+        error: "Exam not found",
+      };
+    }
+    
+    const existingExam = snapshot.val();
+    
+    // Combine existing with new data
+    const updatedExam = {
+      ...existingExam,
+      ...examData,
+      // Preserve these fields from existing data
+      submissions: existingExam.submissions || {},
+    };
+    
+    await set(examRef, updatedExam);
+    
+    return {
+      success: true,
+      exam: { id: examId, ...updatedExam },
+    };
+  } catch (error) {
+    console.error('Error updating exam:', error);
+    return {
+      success: false,
+      error: "Failed to update exam",
     };
   }
 };
@@ -151,12 +202,19 @@ export const submitExam = async (
     let score = 0;
     let maxScore = 0;
     
-    exam.questions.forEach(question => {
+    const hasShortAnswerQuestions = exam.questions?.some(q => q.type === "short-answer");
+    const manuallyGraded = !hasShortAnswerQuestions;
+    
+    exam.questions?.forEach(question => {
       maxScore += question.points;
-      if (answers[question.id] === question.correctAnswer) {
+      
+      // Only auto-score non-short-answer questions
+      if (question.type !== "short-answer" && answers[question.id] === question.correctAnswer) {
         score += question.points;
       }
     });
+    
+    const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
     
     const submission = {
       examId,
@@ -171,7 +229,8 @@ export const submitExam = async (
       maxScore,
       warningCount,
       warnings,
-      percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
+      percentage,
+      manuallyGraded
     };
     
     await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
@@ -187,6 +246,86 @@ export const submitExam = async (
     return {
       success: false,
       error: "Failed to submit exam",
+    };
+  }
+};
+
+export const gradeShortAnswerSubmission = async (
+  examId: string, 
+  studentId: string,
+  shortAnswerScores: Record<string, number>
+) => {
+  try {
+    const role = await checkUserRole();
+    if (role !== "teacher" && role !== "admin") {
+      return {
+        success: false,
+        error: "Only teachers and admins can grade submissions",
+      };
+    }
+    
+    // Get the exam and student submission
+    const { success, exam } = await getExamById(examId);
+    
+    if (!success || !exam) {
+      return {
+        success: false,
+        error: "Exam not found",
+      };
+    }
+    
+    const submissionRef = ref(db, `exams/${examId}/submissions/${studentId}`);
+    const submissionSnapshot = await get(submissionRef);
+    
+    if (!submissionSnapshot.exists()) {
+      return {
+        success: false,
+        error: "Submission not found",
+      };
+    }
+    
+    const submission = submissionSnapshot.val();
+    
+    // Recalculate score including short answer points
+    let score = 0;
+    let maxScore = 0;
+    
+    exam.questions?.forEach(question => {
+      maxScore += question.points;
+      
+      if (question.type === "short-answer") {
+        // Use the teacher's grading for short answers
+        if (shortAnswerScores[question.id] !== undefined) {
+          score += shortAnswerScores[question.id];
+        }
+      } else if (submission.answers[question.id] === question.correctAnswer) {
+        // Automatic scoring for other question types
+        score += question.points;
+      }
+    });
+    
+    const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+    
+    // Update the submission with new score and mark as manually graded
+    const updatedSubmission = {
+      ...submission,
+      score,
+      maxScore,
+      percentage,
+      manuallyGraded: true
+    };
+    
+    await set(submissionRef, updatedSubmission);
+    
+    return {
+      success: true,
+      submission: updatedSubmission,
+    };
+  } catch (error) {
+    console.error("Error grading submission:", error);
+    return {
+      success: false,
+      error: "Failed to grade submission",
     };
   }
 };
