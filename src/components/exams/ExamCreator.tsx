@@ -55,6 +55,9 @@ export function ExamCreator() {
   const [currentSection, setCurrentSection] = useState("Section 1");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [availableStudents, setAvailableStudents] = useState<{id: string, name: string, photo?: string, semester?: string}[]>([]);
+  const [minPassingScore, setMinPassingScore] = useState(60);
+  const [minWarnings, setMinWarnings] = useState(3);
+  const [maxPossibleScore, setMaxPossibleScore] = useState(0);
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -113,6 +116,11 @@ export function ExamCreator() {
       setAvailableSubjectsForSemester([]);
     }
   }, [teacherDepartment, examSemester]);
+
+  useEffect(() => {
+    const totalScore = questions.reduce((sum, q) => sum + q.points, 0);
+    setMaxPossibleScore(totalScore);
+  }, [questions]);
 
   const handleAddQuestion = () => {
     if (!currentQuestion.text) {
@@ -276,6 +284,15 @@ export function ExamCreator() {
       return;
     }
 
+    if (minPassingScore > maxPossibleScore) {
+      toast({
+        title: "Invalid passing score",
+        description: "Minimum passing score cannot be greater than maximum possible score",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const user = localStorage.getItem('examUser');
     if (!user) {
       toast({
@@ -307,7 +324,10 @@ export function ExamCreator() {
       questions: questions,
       assignedStudents: selectedStudents,
       sections: formattedSections,
-      department: teacherDepartment
+      department: teacherDepartment,
+      minPassingScore,
+      maxPossibleScore,
+      minWarningsForAutoSubmit: minWarnings
     };
 
     const result = await createExam(examData);
@@ -697,9 +717,52 @@ export function ExamCreator() {
               </div>
             </CardContent>
           </Card>
-          
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Exam Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label>Maximum Score</Label>
+                  <div className="p-2 bg-muted rounded-md">
+                    {maxPossibleScore} points
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="minPassingScore">Minimum Score to Pass (%)</Label>
+                  <Input
+                    id="minPassingScore"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={minPassingScore}
+                    onChange={(e) => setMinPassingScore(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="minWarnings">Auto-submit after warnings</Label>
+                <Input
+                  id="minWarnings"
+                  type="number"
+                  min="1"
+                  value={minWarnings}
+                  onChange={(e) => setMinWarnings(Number(e.target.value))}
+                />
+                <p className="text-sm text-muted-foreground">
+                  The exam will be automatically submitted if a student receives this many warnings
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="flex justify-between gap-2 pt-4">
-            <Button variant="outline" onClick={() => setActiveTab("questions")}>Back to Questions</Button>
+            <Button variant="outline" onClick={() => setActiveTab("questions")}>
+              Back to Questions
+            </Button>
             <Button onClick={handleSaveExam}>
               <Save className="h-4 w-4 mr-2" />
               Save Exam
