@@ -14,8 +14,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ref, get } from 'firebase/database';
 import { db } from '@/config/firebase';
 
+// Update interface to make examId required
 interface ExamMonitorProps {
-  examId?: string;
+  examId: string;
 }
 
 interface Student {

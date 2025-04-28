@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Trash, Save, ArrowLeft } from "lucide-react";
@@ -30,7 +29,11 @@ interface Question {
   timeLimit?: number;
 }
 
-export function ExamCreator() {
+interface ExamCreatorProps {
+  examId?: string;
+}
+
+export function ExamCreator({ examId }: ExamCreatorProps) {
   const [activeTab, setActiveTab] = useState("details");
   const [examTitle, setExamTitle] = useState("");
   const [examSubject, setExamSubject] = useState("");

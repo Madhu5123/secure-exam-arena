@@ -81,9 +81,21 @@ const Exam = ({ action: propAction }: ExamProps) => {
         // Ensure we only pass the examId when it's defined
         return id ? <ExamCreator examId={id} /> : <ExamCreator />;
       case "monitor":
-        return id ? <ExamMonitor examId={id} /> : null;
+        // Only render ExamMonitor if id exists
+        return id ? <ExamMonitor examId={id} /> : (
+          <div className="p-6">
+            <p>No exam ID provided for monitoring.</p>
+            <Button onClick={() => navigate("/dashboard")} className="mt-4">Back to Dashboard</Button>
+          </div>
+        );
       case "take":
-        return id ? <ExamTaker examId={id} /> : null;
+        // Only render ExamTaker if id exists
+        return id ? <ExamTaker examId={id} /> : (
+          <div className="p-6">
+            <p>No exam ID provided for taking.</p>
+            <Button onClick={() => navigate("/dashboard")} className="mt-4">Back to Dashboard</Button>
+          </div>
+        );
       default:
         // Redirect to dashboard if action is invalid
         navigate("/dashboard");
