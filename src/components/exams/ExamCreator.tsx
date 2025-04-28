@@ -94,10 +94,8 @@ export function ExamCreator() {
 
   useEffect(() => {
     if (teacherDepartment) {
-      console.log("Fetching academic data for department:", teacherDepartment);
       const loadAcademicData = async () => {
         const data = await fetchAcademicData(teacherDepartment);
-        console.log("Academic data received:", data);
         setAvailableSemesters(data.semesters || []);
       };
       loadAcademicData();
@@ -106,10 +104,8 @@ export function ExamCreator() {
 
   useEffect(() => {
     if (teacherDepartment && examSemester) {
-      console.log(`Fetching subjects for department ${teacherDepartment} and semester ${examSemester}`);
       const loadSubjects = async () => {
         const subjects = await fetchDepartmentSubjects(teacherDepartment, examSemester);
-        console.log("Subjects received:", subjects);
         setAvailableSubjectsForSemester(subjects);
       };
       loadSubjects();
