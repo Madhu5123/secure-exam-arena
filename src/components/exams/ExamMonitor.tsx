@@ -1,22 +1,21 @@
 
 import { useState, useEffect, ChangeEvent } from 'react';
-import { getExamById, getExamSubmissions, getStudentWarnings, gradeShortAnswerSubmission } from '@/services/ExamService';
+import { getExamById, getExamSubmissions, getStudentWarnings } from '@/services/ExamService';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Search, AlertTriangle, Camera, Clock, Timer, Edit } from 'lucide-react';
+import { Search, AlertTriangle, Camera, Clock, Timer } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ref, get } from 'firebase/database';
 import { db } from '@/config/firebase';
-import { useToast } from '@/hooks/use-toast';
 
 interface ExamMonitorProps {
-  examId: string;
+  examId?: string;
 }
 
 interface Student {
@@ -37,16 +36,6 @@ interface Student {
     imageUrl: string;
   }>;
   status: 'completed' | 'in-progress' | 'not-started';
-  requiresGrading?: boolean;
-}
-
-interface Question {
-  id: string;
-  type: "multiple-choice" | "true-false" | "short-answer";
-  text: string;
-  options?: string[];
-  correctAnswer?: string;
-  points: number;
 }
 
 export function ExamMonitor({ examId }: ExamMonitorProps) {
@@ -57,16 +46,11 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [warningsDialogOpen, setWarningsDialogOpen] = useState(false);
-  const [gradingDialogOpen, setGradingDialogOpen] = useState(false);
   const [studentWarnings, setStudentWarnings] = useState<Array<{
     type: string;
     timestamp: string;
     imageUrl: string;
   }>>([]);
-  const [shortAnswerScores, setShortAnswerScores] = useState<Record<string, number>>({});
-  const [shortAnswerQuestions, setShortAnswerQuestions] = useState<Question[]>([]);
-  
-  const { toast } = useToast();
 
   useEffect(() => {
     const fetchExamData = async () => {
@@ -87,12 +71,6 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
         }
         
         setExam(examResult.exam);
-        
-        // Extract short answer questions
-        const shortAnswers = examResult.exam.questions.filter(
-          (q: Question) => q.type === "short-answer"
-        );
-        setShortAnswerQuestions(shortAnswers);
         
         // Fetch submissions
         const submissionsResult = await getExamSubmissions(examId);
@@ -130,13 +108,6 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
             };
             
             if (submission) {
-              // Check if this submission has short answers that need grading
-              const requiresGrading = examResult.exam.requiresManualGrading && 
-                !submission.manuallyGraded && 
-                examResult.exam.questions.some((q: Question) => 
-                  q.type === "short-answer" && submission.answers && submission.answers[q.id]
-                );
-              
               // Student has a submission
               const startTime = new Date(submission.startTime);
               const endTime = new Date(submission.endTime);
@@ -156,8 +127,7 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                 warningCount: submission.warningCount || 0,
                 warnings: submission.warnings || [],
                 status: 'completed',
-                timeTaken: timeTaken,
-                requiresGrading
+                timeTaken: timeTaken
               });
             } else {
               // Student hasn't taken the exam
@@ -198,74 +168,6 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
       setWarningsDialogOpen(true);
     }
   };
-  
-  const handleGradeSubmission = (student: Student) => {
-    setSelectedStudent(student);
-    
-    // Initialize scores for this student's short answers
-    const initialScores: Record<string, number> = {};
-    shortAnswerQuestions.forEach(question => {
-      if (student.answers && student.answers[question.id]) {
-        initialScores[question.id] = 0;
-      }
-    });
-    
-    setShortAnswerScores(initialScores);
-    setGradingDialogOpen(true);
-  };
-  
-  const handleScoreChange = (questionId: string, score: number) => {
-    setShortAnswerScores(prev => ({
-      ...prev,
-      [questionId]: score
-    }));
-  };
-  
-  const handleSubmitGrades = async () => {
-    if (!selectedStudent) return;
-    
-    try {
-      const result = await gradeShortAnswerSubmission(
-        examId,
-        selectedStudent.id,
-        shortAnswerScores
-      );
-      
-      if (result.success) {
-        toast({
-          title: "Grades submitted",
-          description: "The manual grades have been saved successfully"
-        });
-        
-        // Update the local state
-        setStudents(students.map(student => 
-          student.id === selectedStudent.id 
-            ? { 
-                ...student, 
-                requiresGrading: false,
-                score: result.submission.score,
-                percentage: result.submission.percentage
-              } 
-            : student
-        ));
-        
-        setGradingDialogOpen(false);
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to submit grades",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error("Error submitting grades:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive"
-      });
-    }
-  };
 
   if (loading) {
     return (
@@ -298,9 +200,6 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
     );
   }
 
-  // Count students requiring grading
-  const needsGradingCount = students.filter(s => s.requiresGrading).length;
-
   return (
     <div className="container mx-auto py-8">
       <Card className="mb-8">
@@ -322,28 +221,16 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                   <div>
                     <span className="text-muted-foreground">Duration:</span> {exam.duration} minutes
                   </div>
-                  {exam.minPassingScore && (
-                    <div>
-                      <span className="text-muted-foreground">Passing Score:</span> {exam.minPassingScore}%
-                    </div>
-                  )}
                 </div>
               </CardDescription>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <Badge className={
-                exam.status === 'completed' ? 'bg-green-100 text-green-800' :
-                exam.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                'bg-yellow-100 text-yellow-800'
-              }>
-                {exam.status}
-              </Badge>
-              {exam.requiresManualGrading && (
-                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                  Requires Manual Grading
-                </Badge>
-              )}
-            </div>
+            <Badge className={
+              exam.status === 'completed' ? 'bg-green-100 text-green-800' :
+              exam.status === 'active' ? 'bg-blue-100 text-blue-800' :
+              'bg-yellow-100 text-yellow-800'
+            }>
+              {exam.status}
+            </Badge>
           </div>
         </CardHeader>
       </Card>
@@ -366,12 +253,6 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
         <TabsList className="mb-4">
           <TabsTrigger value="results">Exam Results</TabsTrigger>
           <TabsTrigger value="stats">Statistics</TabsTrigger>
-          {needsGradingCount > 0 && (
-            <TabsTrigger value="grading" className="relative">
-              Manual Grading
-              <Badge className="ml-2 bg-amber-100 text-amber-800">{needsGradingCount}</Badge>
-            </TabsTrigger>
-          )}
         </TabsList>
 
         <TabsContent value="results">
@@ -412,11 +293,6 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                                 )}
                               </Avatar>
                               <span className="font-medium">{student.name}</span>
-                              {student.requiresGrading && (
-                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                                  Needs Grading
-                                </Badge>
-                              )}
                             </div>
                           </td>
                           <td className="py-3 px-4">
@@ -437,8 +313,8 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                           <td className="text-center py-3 px-4">
                             {student.status === 'completed' ? 
                               <span className={`font-medium ${
-                                (student.percentage || 0) >= (exam.minPassingScore || 70) ? 'text-green-600' : 
-                                (student.percentage || 0) >= ((exam.minPassingScore || 70) * 0.85) ? 'text-yellow-600' : 
+                                (student.percentage || 0) >= 70 ? 'text-green-600' : 
+                                (student.percentage || 0) >= 40 ? 'text-yellow-600' : 
                                 'text-red-600'
                               }`}>
                                 {student.percentage}%
@@ -460,30 +336,17 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                               </span> : '-'}
                           </td>
                           <td className="text-center py-3 px-4">
-                            <div className="flex items-center justify-center gap-2">
-                              {student.requiresGrading && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleGradeSubmission(student)}
-                                  className="flex items-center gap-1"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                  Grade
-                                </Button>
-                              )}
-                              {student.status === 'completed' && (student.warningCount || 0) > 0 && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  onClick={() => handleViewWarnings(student)}
-                                  className="flex items-center gap-1"
-                                >
-                                  <AlertTriangle className="h-4 w-4" />
-                                  View
-                                </Button>
-                              )}
-                            </div>
+                            {student.status === 'completed' && (student.warningCount || 0) > 0 && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleViewWarnings(student)}
+                                className="flex items-center gap-1"
+                              >
+                                <AlertTriangle className="h-4 w-4" />
+                                View
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -512,7 +375,7 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                 <div className="bg-muted/30 p-4 rounded-md">
                   <h3 className="text-lg font-medium mb-2">Participation</h3>
                   <p className="text-3xl font-bold">
-                    {students.length > 0 ? Math.round((students.filter(s => s.status === 'completed').length / students.length) * 100) : 0}%
+                    {Math.round((students.filter(s => s.status === 'completed').length / students.length) * 100)}%
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
                     {students.filter(s => s.status === 'completed').length} of {students.length} students
@@ -529,7 +392,7 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                       : 0}%
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {students.filter(s => s.percentage && s.percentage >= (exam.minPassingScore || 40)).length} passing students
+                    {students.filter(s => s.percentage && s.percentage >= 40).length} passing students
                   </p>
                 </div>
                 
@@ -550,61 +413,6 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {needsGradingCount > 0 && (
-          <TabsContent value="grading">
-            <Card>
-              <CardHeader>
-                <CardTitle>Manual Grading Required</CardTitle>
-                <CardDescription>
-                  {needsGradingCount} student submissions need grading for short answer questions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {students
-                    .filter(student => student.requiresGrading)
-                    .map(student => (
-                      <Card key={student.id} className="border-amber-200">
-                        <CardHeader className="bg-amber-50 py-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <Avatar className="h-8 w-8">
-                                {student.photo ? (
-                                  <AvatarImage src={student.photo} alt={student.name} />
-                                ) : (
-                                  <AvatarFallback className="bg-primary/10 text-primary">
-                                    {student.name.substring(0, 2).toUpperCase()}
-                                  </AvatarFallback>
-                                )}
-                              </Avatar>
-                              <CardTitle className="text-base">{student.name}</CardTitle>
-                            </div>
-                            <Button 
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleGradeSubmission(student)}
-                              className="flex items-center gap-1"
-                            >
-                              <Edit className="h-4 w-4 mr-1" /> Grade Now
-                            </Button>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="py-3">
-                          <div className="text-sm">
-                            <span className="text-muted-foreground">Submitted:</span> {student.endTime}
-                          </div>
-                          <div className="text-sm">
-                            <span className="text-muted-foreground">Current Score:</span> {student.score}/{student.maxScore} (short answers not graded)
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
       </Tabs>
 
       {/* Warnings Dialog */}
@@ -659,78 +467,6 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
               </p>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-      
-      {/* Grading Dialog */}
-      <Dialog open={gradingDialogOpen} onOpenChange={setGradingDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit className="h-5 w-5 text-primary" />
-              Grade Short Answer Questions for {selectedStudent?.name}
-            </DialogTitle>
-            <DialogDescription>
-              Review and assign scores to each short answer question
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6 mt-4">
-            {shortAnswerQuestions.map((question, index) => {
-              const studentAnswer = selectedStudent?.answers?.[question.id];
-              if (!studentAnswer) return null;
-              
-              return (
-                <Card key={question.id} className="border">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Question {index + 1}</CardTitle>
-                    <CardDescription>
-                      {question.points} {question.points === 1 ? "point" : "points"} possible
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <Label className="font-medium">Question:</Label>
-                      <p className="mt-1">{question.text}</p>
-                    </div>
-                    
-                    <div>
-                      <Label className="font-medium">Model Answer:</Label>
-                      <p className="mt-1">{question.correctAnswer}</p>
-                    </div>
-                    
-                    <div>
-                      <Label className="font-medium">Student's Answer:</Label>
-                      <p className="mt-1 p-2 border rounded-md bg-muted/30">{studentAnswer}</p>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor={`score-${question.id}`} className="font-medium">
-                        Score (0-{question.points})
-                      </Label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Input
-                          id={`score-${question.id}`}
-                          type="number"
-                          min="0"
-                          max={question.points}
-                          value={shortAnswerScores[question.id] || 0}
-                          onChange={(e) => handleScoreChange(question.id, Math.min(question.points, Number(e.target.value)))}
-                          className="w-24"
-                        />
-                        <span className="text-sm text-muted-foreground">out of {question.points}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-          
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setGradingDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmitGrades}>Submit Grades</Button>
-          </div>
         </DialogContent>
       </Dialog>
     </div>

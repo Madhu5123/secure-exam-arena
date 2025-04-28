@@ -5,10 +5,9 @@ import { ExamCreator } from "@/components/exams/ExamCreator";
 import { ExamMonitor } from "@/components/exams/ExamMonitor";
 import { ExamTaker } from "@/components/exams/ExamTaker";
 import { checkUserRole } from "@/services/AuthService";
-import { Button } from "@/components/ui/button";
 
 interface ExamProps {
-  action?: "create" | "monitor" | "take" | "edit";
+  action?: "create" | "monitor" | "take";
 }
 
 const Exam = ({ action: propAction }: ExamProps) => {
@@ -42,8 +41,8 @@ const Exam = ({ action: propAction }: ExamProps) => {
     if (loading) return;
 
     const validateAccess = () => {
-      // Create/Edit action is only for teachers and admins
-      if ((action === "create" || action === "edit") && userRole !== "teacher" && userRole !== "admin") {
+      // Create action is only for teachers and admins
+      if (action === "create" && userRole !== "teacher" && userRole !== "admin") {
         navigate("/dashboard");
         return;
       }
@@ -78,44 +77,9 @@ const Exam = ({ action: propAction }: ExamProps) => {
     switch (action) {
       case "create":
         return <ExamCreator />;
-      case "edit":
-        if (!id) {
-          return (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <h2 className="text-xl font-bold mb-4">Missing Exam ID</h2>
-              <p className="text-muted-foreground mb-6">An exam ID is required to edit an exam.</p>
-              <Button onClick={() => navigate("/dashboard")}>
-                Return to Dashboard
-              </Button>
-            </div>
-          );
-        }
-        return <ExamCreator examId={id} />;
       case "monitor":
-        if (!id) {
-          return (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <h2 className="text-xl font-bold mb-4">Missing Exam ID</h2>
-              <p className="text-muted-foreground mb-6">An exam ID is required to monitor an exam.</p>
-              <Button onClick={() => navigate("/dashboard")}>
-                Return to Dashboard
-              </Button>
-            </div>
-          );
-        }
         return <ExamMonitor examId={id} />;
       case "take":
-        if (!id) {
-          return (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <h2 className="text-xl font-bold mb-4">Missing Exam ID</h2>
-              <p className="text-muted-foreground mb-6">An exam ID is required to take an exam.</p>
-              <Button onClick={() => navigate("/dashboard")}>
-                Return to Dashboard
-              </Button>
-            </div>
-          );
-        }
         return <ExamTaker examId={id} />;
       default:
         // Redirect to dashboard if action is invalid
