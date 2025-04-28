@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Trash, Save, ArrowLeft, Calendar } from "lucide-react";
+import { Plus, Trash, Save, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,12 +55,11 @@ export function ExamCreator() {
   const [currentSection, setCurrentSection] = useState("Section 1");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [availableStudents, setAvailableStudents] = useState<{id: string, name: string, photo?: string, semester?: string}[]>([]);
-  
+
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Get teacher information and department
     const user = localStorage.getItem('examUser');
     if (user) {
       const userData = JSON.parse(user);
@@ -74,7 +72,6 @@ export function ExamCreator() {
       });
     }
 
-    // Get available students
     const studentsRef = ref(db, 'users');
     onValue(studentsRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -96,7 +93,6 @@ export function ExamCreator() {
   }, []);
 
   useEffect(() => {
-    // Fetch semesters when department ID is available
     if (teacherDepartment) {
       console.log("Fetching academic data for department:", teacherDepartment);
       const loadAcademicData = async () => {
@@ -109,7 +105,6 @@ export function ExamCreator() {
   }, [teacherDepartment]);
 
   useEffect(() => {
-    // Fetch subjects when semester changes
     if (teacherDepartment && examSemester) {
       console.log(`Fetching subjects for department ${teacherDepartment} and semester ${examSemester}`);
       const loadSubjects = async () => {
@@ -124,7 +119,6 @@ export function ExamCreator() {
   }, [teacherDepartment, examSemester]);
 
   const handleAddQuestion = () => {
-    // Validate question
     if (!currentQuestion.text) {
       toast({
         title: "Incomplete question",
@@ -134,7 +128,6 @@ export function ExamCreator() {
       return;
     }
 
-    // Validate based on question type
     if (currentQuestion.type === "multiple-choice") {
       if (!currentQuestion.options?.every(option => option.trim())) {
         toast({
@@ -154,10 +147,8 @@ export function ExamCreator() {
       }
     }
 
-    // Add question to list
     setQuestions([...questions, { ...currentQuestion }]);
     
-    // Reset current question
     const newId = String(questions.length + 2);
     setCurrentQuestion({
       id: newId,
@@ -237,7 +228,6 @@ export function ExamCreator() {
   };
 
   const handleSaveExam = async () => {
-    // Validate required fields
     if (!examTitle || !examSubject || !examDuration || !examStartDate || !examEndDate) {
       toast({
         title: "Missing information",
@@ -290,7 +280,6 @@ export function ExamCreator() {
       return;
     }
 
-    // Get user data
     const user = localStorage.getItem('examUser');
     if (!user) {
       toast({
@@ -303,7 +292,6 @@ export function ExamCreator() {
 
     const userData = JSON.parse(user);
     
-    // Prepare sections for API
     const formattedSections = examSections.map(section => ({
       id: section.id,
       name: section.name,
@@ -311,7 +299,6 @@ export function ExamCreator() {
       questions: questions.filter(q => q.section === section.name)
     }));
     
-    // Create exam data object
     const examData = {
       title: examTitle,
       subject: examSubject,
@@ -327,7 +314,6 @@ export function ExamCreator() {
       department: teacherDepartment
     };
 
-    // Submit to API
     const result = await createExam(examData);
     
     if (result.success) {
