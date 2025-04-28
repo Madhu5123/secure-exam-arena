@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { ExamCreator } from "@/components/exams/ExamCreator";
 import { ExamMonitor } from "@/components/exams/ExamMonitor";
 import { ExamTaker } from "@/components/exams/ExamTaker";
