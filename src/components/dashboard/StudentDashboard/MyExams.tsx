@@ -129,7 +129,9 @@ export function MyExams({ studentId }: MyExamsProps) {
         <div className="space-y-4">
           <h2 className="text-2xl font-bold">Upcoming Exams</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {upcomingExams.map((exam) => (
+            {upcomingExams.map((exam) => {
+               const stDate = new Date(exam.startDate);
+               return (
               <Card key={exam.id} className="overflow-hidden hover:shadow-md transition-all">
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
@@ -145,7 +147,8 @@ export function MyExams({ studentId }: MyExamsProps) {
                 <CardContent>
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <span className="font-medium">Date & Time:</span> {new Date(exam.date).toLocaleDateString()} at {exam.time}
+                      <span className="font-medium">Date & Time:</span> {stDate.toLocaleDateString()} at{" "}
+                      {stDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </div>
                     <div className="text-sm">
                       <span className="font-medium">Duration:</span> {exam.duration} minutes
@@ -161,7 +164,8 @@ export function MyExams({ studentId }: MyExamsProps) {
                   </Button>
                 </CardFooter>
               </Card>
-            ))}
+                );
+            })}
           </div>
         </div>
       )}
@@ -170,7 +174,9 @@ export function MyExams({ studentId }: MyExamsProps) {
         <div className="space-y-4">
           <h2 className="text-2xl font-bold">Completed Exams</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {completedExams.map((exam) => (
+            {completedExams.map((exam) => {
+              const stDate = new Date(exam.startDate);
+            return (
               <Card key={exam.id} className="overflow-hidden hover:shadow-md transition-all">
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
@@ -186,14 +192,15 @@ export function MyExams({ studentId }: MyExamsProps) {
                 <CardContent>
                   <div className="space-y-3">
                     <div className="text-sm">
-                      <span className="font-medium">Date Taken:</span> {new Date(exam.date).toLocaleDateString()}
+                      <span className="font-medium">Date Taken:</span> {stDate.toLocaleDateString()} at{" "}
+                      {stDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </div>
                     <div className="space-y-1">
                       <div className="flex justify-between text-sm">
-                        <span className="font-medium">Score:</span>
-                        <span>{exam.score}%</span>
+                        <span className="font-medium">Percentage:</span>
+                        <span>{exam.percentage}</span>
                       </div>
-                      <Progress value={exam.score} className="h-2" />
+                      <Progress value={exam.percentage} className="h-2" />
                     </div>
                   </div>
                 </CardContent>
@@ -207,7 +214,8 @@ export function MyExams({ studentId }: MyExamsProps) {
                   </Button>
                 </CardFooter>
               </Card>
-            ))}
+            );  
+          })}
           </div>
         </div>
       )}
