@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Trash, Save, ArrowLeft } from "lucide-react";
+import { Plus, Trash, Save, ArrowLeft, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,11 +30,7 @@ interface Question {
   timeLimit?: number;
 }
 
-interface ExamCreatorProps {
-  examId?: string;
-}
-
-export function ExamCreator({ examId }: ExamCreatorProps) {
+export function ExamCreator() {
   const [activeTab, setActiveTab] = useState("details");
   const [examTitle, setExamTitle] = useState("");
   const [examSubject, setExamSubject] = useState("");
@@ -41,8 +38,6 @@ export function ExamCreator({ examId }: ExamCreatorProps) {
   const [examDuration, setExamDuration] = useState("60");
   const [examStartDate, setExamStartDate] = useState("");
   const [examEndDate, setExamEndDate] = useState("");
-  const [minWarningsToSubmit, setMinWarningsToSubmit] = useState("3");
-  const [minPassingScore, setMinPassingScore] = useState("35");
   const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
   const [availableSubjectsForSemester, setAvailableSubjectsForSemester] = useState<string[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -61,7 +56,6 @@ export function ExamCreator({ examId }: ExamCreatorProps) {
   const [currentSection, setCurrentSection] = useState("Section 1");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [availableStudents, setAvailableStudents] = useState<{id: string, name: string, photo?: string, semester?: string}[]>([]);
-  const [requiresManualGrading, setRequiresManualGrading] = useState(false);
   
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -100,12 +94,6 @@ export function ExamCreator({ examId }: ExamCreatorProps) {
       }
     });
   }, []);
-
-  // Check if exam contains short answer questions that require manual grading
-  useEffect(() => {
-    const hasShortAnswerQuestions = questions.some(q => q.type === "short-answer");
-    setRequiresManualGrading(hasShortAnswerQuestions);
-  }, [questions]);
 
   useEffect(() => {
     // Fetch semesters when department ID is available
@@ -336,10 +324,7 @@ export function ExamCreator({ examId }: ExamCreatorProps) {
       questions: questions,
       assignedStudents: selectedStudents,
       sections: formattedSections,
-      department: teacherDepartment,
-      minWarningsToSubmit: Number(minWarningsToSubmit),
-      minPassingScore: Number(minPassingScore),
-      requiresManualGrading: requiresManualGrading
+      department: teacherDepartment
     };
 
     // Submit to API
@@ -451,36 +436,6 @@ export function ExamCreator({ examId }: ExamCreatorProps) {
                 value={examEndDate}
                 onChange={(e) => setExamEndDate(e.target.value)}
               />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="minWarningsToSubmit">Min. Warnings to Auto-Submit</Label>
-              <Input
-                id="minWarningsToSubmit"
-                type="number"
-                min="1"
-                value={minWarningsToSubmit}
-                onChange={(e) => setMinWarningsToSubmit(e.target.value)}
-              />
-              <p className="text-sm text-muted-foreground">
-                The exam will auto-submit after this many warnings
-              </p>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="minPassingScore">Min. Passing Score (%)</Label>
-              <Input
-                id="minPassingScore"
-                type="number"
-                min="0"
-                max="100"
-                value={minPassingScore}
-                onChange={(e) => setMinPassingScore(e.target.value)}
-              />
-              <p className="text-sm text-muted-foreground">
-                Minimum percentage required to pass the exam
-              </p>
             </div>
           </div>
           
@@ -691,9 +646,6 @@ export function ExamCreator({ examId }: ExamCreatorProps) {
                     value={currentQuestion.correctAnswer || ""}
                     onChange={(e) => setCurrentQuestion({ ...currentQuestion, correctAnswer: e.target.value })}
                   />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Note: Exams with short answer questions will require manual grading before results are shown to students.
-                  </p>
                 </div>
               )}
               

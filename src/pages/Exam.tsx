@@ -1,14 +1,13 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { ExamCreator } from "@/components/exams/ExamCreator";
 import { ExamMonitor } from "@/components/exams/ExamMonitor";
 import { ExamTaker } from "@/components/exams/ExamTaker";
 import { checkUserRole } from "@/services/AuthService";
 
 interface ExamProps {
-  action?: "create" | "monitor" | "take" | "edit";
+  action?: "create" | "monitor" | "take";
 }
 
 const Exam = ({ action: propAction }: ExamProps) => {
@@ -42,8 +41,8 @@ const Exam = ({ action: propAction }: ExamProps) => {
     if (loading) return;
 
     const validateAccess = () => {
-      // Create or edit actions are only for teachers and admins
-      if ((action === "create" || action === "edit") && userRole !== "teacher" && userRole !== "admin") {
+      // Create action is only for teachers and admins
+      if (action === "create" && userRole !== "teacher" && userRole !== "admin") {
         navigate("/dashboard");
         return;
       }
@@ -78,25 +77,10 @@ const Exam = ({ action: propAction }: ExamProps) => {
     switch (action) {
       case "create":
         return <ExamCreator />;
-      case "edit":
-        // Ensure we only pass the examId when it's defined
-        return id ? <ExamCreator examId={id} /> : <ExamCreator />;
       case "monitor":
-        // Only render ExamMonitor if id exists
-        return id ? <ExamMonitor examId={id} /> : (
-          <div className="p-6">
-            <p>No exam ID provided for monitoring.</p>
-            <Button onClick={() => navigate("/dashboard")} className="mt-4">Back to Dashboard</Button>
-          </div>
-        );
+        return <ExamMonitor examId={id} />;
       case "take":
-        // Only render ExamTaker if id exists
-        return id ? <ExamTaker examId={id} /> : (
-          <div className="p-6">
-            <p>No exam ID provided for taking.</p>
-            <Button onClick={() => navigate("/dashboard")} className="mt-4">Back to Dashboard</Button>
-          </div>
-        );
+        return <ExamTaker examId={id} />;
       default:
         // Redirect to dashboard if action is invalid
         navigate("/dashboard");
