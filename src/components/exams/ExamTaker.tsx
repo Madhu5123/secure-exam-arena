@@ -432,7 +432,7 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
         description: "Auto-submitting exam due to excessive warnings",
         variant: "destructive"
       });
-      handleSubmit();
+      handleSubmitExam();
     }
   }, [warningCount, exam]);
 

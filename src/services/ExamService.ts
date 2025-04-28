@@ -363,7 +363,7 @@ export const getStudentResults = async (studentId: string) => {
           examId: exam.id,
           examTitle: exam.title,
           examSubject: exam.subject,
-          examDate: exam.date,
+          examDate: exam.startDate,
           _questions: exam.questions,
           ...submissionData
         };
