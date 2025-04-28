@@ -58,7 +58,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [examSubject, setExamSubject] = useState("");
   const [examSemester, setExamSemester] = useState("Semester 1");
   const [examDuration, setExamDuration] = useState("60");
-
   const [examStartDate, setExamStartDate] = useState("");
   const [examEndDate, setExamEndDate] = useState("");
   const [questions, setQuestions] = useState<any[]>([]);
@@ -81,6 +80,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [subjectsBySemester, setSubjectsBySemester] = useState({});
   const [teacherDepartment, setTeacherDepartment] = useState("");
   const [availableSubjectsForSemester, setAvailableSubjectsForSemester] = useState<string[]>([]);
+  const [minScoreToPass, setMinScoreToPass] = useState(0);
+  const [warningsThreshold, setWarningsThreshold] = useState(3);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -383,6 +384,10 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     }
   };
 
+  const calculateMaxScore = () => {
+    return questions.reduce((total, question) => total + question.points, 0);
+  };
+
   const handleSaveExam = async () => {
     try {
       if (!examTitle || !examSubject || !examDuration) {
@@ -463,8 +468,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         subject: examSubject,
         semester: examSemester,
         createdBy: userData.id,
-        // date: examDate,
-        // time: examTime,
         duration: Number(examDuration),
         status: "scheduled" as "draft" | "scheduled" | "active" | "completed" | "expired",
         questions: questions,
@@ -472,7 +475,10 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         sections: formattedSections,
         startDate: examStartDate,
         endDate: examEndDate,
-        department: teacherDepartment
+        department: teacherDepartment,
+        minScoreToPass: Number(minScoreToPass),
+        maxScore: calculateMaxScore(),
+        warningsThreshold: Number(warningsThreshold)
       };
 
       const result = await createExam(examData);
@@ -486,8 +492,6 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         setExamTitle("");
         setExamSubject("");
         setExamDuration("60");
-        // setExamDate("");
-        // setExamTime("");
         setExamStartDate("");
         setExamEndDate("");
         setQuestions([]);
@@ -935,58 +939,104 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                   <TabsContent value="students" className="pt-6 space-y-6">
                     <Card>
                       <CardHeader>
-                        <CardTitle>Assign Students</CardTitle>
+                        <CardTitle>Exam Settings</CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <div className="flex justify-end mb-4 gap-2">
-                          <Select 
-                            value={selectedSemester} 
-                            onValueChange={setSelectedSemester}
-                          >
-                            <SelectTrigger className="w-[130px]">
-                              <SelectValue placeholder="Filter by semester" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableSemesters.map(s => (
-                                <SelectItem key={s} value={s}>{s}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button variant="outline" onClick={() => handleSelectAllStudents(selectedSemester)}>
-                            {selectedStudents.length === students.filter(s => selectedSemester === "All" || s.semester === selectedSemester).length 
-                              ? "Deselect All" 
-                              : "Select All"}
-                          </Button>
+                      <CardContent className="space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="maxScore">Maximum Score</Label>
+                            <Input
+                              id="maxScore"
+                              value={calculateMaxScore()}
+                              disabled
+                              className="bg-muted"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Total points from all questions
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="minScore">Minimum Score to Pass</Label>
+                            <Input
+                              id="minScore"
+                              type="number"
+                              min="0"
+                              max={calculateMaxScore()}
+                              value={minScoreToPass}
+                              onChange={(e) => setMinScoreToPass(Number(e.target.value))}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Students must score at least this many points to pass
+                            </p>
+                          </div>
                         </div>
                         
-                        <div className="space-y-3">
-                          {students
-                            .filter(student => 
-                              student.department === teacherDepartment &&
-                              (selectedSemester === "All" || student.semester === selectedSemester)
-                            )
-                            .map((student) => (
-                              <div key={student.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
-                                <Checkbox 
-                                  id={`student-${student.id}`}
-                                  checked={selectedStudents.includes(student.id)}
-                                  onCheckedChange={() => handleStudentSelection(student.id)}
-                                />
-                                <div className="flex items-center flex-grow gap-3">
-                                  {student.photo ? (
-                                    <img src={student.photo} alt={student.name} className="h-8 w-8 rounded-full object-cover" />
-                                  ) : (
-                                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                      <Image className="h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                  )}
-                                  <Label htmlFor={`student-${student.id}`} className="cursor-pointer flex-grow">
-                                    {student.name}
-                                  </Label>
-                                  <span className="text-xs text-muted-foreground">{student.semester}</span>
+                        <div className="space-y-2">
+                          <Label htmlFor="warningsThreshold">Warning Threshold</Label>
+                          <Input
+                            id="warningsThreshold"
+                            type="number"
+                            min="1"
+                            value={warningsThreshold}
+                            onChange={(e) => setWarningsThreshold(Number(e.target.value))}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Exam will auto-submit after this many warnings
+                          </p>
+                        </div>
+
+                        <div className="mt-6">
+                          <Label className="text-lg font-medium mb-2 block">Assign Students</Label>
+                          <div className="flex justify-end mb-4 gap-2">
+                            <Select 
+                              value={selectedSemester} 
+                              onValueChange={setSelectedSemester}
+                            >
+                              <SelectTrigger className="w-[130px]">
+                                <SelectValue placeholder="Filter by semester" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableSemesters.map(s => (
+                                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button variant="outline" onClick={() => handleSelectAllStudents(selectedSemester)}>
+                              {selectedStudents.length === students.filter(s => selectedSemester === "All" || s.semester === selectedSemester).length 
+                                ? "Deselect All" 
+                                : "Select All"}
+                            </Button>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {students
+                              .filter(student => 
+                                student.department === teacherDepartment &&
+                                (selectedSemester === "All" || student.semester === selectedSemester)
+                              )
+                              .map((student) => (
+                                <div key={student.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
+                                  <Checkbox 
+                                    id={`student-${student.id}`}
+                                    checked={selectedStudents.includes(student.id)}
+                                    onCheckedChange={() => handleStudentSelection(student.id)}
+                                  />
+                                  <div className="flex items-center flex-grow gap-3">
+                                    {student.photo ? (
+                                      <img src={student.photo} alt={student.name} className="h-8 w-8 rounded-full object-cover" />
+                                    ) : (
+                                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                        <Image className="h-4 w-4 text-muted-foreground" />
+                                      </div>
+                                    )}
+                                    <Label htmlFor={`student-${student.id}`} className="cursor-pointer flex-grow">
+                                      {student.name}
+                                    </Label>
+                                    <span className="text-xs text-muted-foreground">{student.semester}</span>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                          </div>
                         </div>
                       </CardContent>
                       <CardFooter className="flex justify-between pt-4 px-6">
@@ -1057,56 +1107,55 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           </div>
           
           {filteredExams.length > 0 ? (
-  <div className="grid gap-4">
-    {filteredExams.map(exam => {
-      const stDate = new Date(exam.startDate); // ✅ Declare before return
-
-      return (
-        <Card key={exam.id}>
-          <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
-            <div className="flex-grow">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-lg">{exam.title}</h3>
-                <Badge className={`${
-                  exam.status === 'completed' ? 'bg-green-100 text-green-800' :
-                  exam.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {exam.status}
-                </Badge>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-1 mt-2">
-                <div>
-                  <p className="text-xs text-muted-foreground">Subject</p>
-                  <p className="text-sm font-medium">{exam.subject}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Semester</p>
-                  <p className="text-sm font-medium">{exam.semester}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Date & Time</p>
-                  <p className="text-sm font-medium">
-                    {stDate.toLocaleDateString()} at{" "}
-                    {stDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Duration</p>
-                  <p className="text-sm font-medium">{exam.duration} min</p>
-                </div>
-              </div>
+            <div className="grid gap-4">
+              {filteredExams.map(exam => {
+                const stDate = new Date(exam.startDate);
+                return (
+                  <Card key={exam.id}>
+                    <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
+                      <div className="flex-grow">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-lg">{exam.title}</h3>
+                          <Badge className={`${
+                            exam.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            exam.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {exam.status}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-1 mt-2">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Subject</p>
+                            <p className="text-sm font-medium">{exam.subject}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Semester</p>
+                            <p className="text-sm font-medium">{exam.semester}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Date & Time</p>
+                            <p className="text-sm font-medium">
+                              {stDate.toLocaleDateString()} at{" "}
+                              {stDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Duration</p>
+                            <p className="text-sm font-medium">{exam.duration} min</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 self-end md:self-auto w-full md:w-auto">
+                        <Button variant="outline" className="flex-1 md:flex-none" onClick={() => handleMonitorExam(exam.id)}>
+                          Monitor
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
-            <div className="flex gap-2 self-end md:self-auto w-full md:w-auto">
-              <Button variant="outline" className="flex-1 md:flex-none" onClick={() => handleMonitorExam(exam.id)}>
-                Monitor
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      );
-    })}
-  </div>
           ) : (
             <Card className="p-6 text-center text-muted-foreground">
               <p>No exams found for the selected filters.</p>
@@ -1154,3 +1203,5 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     </div>
   );
 }
+
+export default TeacherDashboard;

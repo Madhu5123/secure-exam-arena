@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, AlertCircle, CheckCircle, Clock, Camera, CameraOff } from "lucide-react";
@@ -19,7 +18,7 @@ interface ExamTakerProps {
   examId?: string;
 }
 
-export function ExamTaker({ examId }: ExamTakerProps) {
+const ExamTaker = ({ examId }: ExamTakerProps) => {
   const [exam, setExam] = useState<any>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -417,8 +416,8 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     };
   }, [cameraStream]);
 
-   // Add new effect to check video status after it should be playing
-   useEffect(() => {
+  // Add new effect to check video status after it should be playing
+  useEffect(() => {
     if (cameraStream && !isInstructionsOpen && !isSectionIntroOpen && !examComplete) {
       // Check video state shortly after initialization
       const checkTimer = setTimeout(checkVideoStream, 2000);
@@ -426,7 +425,17 @@ export function ExamTaker({ examId }: ExamTakerProps) {
     }
   }, [cameraStream, isInstructionsOpen, isSectionIntroOpen, examComplete]);
   
-  
+  useEffect(() => {
+    if (exam && warningCount >= exam.warningsThreshold) {
+      toast({
+        title: "Warning Threshold Reached",
+        description: "Auto-submitting exam due to excessive warnings",
+        variant: "destructive"
+      });
+      handleSubmit();
+    }
+  }, [warningCount, exam]);
+
   const handleStartExam = async () => {
     setStartTime(new Date());
     await initializeCamera();
@@ -1076,4 +1085,6 @@ export function ExamTaker({ examId }: ExamTakerProps) {
       </Dialog>
     </div>
   );
-}
+};
+
+export default ExamTaker;

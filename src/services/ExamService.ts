@@ -16,8 +16,6 @@ export interface Exam {
   subject: string;
   semester?: string;
   createdBy: string;
-  date?: string;
-  time?: string;
   startDate: string;
   endDate: string;
   duration: number;
@@ -28,6 +26,9 @@ export interface Exam {
   assignedStudents: string[];
   submissions?: Record<string, Submission>;
   department?: string;
+  minScoreToPass: number;
+  maxScore?: number;
+  warningsThreshold: number;
 }
 
 interface Submission {
