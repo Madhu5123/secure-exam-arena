@@ -109,7 +109,7 @@ export function MyExams({ studentId }: MyExamsProps) {
                       <span className="font-medium">Duration:</span> {exam.duration} minutes
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">Teacher:</span> {exam.createdBy || "Not specified"}
+                      <span className="font-medium">Teacher:</span> {exam.teacher}
                     </div>
                   </div>
                 </CardContent>
@@ -129,44 +129,39 @@ export function MyExams({ studentId }: MyExamsProps) {
         <div className="space-y-4">
           <h2 className="text-2xl font-bold">Upcoming Exams</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {upcomingExams.map((exam) => {
-              const stDate = new Date(exam.startDate);
-              return (
-                <Card key={exam.id} className="overflow-hidden hover:shadow-md transition-all">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle>{exam.title}</CardTitle>
-                        <CardDescription>{exam.subject}</CardDescription>
-                      </div>
-                      <Badge variant="outline" className="border-exam-primary text-exam-primary">
-                        Upcoming
-                      </Badge>
+            {upcomingExams.map((exam) => (
+              <Card key={exam.id} className="overflow-hidden hover:shadow-md transition-all">
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle>{exam.title}</CardTitle>
+                      <CardDescription>{exam.subject}</CardDescription>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="text-sm">
-                        <span className="font-medium">Date & Time:</span> {" "}
-                        {stDate.toLocaleDateString()} at{" "}
-                        {stDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </div>
-                      <div className="text-sm">
-                        <span className="font-medium">Duration:</span> {exam.duration} minutes
-                      </div>
-                      <div className="text-sm">
-                        <span className="font-medium">Teacher:</span> {exam.createdBy || "Not specified"}
-                      </div>
+                    <Badge variant="outline" className="border-exam-primary text-exam-primary">
+                      Upcoming
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="text-sm">
+                      <span className="font-medium">Date & Time:</span> {new Date(exam.date).toLocaleDateString()} at {exam.time}
                     </div>
-                  </CardContent>
-                  <CardFooter className="border-t pt-4">
-                    <Button disabled variant="outline" className="w-full">
-                      Not Yet Available
-                    </Button>
-                  </CardFooter>
-                </Card>
-              );
-            })}
+                    <div className="text-sm">
+                      <span className="font-medium">Duration:</span> {exam.duration} minutes
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-medium">Teacher:</span> {exam.teacher}
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="border-t pt-4">
+                  <Button disabled variant="outline" className="w-full">
+                    Not Yet Available
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
           </div>
         </div>
       )}
@@ -193,24 +188,14 @@ export function MyExams({ studentId }: MyExamsProps) {
                 <CardContent>
                   <div className="space-y-3">
                     <div className="text-sm">
-                      <span className="font-medium">Date Taken:</span> {" "}
-                      {exam.submissions && exam.submissions[studentId]?.startTime ? 
-                        new Date(exam.submissions[studentId].startTime).toLocaleDateString() : 
-                        "Unknown date"}
+                      <span className="font-medium">Date Taken:</span> {new Date(exam.date).toLocaleDateString()}
                     </div>
                     <div className="space-y-1">
                       <div className="flex justify-between text-sm">
                         <span className="font-medium">Score:</span>
-                        <span>{exam.submissions && exam.submissions[studentId]?.percentage ? 
-                          `${exam.submissions[studentId].percentage}%` : 
-                          (exam.score !== undefined ? `${exam.score}%` : "N/A")}</span>
+                        <span>{exam.score}%</span>
                       </div>
-                      <Progress 
-                        value={exam.submissions ? 
-                          exam.submissions[studentId]?.percentage || exam.score || 0 : 
-                          exam.score || 0} 
-                        className="h-2" 
-                      />
+                      <Progress value={exam.score} className="h-2" />
                     </div>
                   </div>
                 </CardContent>
