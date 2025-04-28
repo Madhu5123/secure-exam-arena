@@ -758,7 +758,7 @@ export function ManageExams({
       
       <div className="grid grid-cols-1 gap-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg">Upcoming Exams</h3>
+          {/* <h3 className="font-semibold text-lg">Upcoming Exams</h3> */}
           <div className="flex items-center gap-2">
             <Select value={selectedSemester} onValueChange={setSelectedSemester}>
               <SelectTrigger className="w-[130px]">
@@ -784,8 +784,10 @@ export function ManageExams({
         </div>
         
         {filteredExams.length > 0 ? (
-          <div className="grid gap-4">
-            {filteredExams.map(exam => (
+        <div className="grid gap-4">
+          {filteredExams.map(exam => {
+            const stDate = new Date(exam.startDate); 
+            return (
               <Card key={exam.id}>
                 <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
                   <div className="flex-grow">
@@ -810,7 +812,9 @@ export function ManageExams({
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Date & Time</p>
-                        <p className="text-sm font-medium">{exam.date} {exam.time}</p>
+                        <p className="text-sm font-medium">{exam.startDate}
+                      
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Duration</p>
@@ -825,8 +829,9 @@ export function ManageExams({
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+            );
+          })}
+        </div>
         ) : (
           <Card className="p-6 text-center text-muted-foreground">
             <p>No exams found for the selected filters.</p>

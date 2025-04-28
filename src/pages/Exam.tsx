@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ExamCreator } from "@/components/exams/ExamCreator";
+// import { ExamCreator } from "@/components/exams/ExamCreator";
 import { ExamMonitor } from "@/components/exams/ExamMonitor";
 import { ExamTaker } from "@/components/exams/ExamTaker";
 import { checkUserRole } from "@/services/AuthService";
@@ -75,8 +75,8 @@ const Exam = ({ action: propAction }: ExamProps) => {
   // Render appropriate component based on action
   const renderComponent = () => {
     switch (action) {
-      case "create":
-        return <ExamCreator />;
+      // case "create":
+      //   return <ExamCreator />;
       case "monitor":
         return <ExamMonitor examId={id} />;
       case "take":

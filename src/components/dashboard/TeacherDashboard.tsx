@@ -58,8 +58,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [examSubject, setExamSubject] = useState("");
   const [examSemester, setExamSemester] = useState("Semester 1");
   const [examDuration, setExamDuration] = useState("60");
-  const [examDate, setExamDate] = useState("");
-  const [examTime, setExamTime] = useState("");
+
   const [examStartDate, setExamStartDate] = useState("");
   const [examEndDate, setExamEndDate] = useState("");
   const [questions, setQuestions] = useState<any[]>([]);
@@ -386,7 +385,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
 
   const handleSaveExam = async () => {
     try {
-      if (!examTitle || !examSubject || !examDuration || !examDate || !examTime) {
+      if (!examTitle || !examSubject || !examDuration) {
         toast({
           title: "Missing information",
           description: "Please fill in all required exam details",
@@ -464,8 +463,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         subject: examSubject,
         semester: examSemester,
         createdBy: userData.id,
-        date: examDate,
-        time: examTime,
+        // date: examDate,
+        // time: examTime,
         duration: Number(examDuration),
         status: "scheduled" as "draft" | "scheduled" | "active" | "completed" | "expired",
         questions: questions,
@@ -487,8 +486,8 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         setExamTitle("");
         setExamSubject("");
         setExamDuration("60");
-        setExamDate("");
-        setExamTime("");
+        // setExamDate("");
+        // setExamTime("");
         setExamStartDate("");
         setExamEndDate("");
         setQuestions([]);
@@ -636,22 +635,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                           placeholder="e.g. Mid-term Mathematics"
                         />
                       </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="examSubject">Subject</Label>
-                        <Select value={examSubject} onValueChange={setExamSubject}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select subject" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableSubjectsAll.slice(1).map(subject => (
-                              <SelectItem key={subject} value={subject}>{subject}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    
-                    <div className="grid gap-4 md:grid-cols-2">
+                       
                       <div className="grid gap-2">
                         <Label htmlFor="examSemester">Semester</Label>
                         <Select value={examSemester} onValueChange={setExamSemester}>
@@ -665,7 +649,23 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="grid gap-2">
+                    </div>
+                    
+                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                        <Label htmlFor="examSubject">Subject</Label>
+                        <Select value={examSubject} onValueChange={setExamSubject}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select subject" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableSubjectsAll.slice(1).map(subject => (
+                              <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        </div>
+                        <div className="grid gap-2">
                         <Label htmlFor="examDuration">Total Duration (minutes)</Label>
                         <Input
                           id="examDuration"
@@ -675,28 +675,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                           onChange={(e) => setExamDuration(e.target.value)}
                         />
                       </div>
-                    </div>
-                    
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="grid gap-2">
-                        <Label htmlFor="examDate">Date</Label>
-                        <Input
-                          id="examDate"
-                          type="date"
-                          value={examDate}
-                          onChange={(e) => setExamDate(e.target.value)}
-                        />
                       </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="examTime">Time</Label>
-                        <Input
-                          id="examTime"
-                          type="time"
-                          value={examTime}
-                          onChange={(e) => setExamTime(e.target.value)}
-                        />
-                      </div>
-                    </div>
                     
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="grid gap-2">
@@ -1078,49 +1057,56 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           </div>
           
           {filteredExams.length > 0 ? (
-            <div className="grid gap-4">
-              {filteredExams.map(exam => (
-                <Card key={exam.id}>
-                  <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
-                    <div className="flex-grow">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-lg">{exam.title}</h3>
-                        <Badge className={`${
-                          exam.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          exam.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {exam.status}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-1 mt-2">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Subject</p>
-                          <p className="text-sm font-medium">{exam.subject}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Semester</p>
-                          <p className="text-sm font-medium">{exam.semester}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Date & Time</p>
-                          <p className="text-sm font-medium">{exam.date} {exam.time}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Duration</p>
-                          <p className="text-sm font-medium">{exam.duration} min</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 self-end md:self-auto w-full md:w-auto">
-                      <Button variant="outline" className="flex-1 md:flex-none" onClick={() => handleMonitorExam(exam.id)}>
-                        Monitor
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+  <div className="grid gap-4">
+    {filteredExams.map(exam => {
+      const stDate = new Date(exam.startDate); // ✅ Declare before return
+
+      return (
+        <Card key={exam.id}>
+          <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
+            <div className="flex-grow">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-lg">{exam.title}</h3>
+                <Badge className={`${
+                  exam.status === 'completed' ? 'bg-green-100 text-green-800' :
+                  exam.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                  'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {exam.status}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-1 mt-2">
+                <div>
+                  <p className="text-xs text-muted-foreground">Subject</p>
+                  <p className="text-sm font-medium">{exam.subject}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Semester</p>
+                  <p className="text-sm font-medium">{exam.semester}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Date & Time</p>
+                  <p className="text-sm font-medium">
+                    {stDate.toLocaleDateString()} at{" "}
+                    {stDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Duration</p>
+                  <p className="text-sm font-medium">{exam.duration} min</p>
+                </div>
+              </div>
             </div>
+            <div className="flex gap-2 self-end md:self-auto w-full md:w-auto">
+              <Button variant="outline" className="flex-1 md:flex-none" onClick={() => handleMonitorExam(exam.id)}>
+                Monitor
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    })}
+  </div>
           ) : (
             <Card className="p-6 text-center text-muted-foreground">
               <p>No exams found for the selected filters.</p>

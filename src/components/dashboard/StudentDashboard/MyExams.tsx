@@ -85,7 +85,9 @@ export function MyExams({ studentId }: MyExamsProps) {
         <div className="space-y-4">
           <h2 className="text-2xl font-bold">Available Exams</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {availableExams.map((exam) => (
+          {availableExams.map((exam) => {
+            const stDate = new Date(exam.startDate);
+            return (
               <Card key={exam.id} className="overflow-hidden hover:shadow-md transition-all">
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
@@ -99,7 +101,9 @@ export function MyExams({ studentId }: MyExamsProps) {
                 <CardContent>
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <span className="font-medium">Date & Time:</span> {new Date(exam.date).toLocaleDateString()} at {exam.time}
+                      <span className="font-medium">Date & Time:</span> {" "}
+                      {stDate.toLocaleDateString()} at{" "}
+                      {stDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </div>
                     <div className="text-sm">
                       <span className="font-medium">Duration:</span> {exam.duration} minutes
@@ -115,7 +119,8 @@ export function MyExams({ studentId }: MyExamsProps) {
                   </Button>
                 </CardFooter>
               </Card>
-            ))}
+            );
+          })}
           </div>
         </div>
       )}
