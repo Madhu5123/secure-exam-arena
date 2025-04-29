@@ -559,7 +559,7 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-          {filteredTeachers.length > 0 ? (
+          {filteredTeachers && filteredTeachers.length > 0 ? (
             filteredTeachers.map((teacher) => (
               <UserCard
                 key={teacher.id}
@@ -949,3 +949,15 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         description: "Failed to delete teacher. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Filter teachers based on search query
+  const filteredTeachers = teachers.filter(
+    (teacher) =>
+      teacher.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      teacher.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return <div className="container mx-auto py-4">{renderContent()}</div>;
+}
