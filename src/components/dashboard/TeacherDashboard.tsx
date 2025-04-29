@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { PlusCircle, FileText, Search, Image, BookOpen, Users } from "lucide-react";
+import { PlusCircle, FileText, Search, Image, BookOpen, Users, Edit, Trash2 } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
 import { ManageStudents } from "./TeacherDashboard/ManageStudents";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ref, onValue, set } from 'firebase/database';
 import { db } from '@/config/firebase';
 import { registerUser } from "@/services/AuthService";
-import { getExamsForTeacher, createExam, getTopStudents, Exam } from "@/services/ExamService";
+import { getExamsForTeacher, createExam, getTopStudents, Exam, updateExam, deleteExam } from "@/services/ExamService";
 import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -79,8 +79,11 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [availableSubjectsAll, setAvailableSubjectsAll] = useState<string[]>([]);
   const [subjectsBySemester, setSubjectsBySemester] = useState({});
   const [teacherDepartment, setTeacherDepartment] = useState("");
+  const [isEditExamDialogOpen, setIsEditExamDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [availableSubjectsForSemester, setAvailableSubjectsForSemester] = useState<string[]>([]);
   const [minScoreToPass, setMinScoreToPass] = useState(0);
+  const [currentExam, setCurrentExam] = useState<Exam | null>(null);
   const [warningsThreshold, setWarningsThreshold] = useState(3);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -513,6 +516,97 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
         variant: "destructive"
       });
     }
+  };
+
+  const handleUpdateExam = async () => {
+    if (!currentExam) return;
+    
+    try {
+      // Extract updated exam data from the form fields
+      const updatedExamData = {
+        title: examTitle,
+        subject: examSubject,
+        semester: examSemester,
+        duration: Number(examDuration),
+        startDate: examStartDate,
+        endDate: examEndDate,
+        minScoreToPass: Number(minScoreToPass),
+        warningsThreshold: Number(warningsThreshold)
+      };
+      
+      // Update the exam
+      const result = await updateExam(currentExam.id, updatedExamData);
+      
+      if (result.success) {
+        toast({
+          title: "Exam updated",
+          description: "The exam has been updated successfully",
+        });
+        
+        setIsEditExamDialogOpen(false);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to update exam",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error updating exam:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update exam. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleConfirmDeleteExam = async () => {
+    if (!currentExam) return;
+    
+    try {
+      const result = await deleteExam(currentExam.id);
+      
+      if (result.success) {
+        toast({
+          title: "Exam deleted",
+          description: "The exam has been deleted successfully",
+        });
+        
+        setIsDeleteDialogOpen(false);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete exam",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting exam:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete exam. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleEditExam = (exam: Exam) => {
+    setCurrentExam(exam);
+    setExamTitle(exam.title);
+    setExamSubject(exam.subject || "");
+    setExamSemester(exam.semester || "Semester 1");
+    setExamDuration(exam.duration.toString());
+    setExamStartDate(exam.startDate);
+    setExamEndDate(exam.endDate);
+    setMinScoreToPass(exam.minScoreToPass);
+    setWarningsThreshold(exam.warningsThreshold);
+    setIsEditExamDialogOpen(true);
+  };
+
+  const handleDeleteExam = (exam: Exam) => {
+    setCurrentExam(exam);
+    setIsDeleteDialogOpen(true);
   };
 
   const handleStudentSelection = (studentId: string) => {
@@ -1147,9 +1241,29 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                         </div>
                       </div>
                       <div className="flex gap-2 self-end md:self-auto w-full md:w-auto">
-                        <Button variant="outline" className="flex-1 md:flex-none" onClick={() => handleMonitorExam(exam.id)}>
-                          Monitor
-                        </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleEditExam(exam)}
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleMonitorExam(exam.id)}
+                              >
+                                Monitor
+                              </Button>
+                              <Button 
+                                variant="destructive" 
+                                size="sm"
+                                onClick={() => handleDeleteExam(exam)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
                       </div>
                     </CardContent>
                   </Card>
