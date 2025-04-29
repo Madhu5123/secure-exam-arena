@@ -7,7 +7,7 @@ import ExamTaker from "@/components/exams/ExamTaker";
 import { checkUserRole } from "@/services/AuthService";
 
 interface ExamProps {
-  action?: "create" | "edit" | "monitor" | "take";
+  action?: "create" | "monitor" | "take";
 }
 
 const Exam = ({ action: propAction }: ExamProps) => {
@@ -47,8 +47,8 @@ const Exam = ({ action: propAction }: ExamProps) => {
         return;
       }
 
-      // Monitor and edit actions are only for teachers and admins
-      if ((action === "monitor" || action === "edit") && userRole !== "teacher" && userRole !== "admin") {
+      // Monitor action is only for teachers and admins
+      if (action === "monitor" && userRole !== "teacher" && userRole !== "admin") {
         navigate("/dashboard");
         return;
       }
@@ -77,8 +77,6 @@ const Exam = ({ action: propAction }: ExamProps) => {
     switch (action) {
       // case "create":
       //   return <ExamCreator />;
-      case "edit":
-        return <ExamMonitor examId={id} isEditing={true} />;
       case "monitor":
         return <ExamMonitor examId={id} />;
       case "take":

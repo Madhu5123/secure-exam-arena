@@ -23,10 +23,8 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/:section" element={<Dashboard />} />
           <Route path="/dashboard/myexams" element={<Dashboard />} />
-          <Route path="/dashboard/exams" element={<Dashboard />} />
           <Route path="/departments" element={<Department />} />
           <Route path="/exam/create" element={<Exam action="create" />} />
-          <Route path="/exam/edit/:id" element={<Exam action="edit" />} />
           <Route path="/exam/monitor/:id" element={<Exam action="monitor" />} />
           <Route path="/exam/take/:id" element={<Exam action="take" />} />
           <Route path="*" element={<NotFound />} />

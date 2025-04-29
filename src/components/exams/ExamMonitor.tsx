@@ -1,3 +1,4 @@
+
 import { useState, useEffect, ChangeEvent } from 'react';
 import { getExamById, getExamSubmissions, getStudentWarnings } from '@/services/ExamService';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +16,6 @@ import { db } from '@/config/firebase';
 
 interface ExamMonitorProps {
   examId?: string;
-  isEditing?: boolean;
 }
 
 interface Student {
@@ -38,7 +38,7 @@ interface Student {
   status: 'completed' | 'in-progress' | 'not-started';
 }
 
-export const ExamMonitor = ({ examId, isEditing = false }: ExamMonitorProps) => {
+export function ExamMonitor({ examId }: ExamMonitorProps) {
   const [exam, setExam] = useState<any>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);

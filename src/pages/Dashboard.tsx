@@ -58,8 +58,6 @@ const Dashboard = () => {
           return <Schedule />;
         } else if (section === "notices") {
           return <NoticeBoard />;
-        } else if (section === "exams") {
-          return <TeacherDashboard section="exams" />;
         } else {
           return <TeacherDashboard section={section} />;
         }
