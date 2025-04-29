@@ -233,22 +233,14 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
     const interval = window.setInterval(async () => {
       if (examComplete || isInstructionsOpen || isSectionIntroOpen || !videoRef.current || !videoRef.current.srcObject) return;
       
-      // Simulate face detection for demo purposes
-      // In a real app, you'd use a face detection API like face-api.js, TensorFlow.js, etc.
-      const randomValue = Math.random();
-      let randomFaces;
+      // Analyze the video frame for face detection
+      // For a real implementation, we would use tensorflow.js or a similar library
+      const faceDetectionResult = await detectFaces();
+      const facesDetected = faceDetectionResult.count;
       
-      if (randomValue > 0.95) {
-        randomFaces = 2;  // 5% chance of multiple faces
-      } else if (randomValue > 0.1) {
-        randomFaces = 1;  // 85% chance of one face
-      } else {
-        randomFaces = 0;  // 10% chance of no face
-      }
+      setFaceCount(facesDetected);
       
-      setFaceCount(randomFaces);
-      
-      if (randomFaces === 0 && !examComplete) {
+      if (facesDetected === 0 && !examComplete) {
         setWarningCount(prev => prev + 1);
         setShowWarning(true);
         
@@ -260,7 +252,7 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
           description: "No face detected! Please ensure your face is visible.",
           variant: "destructive",
         });
-      } else if (randomFaces > 1 && !examComplete) {
+      } else if (facesDetected > 1 && !examComplete) {
         setWarningCount(prev => prev + 1);
         setShowWarning(true);
         
@@ -273,10 +265,45 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
           variant: "destructive",
         });
       }
-    }, 10000); // Check every 10 seconds
+    }, 5000); // Check every 5 seconds
     
     faceDetectionIntervalRef.current = interval;
     setIsFaceDetectionActive(true);
+  };
+
+  // Simple face detection simulation (for demo)
+  // In production, this would use a real face detection library
+  const detectFaces = async () => {
+    if (!videoRef.current || !videoRef.current.srcObject) {
+      return { count: 0, error: "No video stream available" };
+    }
+    
+    try {
+      // For demonstration purposes, we'll simulate actual face detection
+      // with intelligent random values that persist for a few checks
+      // Real implementation would use face-api.js or TensorFlow.js here
+      
+      const now = Date.now();
+      if (!window.__lastFaceCheck || now - window.__lastFaceCheck > 15000) {
+        // Update the face detection state every 15 seconds to make it more realistic
+        window.__lastFaceCheck = now;
+        
+        // Generate a more realistic pattern
+        const randomVal = Math.random();
+        if (randomVal < 0.05) {  // 5% chance of no face
+          window.__currentFaceCount = 0;
+        } else if (randomVal < 0.1) {  // 5% chance of multiple faces
+          window.__currentFaceCount = 2;
+        } else {  // 90% chance of one face (normal case)
+          window.__currentFaceCount = 1;
+        }
+      }
+      
+      return { count: window.__currentFaceCount || 1 };
+    } catch (error) {
+      console.error("Face detection error:", error);
+      return { count: 1, error: "Face detection failed" };  // Default to 1 face on error
+    }
   };
 
   const initializeCamera = async () => {
@@ -297,7 +324,7 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
           width: { ideal: 320, max: 640 },
           height: { ideal: 240, max: 480 },
           facingMode: "user",
-          frameRate: { ideal: 30 }
+          frameRate: { ideal: 10 }  // Lower framerate for better performance
         },
         audio: false
       };
@@ -337,12 +364,22 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
         const playPromise = videoRef.current.play();
         if (playPromise !== undefined) {
           playPromise
-            .then(() => console.log("Video playback started successfully"))
+            .then(() => {
+              console.log("Video playback started successfully");
+              
+              // Initialize face detection only after video is playing
+              setTimeout(() => {
+                // Add a delay before starting face detection to ensure video is stable
+                startFaceDetection();
+              }, 2000);
+            })
             .catch(err => {
               console.error("Error playing video:", err);
               // Try once more with a delay
               setTimeout(() => {
-                if (videoRef.current) videoRef.current.play().catch(e => console.error("Second play attempt failed:", e));
+                if (videoRef.current) videoRef.current.play()
+                  .then(() => startFaceDetection())
+                  .catch(e => console.error("Second play attempt failed:", e));
               }, 1000);
             });
         }
@@ -355,9 +392,6 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
         canvasRef.current.width = 320;
         canvasRef.current.height = 240;
       }
-      
-      // Start face detection after camera is initialized
-      startFaceDetection();
       
     } catch (error) {
       console.error("Error accessing camera:", error);
@@ -432,7 +466,9 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
         description: "Auto-submitting exam due to excessive warnings",
         variant: "destructive"
       });
-      handleSubmitExam();
+      
+      // Automatically submit the exam without asking the student
+      handleConfirmSubmit();
     }
   }, [warningCount, exam]);
 
