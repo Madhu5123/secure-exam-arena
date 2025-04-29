@@ -208,45 +208,41 @@ export function Results({ studentId }: ResultsProps) {
                     </CardHeader>
                     <CardContent className="py-3">
                       <div className="space-y-2">
-                        {question ? (
+                      {question ? (
                           <>
                             <p className="text-sm font-medium">{question.text}</p>
                             {question.options && (
                               <div className="ml-2 mt-2 space-y-1">
                                 {question.options.map((option: string, i: number) => {
-                                  const isStudentAnswer = option === studentAnswer;
-                                  const isCorrectAnswer = option === question.correctAnswer;
-                                  
+                                  const studentAnswerIndex = Number(studentAnswer); // Make sure it's a number
+                                  const correctAnswerIndex = Number(question.correctAnswer); // Also a number
+
+                                  const isStudentAnswer = i === studentAnswerIndex;
+                                  const isCorrectAnswer = i === correctAnswerIndex;
+
                                   return (
                                     <div 
                                       key={i} 
                                       className={`flex items-center text-sm p-1 px-2 rounded-md 
-                                        ${isStudentAnswer ? 'bg-primary/10 border border-primary/20' : ''}`}
+                                        ${isStudentAnswer ? 'bg-white' : ''}`}
                                     >
                                       <div 
                                         className={`w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2 border
                                           ${isStudentAnswer && isCorrectAnswer ? 'bg-green-500 border-green-500 text-white' : 
                                           isStudentAnswer ? 'bg-destructive border-destructive text-white' : 
-                                          isCorrectAnswer ? 'border-green-500 text-green-500' : 
+                                          isCorrectAnswer ? 'bg-green-500 border-green-500 text-white' : 
                                           'border-muted-foreground text-muted-foreground'}`}
                                       >
-                                        {String.fromCharCode(65 + i)}
+                                        {String.fromCharCode(65 + i)} {/* A, B, C, D */}
                                       </div>
+                                      
                                       <span className={`
                                         ${isCorrectAnswer ? 'text-green-500' : ''}
                                         ${isStudentAnswer && !isCorrectAnswer ? 'text-destructive' : ''}
                                       `}>
                                         {option}
-                                        {isStudentAnswer && (
-                                          <span className="ml-2 font-medium bg-primary/10 px-2 py-0.5 rounded-full text-xs">
-                                            Your answer
-                                          </span>
-                                        )}
-                                        {isCorrectAnswer && !isStudentAnswer && (
-                                          <span className="ml-2 font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
-                                            Correct answer
-                                          </span>
-                                        )}
+                                        {isStudentAnswer && ' (Your answer)'}
+                                        {isCorrectAnswer && !isStudentAnswer && ' (Correct answer)'}
                                       </span>
                                     </div>
                                   );
@@ -259,10 +255,11 @@ export function Results({ studentId }: ResultsProps) {
                             <p className="text-muted-foreground italic">Question details not available</p>
                             <div className="mt-2">
                               <p className="text-sm font-medium">Your Answer:</p>
-                              <p className="text-sm bg-primary/10 px-3 py-1 rounded-md inline-block">{studentAnswer}</p>
+                              <p className="text-sm">{studentAnswer}</p>
                             </div>
                           </>
                         )}
+
                       </div>
                     </CardContent>
                   </Card>
