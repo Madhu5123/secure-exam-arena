@@ -1,4 +1,4 @@
-import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, set, get, push, query, orderByChild, equalTo, remove } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
 import { uploadToCloudinary, dataURLtoFile } from '@/utils/CloudinaryUpload';
@@ -119,6 +119,205 @@ export const getExamById = async (examId: string) => {
     return {
       success: false,
       error: "Failed to fetch exam",
+    };
+  }
+};
+
+export const updateExam = async (examId: string, examData: Partial<Exam>) => {
+  try {
+    const role = await checkUserRole();
+    if (role !== "teacher" && role !== "admin") {
+      return {
+        success: false,
+        error: "Only teachers and admins can update exams",
+      };
+    }
+    
+    const examRef = ref(db, `exams/${examId}`);
+    const snapshot = await get(examRef);
+    
+    if (!snapshot.exists()) {
+      return {
+        success: false,
+        error: "Exam not found",
+      };
+    }
+    
+    const currentExam = snapshot.val();
+    
+    // Check if the exam can be updated (only draft or scheduled exams can be updated)
+    if (currentExam.status !== "draft" && currentExam.status !== "scheduled") {
+      return {
+        success: false,
+        error: "Only draft or scheduled exams can be updated",
+      };
+    }
+    
+    // If teacher, check if they created the exam
+    if (role === "teacher") {
+      const userId = await checkUserRole(true);
+      if (currentExam.createdBy !== userId) {
+        return {
+          success: false,
+          error: "You can only update your own exams",
+        };
+      }
+    }
+    
+    // Update the exam
+    await set(examRef, {
+      ...currentExam,
+      ...examData,
+    });
+    
+    return {
+      success: true,
+      exam: {
+        id: examId,
+        ...currentExam,
+        ...examData,
+      },
+    };
+  } catch (error) {
+    console.error('Error updating exam:', error);
+    return {
+      success: false,
+      error: "Failed to update exam",
+    };
+  }
+};
+
+export const deleteExam = async (examId: string) => {
+  try {
+    const role = await checkUserRole();
+    if (role !== "teacher" && role !== "admin") {
+      return {
+        success: false,
+        error: "Only teachers and admins can delete exams",
+      };
+    }
+    
+    const examRef = ref(db, `exams/${examId}`);
+    const snapshot = await get(examRef);
+    
+    if (!snapshot.exists()) {
+      return {
+        success: false,
+        error: "Exam not found",
+      };
+    }
+    
+    const currentExam = snapshot.val();
+    
+    // Check if the exam can be deleted (only draft or scheduled exams can be deleted)
+    if (currentExam.status !== "draft" && currentExam.status !== "scheduled") {
+      return {
+        success: false,
+        error: "Only draft or scheduled exams can be deleted",
+      };
+    }
+    
+    // If teacher, check if they created the exam
+    if (role === "teacher") {
+      const userId = await checkUserRole(true);
+      if (currentExam.createdBy !== userId) {
+        return {
+          success: false,
+          error: "You can only delete your own exams",
+        };
+      }
+    }
+    
+    // Delete the exam
+    await remove(examRef);
+    
+    return {
+      success: true,
+      message: "Exam deleted successfully",
+    };
+  } catch (error) {
+    console.error('Error deleting exam:', error);
+    return {
+      success: false,
+      error: "Failed to delete exam",
+    };
+  }
+};
+
+export const getExamsByDepartmentAndSemester = async (departmentId?: string, semester?: string) => {
+  try {
+    const role = await checkUserRole();
+    if (role !== "admin" && role !== "teacher") {
+      return {
+        success: false,
+        error: "Only admins and teachers can view this information",
+        exams: [],
+      };
+    }
+    
+    const examsRef = ref(db, 'exams');
+    const snapshot = await get(examsRef);
+    
+    if (snapshot.exists()) {
+      let exams: any[] = [];
+      
+      snapshot.forEach((childSnapshot) => {
+        const exam = childSnapshot.val();
+        exam.id = childSnapshot.key;
+        exams.push(exam);
+      });
+      
+      // Filter by department if specified
+      if (departmentId) {
+        exams = exams.filter(exam => exam.department === departmentId);
+      }
+      
+      // Filter by semester if specified
+      if (semester) {
+        exams = exams.filter(exam => exam.semester === semester);
+      }
+      
+      // Get teacher information for each exam
+      const teachersRef = ref(db, 'users');
+      const teachersSnapshot = await get(teachersRef);
+      const teachers: Record<string, any> = {};
+      
+      if (teachersSnapshot.exists()) {
+        teachersSnapshot.forEach((childSnapshot) => {
+          const userData = childSnapshot.val();
+          if (userData.role === 'teacher') {
+            teachers[childSnapshot.key as string] = {
+              name: userData.name || `Teacher ${(childSnapshot.key as string).slice(-4)}`,
+              email: userData.email || "",
+              photo: userData.photo || ""
+            };
+          }
+        });
+      }
+      
+      // Add teacher information to exams
+      exams = exams.map(exam => ({
+        ...exam,
+        teacherName: teachers[exam.createdBy]?.name || "Unknown Teacher",
+        teacherPhoto: teachers[exam.createdBy]?.photo || "",
+      }));
+      
+      return {
+        success: true,
+        exams,
+      };
+    }
+    
+    return {
+      success: true,
+      exams: [],
+    };
+  } catch (error) {
+    console.error('Error fetching exams by department:', error);
+    return {
+      success: false,
+      error: "Failed to fetch exams",
+      exams: [],
     };
   }
 };

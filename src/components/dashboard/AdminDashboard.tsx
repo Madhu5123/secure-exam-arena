@@ -12,6 +12,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 import { db, storage } from '@/config/firebase';
 import { registerUser } from "@/services/AuthService";
 import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
+import { ManageExams } from "@/components/dashboard/AdminDashboard/ManageExams";
 import {
   Select,
   SelectContent,
@@ -145,6 +146,8 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     // If section is specified, show only that section
     if (section === "teachers") {
       return renderTeachersSection();
+    } else if (section === "exams") {
+      return <ManageExams />;
     }
     
     // Otherwise show the main dashboard with stats
