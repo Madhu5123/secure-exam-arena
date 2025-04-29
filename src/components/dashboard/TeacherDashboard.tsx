@@ -23,6 +23,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchAcademicData } from "@/services/AcademicService";
 import { useNavigate } from "react-router-dom";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 
 interface TeacherDashboardProps {
   section?: string;
@@ -1149,6 +1159,144 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                 </Tabs>
               </DialogContent>
             </Dialog>
+
+            <Dialog open={isEditExamDialogOpen} onOpenChange={setIsEditExamDialogOpen}>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Edit Exam</DialogTitle>
+                  <DialogDescription>
+                    Update the exam details
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="editExamTitle">Exam Title</Label>
+                      <Input
+                        id="editExamTitle"
+                        value={examTitle}
+                        onChange={(e) => setExamTitle(e.target.value)}
+                        placeholder="e.g. Mid-term Mathematics"
+                      />
+                    </div>
+                     
+                    <div className="grid gap-2">
+                      <Label htmlFor="editExamSemester">Semester</Label>
+                      <Select value={examSemester} onValueChange={setExamSemester}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select semester" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableSemesters.slice(1).map(semester => (
+                            <SelectItem key={semester} value={semester}>{semester}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="editExamSubject">Subject</Label>
+                      <Select value={examSubject} onValueChange={setExamSubject}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select subject" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableSubjectsAll.slice(1).map(subject => (
+                            <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="editExamDuration">Total Duration (minutes)</Label>
+                      <Input
+                        id="editExamDuration"
+                        type="number"
+                        min="1"
+                        value={examDuration}
+                        onChange={(e) => setExamDuration(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="editExamStartDate">Start Date</Label>
+                      <Input
+                        id="editExamStartDate"
+                        type="datetime-local"
+                        value={examStartDate}
+                        onChange={(e) => setExamStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="editExamEndDate">End Date</Label>
+                      <Input
+                        id="editExamEndDate"
+                        type="datetime-local"
+                        value={examEndDate}
+                        onChange={(e) => setExamEndDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="editMinScoreToPass">Minimum Score to Pass (%)</Label>
+                      <Input
+                        id="editMinScoreToPass"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={minScoreToPass}
+                        onChange={(e) => setMinScoreToPass(parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="editWarningsThreshold">Warnings Threshold</Label>
+                      <Input
+                        id="editWarningsThreshold"
+                        type="number"
+                        min="1"
+                        value={warningsThreshold}
+                        onChange={(e) => setWarningsThreshold(parseInt(e.target.value) || 3)}
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsEditExamDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleUpdateExam}>
+                    Update Exam
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            {/* Confirm Delete Dialog */}
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the exam "{currentExam?.title}". 
+                    This action cannot be undone if the exam has no submissions.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleConfirmDeleteExam} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
         
