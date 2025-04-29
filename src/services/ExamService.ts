@@ -1,4 +1,4 @@
-import { ref, set, get, push, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, set, get, push, query, orderByChild, equalTo, remove } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
 import { uploadToCloudinary, dataURLtoFile } from '@/utils/CloudinaryUpload';
@@ -280,6 +280,96 @@ export const createExam = async (examData: Omit<Exam, "id">) => {
     return {
       success: false,
       error: "Failed to create exam",
+    };
+  }
+};
+
+export const updateExam = async (examId: string, examData: Partial<Omit<Exam, "id">>) => {
+  try {
+    const role = await checkUserRole();
+    if (role !== "teacher" && role !== "admin") {
+      return {
+        success: false,
+        error: "Only teachers and admins can update exams",
+      };
+    }
+    
+    // Get the current exam data
+    const examRef = ref(db, `exams/${examId}`);
+    const snapshot = await get(examRef);
+    
+    if (!snapshot.exists()) {
+      return {
+        success: false,
+        error: "Exam not found",
+      };
+    }
+    
+    const currentExam = snapshot.val();
+    
+    // Update only the fields provided in examData
+    const updatedExam = {
+      ...currentExam,
+      ...examData
+    };
+    
+    await set(examRef, updatedExam);
+    
+    return {
+      success: true,
+      exam: { id: examId, ...updatedExam },
+    };
+  } catch (error) {
+    console.error('Error updating exam:', error);
+    return {
+      success: false,
+      error: "Failed to update exam",
+    };
+  }
+};
+
+export const deleteExam = async (examId: string) => {
+  try {
+    const role = await checkUserRole();
+    if (role !== "teacher" && role !== "admin") {
+      return {
+        success: false,
+        error: "Only teachers and admins can delete exams",
+      };
+    }
+    
+    // Check if the exam has submissions
+    const examRef = ref(db, `exams/${examId}`);
+    const snapshot = await get(examRef);
+    
+    if (!snapshot.exists()) {
+      return {
+        success: false,
+        error: "Exam not found",
+      };
+    }
+    
+    const examData = snapshot.val();
+    
+    if (examData.submissions && Object.keys(examData.submissions).length > 0) {
+      return {
+        success: false,
+        error: "Cannot delete an exam with submissions",
+      };
+    }
+    
+    // Delete the exam
+    await remove(examRef);
+    
+    return {
+      success: true,
+      message: "Exam deleted successfully",
+    };
+  } catch (error) {
+    console.error('Error deleting exam:', error);
+    return {
+      success: false,
+      error: "Failed to delete exam",
     };
   }
 };

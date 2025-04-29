@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { PlusCircle, FileText, Search, Image, BookOpen, Users } from "lucide-react";
+import { PlusCircle, FileText, Search, Image, BookOpen, Users, Edit, Trash2 } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
 import { ManageStudents } from "./TeacherDashboard/ManageStudents";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ref, onValue, set } from 'firebase/database';
 import { db } from '@/config/firebase';
 import { registerUser } from "@/services/AuthService";
-import { getExamsForTeacher, createExam, getTopStudents, Exam } from "@/services/ExamService";
+import { getExamsForTeacher, createExam, getTopStudents, Exam, updateExam, deleteExam } from "@/services/ExamService";
 import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,6 +23,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchAcademicData } from "@/services/AcademicService";
 import { useNavigate } from "react-router-dom";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 
 interface TeacherDashboardProps {
   section?: string;
@@ -63,6 +73,9 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [isCreateExamDialogOpen, setIsCreateExamDialogOpen] = useState(false);
+  const [isEditExamDialogOpen, setIsEditExamDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [currentExam, setCurrentExam] = useState<Exam | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState({
     id: "1",
     type: "multiple-choice",
@@ -515,6 +528,97 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     }
   };
 
+  const handleUpdateExam = async () => {
+    if (!currentExam) return;
+    
+    try {
+      // Extract updated exam data from the form fields
+      const updatedExamData = {
+        title: examTitle,
+        subject: examSubject,
+        semester: examSemester,
+        duration: Number(examDuration),
+        startDate: examStartDate,
+        endDate: examEndDate,
+        minScoreToPass: Number(minScoreToPass),
+        warningsThreshold: Number(warningsThreshold)
+      };
+      
+      // Update the exam
+      const result = await updateExam(currentExam.id, updatedExamData);
+      
+      if (result.success) {
+        toast({
+          title: "Exam updated",
+          description: "The exam has been updated successfully",
+        });
+        
+        setIsEditExamDialogOpen(false);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to update exam",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error updating exam:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update exam. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleConfirmDeleteExam = async () => {
+    if (!currentExam) return;
+    
+    try {
+      const result = await deleteExam(currentExam.id);
+      
+      if (result.success) {
+        toast({
+          title: "Exam deleted",
+          description: "The exam has been deleted successfully",
+        });
+        
+        setIsDeleteDialogOpen(false);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete exam",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting exam:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete exam. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleEditExam = (exam: Exam) => {
+    setCurrentExam(exam);
+    setExamTitle(exam.title);
+    setExamSubject(exam.subject || "");
+    setExamSemester(exam.semester || "Semester 1");
+    setExamDuration(exam.duration.toString());
+    setExamStartDate(exam.startDate);
+    setExamEndDate(exam.endDate);
+    setMinScoreToPass(exam.minScoreToPass);
+    setWarningsThreshold(exam.warningsThreshold);
+    setIsEditExamDialogOpen(true);
+  };
+
+  const handleDeleteExam = (exam: Exam) => {
+    setCurrentExam(exam);
+    setIsDeleteDialogOpen(true);
+  };
+
   const handleStudentSelection = (studentId: string) => {
     setSelectedStudents(
       selectedStudents.includes(studentId)
@@ -836,372 +940,3 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                             onValueChange={(val) => handleQuestionTypeChange(val as "multiple-choice" | "short-answer")}
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder="Select question type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
-                              <SelectItem value="short-answer">Short Answer</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="grid gap-2">
-                          <Label htmlFor="questionText">Question Text</Label>
-                          <Textarea
-                            id="questionText"
-                            placeholder="Enter your question here"
-                            value={currentQuestion.text}
-                            onChange={(e) => setCurrentQuestion({ ...currentQuestion, text: e.target.value })}
-                            rows={3}
-                          />
-                        </div>
-                        
-                        {currentQuestion.type === "multiple-choice" && (
-                          <div className="space-y-4">
-                            <Label>Options</Label>
-                            <div className="space-y-2">
-                              {currentQuestion.options?.map((option, index) => (
-                                <div key={index} className="flex gap-2 items-center">
-                                  <RadioGroup 
-                                    value={currentQuestion.correctAnswer} 
-                                    onValueChange={(val) => setCurrentQuestion({ ...currentQuestion, correctAnswer: val })}
-                                    className="flex-shrink-0"
-                                  >
-                                    <RadioGroupItem value={String(index)} id={`option-${index}`} />
-                                  </RadioGroup>
-                                  <Input
-                                    placeholder={`Option ${index + 1}`}
-                                    value={option}
-                                    onChange={(e) => handleOptionChange(index, e.target.value)}
-                                    className="flex-grow"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {currentQuestion.type === "short-answer" && (
-                          <div className="grid gap-2">
-                            <Label htmlFor="correctAnswer">Correct Answer</Label>
-                            <Input
-                              id="correctAnswer"
-                              placeholder="Enter the correct answer"
-                              value={currentQuestion.correctAnswer || ""}
-                              onChange={(e) => setCurrentQuestion({ ...currentQuestion, correctAnswer: e.target.value })}
-                            />
-                          </div>
-                        )}
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="questionPoints">Points</Label>
-                            <Input
-                              id="questionPoints"
-                              type="number"
-                              min="1"
-                              value={currentQuestion.points}
-                              onChange={(e) => setCurrentQuestion({ ...currentQuestion, points: Number(e.target.value) || 1 })}
-                              className="w-full"
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="questionTimeLimit">Time Limit (min)</Label>
-                            <Input
-                              id="questionTimeLimit"
-                              type="number"
-                              min="1"
-                              value={currentQuestion.timeLimit}
-                              onChange={(e) => setCurrentQuestion({ ...currentQuestion, timeLimit: Number(e.target.value) || 1 })}
-                              className="w-full"
-                            />
-                          </div>
-                        </div>
-                        
-                        <Button onClick={handleAddQuestion} className="mt-2">
-                          <PlusCircle className="h-4 w-4 mr-2" />
-                          Add Question
-                        </Button>
-                      </CardContent>
-                    </Card>
-                    
-                    <div className="flex justify-between gap-2 pt-4">
-                      <Button variant="outline" onClick={() => setActiveTab("details")}>Back to Details</Button>
-                      <Button 
-                        onClick={() => setActiveTab("students")}
-                        disabled={questions.length === 0}
-                      >
-                        Next: Assign Students
-                      </Button>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="students" className="pt-6 space-y-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Exam Settings</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                          <div className="space-y-2">
-                            <Label htmlFor="maxScore">Maximum Score</Label>
-                            <Input
-                              id="maxScore"
-                              value={calculateMaxScore()}
-                              disabled
-                              className="bg-muted"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Total points from all questions
-                            </p>
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="minScore">Minimum Score to Pass</Label>
-                            <Input
-                              id="minScore"
-                              type="number"
-                              min="0"
-                              max={calculateMaxScore()}
-                              value={minScoreToPass}
-                              onChange={(e) => setMinScoreToPass(Number(e.target.value))}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Students must score at least this many points to pass
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="warningsThreshold">Warning Threshold</Label>
-                          <Input
-                            id="warningsThreshold"
-                            type="number"
-                            min="1"
-                            value={warningsThreshold}
-                            onChange={(e) => setWarningsThreshold(Number(e.target.value))}
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Exam will auto-submit after this many warnings
-                          </p>
-                        </div>
-
-                        <div className="mt-6">
-                          <Label className="text-lg font-medium mb-2 block">Assign Students</Label>
-                          <div className="flex justify-end mb-4 gap-2">
-                            <Select 
-                              value={selectedSemester} 
-                              onValueChange={setSelectedSemester}
-                            >
-                              <SelectTrigger className="w-[130px]">
-                                <SelectValue placeholder="Filter by semester" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {availableSemesters.map(s => (
-                                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Button variant="outline" onClick={() => handleSelectAllStudents(selectedSemester)}>
-                              {selectedStudents.length === students.filter(s => selectedSemester === "All" || s.semester === selectedSemester).length 
-                                ? "Deselect All" 
-                                : "Select All"}
-                            </Button>
-                          </div>
-                          
-                          <div className="space-y-3">
-                            {students
-                              .filter(student => 
-                                student.department === teacherDepartment &&
-                                (selectedSemester === "All" || student.semester === selectedSemester)
-                              )
-                              .map((student) => (
-                                <div key={student.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
-                                  <Checkbox 
-                                    id={`student-${student.id}`}
-                                    checked={selectedStudents.includes(student.id)}
-                                    onCheckedChange={() => handleStudentSelection(student.id)}
-                                  />
-                                  <div className="flex items-center flex-grow gap-3">
-                                    {student.photo ? (
-                                      <img src={student.photo} alt={student.name} className="h-8 w-8 rounded-full object-cover" />
-                                    ) : (
-                                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                        <Image className="h-4 w-4 text-muted-foreground" />
-                                      </div>
-                                    )}
-                                    <Label htmlFor={`student-${student.id}`} className="cursor-pointer flex-grow">
-                                      {student.name}
-                                    </Label>
-                                    <span className="text-xs text-muted-foreground">{student.semester}</span>
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="flex justify-between pt-4 px-6">
-                        <Button variant="outline" onClick={() => setActiveTab("questions")}>
-                          Back to Questions
-                        </Button>
-                        <Button 
-                          onClick={handleSaveExam}
-                          disabled={selectedStudents.length === 0}
-                        >
-                          Create Exam
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  </TabsContent>
-                </Tabs>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatsCard
-            title="Total Exams"
-            value={exams.length}
-            description={`${exams.filter(e => e.status === 'active').length} active`}
-            icon={<FileText className="h-8 w-8 text-primary" />}
-          />
-          <StatsCard
-            title="Subjects"
-            value={availableSubjects.length - 1}
-            description="Across all semesters"
-            icon={<BookOpen className="h-8 w-8 text-primary" />}
-          />
-          <StatsCard
-            title="Active Students"
-            value={activeStudents}
-            description={`${totalStudents} total students`}
-            icon={<Users className="h-8 w-8 text-primary" />}
-          />
-        </div>
-        
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-lg">Upcoming Exams</h3>
-            <div className="flex items-center gap-2">
-              <Select value={selectedSemester} onValueChange={setSelectedSemester}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="Semester" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSemesters.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="Subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSubjects.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          {filteredExams.length > 0 ? (
-            <div className="grid gap-4">
-              {filteredExams.map(exam => {
-                const stDate = new Date(exam.startDate);
-                return (
-                  <Card key={exam.id}>
-                    <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
-                      <div className="flex-grow">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-lg">{exam.title}</h3>
-                          <Badge className={`${
-                            exam.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            exam.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {exam.status}
-                          </Badge>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-1 mt-2">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Subject</p>
-                            <p className="text-sm font-medium">{exam.subject}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Semester</p>
-                            <p className="text-sm font-medium">{exam.semester}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Date & Time</p>
-                            <p className="text-sm font-medium">
-                              {stDate.toLocaleDateString()} at{" "}
-                              {stDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Duration</p>
-                            <p className="text-sm font-medium">{exam.duration} min</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 self-end md:self-auto w-full md:w-auto">
-                        <Button variant="outline" className="flex-1 md:flex-none" onClick={() => handleMonitorExam(exam.id)}>
-                          Monitor
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          ) : (
-            <Card className="p-6 text-center text-muted-foreground">
-              <p>No exams found for the selected filters.</p>
-            </Card>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="space-y-8 p-6">
-      {section === "students" ? (
-        <ManageStudents 
-          students={students}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          isAddStudentDialogOpen={isAddStudentDialogOpen}
-          setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
-          newStudent={newStudent}
-          setNewStudent={setNewStudent}
-          SEMESTERS={availableSemesters}
-          handleAddStudent={handleAddStudent}
-          handleEditStudent={handleEditStudent}
-          handleDeleteStudent={handleDeleteStudent}
-          teacherDepartment={teacherDepartment}
-        />
-      ) : section === "exams" ? (
-        renderManageExams()
-      ) : (
-        <DashboardOverview
-          totalExams={totalExams}
-          totalAttended={totalAttended}
-          studentsPassed={studentsPassed}
-          selectedSemester={selectedSemester}
-          selectedSubject={selectedSubject}
-          setSelectedSemester={setSelectedSemester}
-          setSelectedSubject={setSelectedSubject}
-          SEMESTERS={availableSemesters}
-          availableSubjects={availableSubjects}
-          subjectData={subjectData}
-        />
-      )}
-      
-    </div>
-  );
-}
-
-export default TeacherDashboard;
