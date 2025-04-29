@@ -1,3 +1,4 @@
+
 import { ref, set, get, push, query, orderByChild, equalTo, remove } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
@@ -125,6 +126,7 @@ export const getExamById = async (examId: string) => {
 
 export const updateExam = async (examId: string, examData: Partial<Exam>) => {
   try {
+    // Fix: Remove the argument from checkUserRole() call
     const role = await checkUserRole();
     if (role !== "teacher" && role !== "admin") {
       return {
@@ -155,6 +157,7 @@ export const updateExam = async (examId: string, examData: Partial<Exam>) => {
     
     // If teacher, check if they created the exam
     if (role === "teacher") {
+      // Fix: Call checkUserRole with proper argument as it's expected here
       const userId = await checkUserRole(true);
       if (currentExam.createdBy !== userId) {
         return {
@@ -189,6 +192,7 @@ export const updateExam = async (examId: string, examData: Partial<Exam>) => {
 
 export const deleteExam = async (examId: string) => {
   try {
+    // Fix: Remove the argument from checkUserRole() call
     const role = await checkUserRole();
     if (role !== "teacher" && role !== "admin") {
       return {
@@ -219,6 +223,7 @@ export const deleteExam = async (examId: string) => {
     
     // If teacher, check if they created the exam
     if (role === "teacher") {
+      // Fix: Call checkUserRole with proper argument as it's expected here
       const userId = await checkUserRole(true);
       if (currentExam.createdBy !== userId) {
         return {
