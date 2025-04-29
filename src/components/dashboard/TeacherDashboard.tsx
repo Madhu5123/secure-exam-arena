@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { PlusCircle, FileText, Search, Image, BookOpen, Users, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, FileText, Search, BookOpen, Users, Edit, Trash2 } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
 import { ManageStudents } from "./TeacherDashboard/ManageStudents";
 import { Button } from "@/components/ui/button";
@@ -1055,7 +1055,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                         <div key={student.id} className="flex items-center gap-4">
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <Image
+                              <img
                                 src={student.photo || ""}
                                 alt={student.name}
                                 className="w-8 h-8 rounded-full"
