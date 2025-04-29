@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { PlusCircle, FileText, Search, Edit, Trash2, Users, BookOpen } from "lucide-react";
+import { PlusCircle, FileText, Search, Image, BookOpen, Users, Edit, Trash2 } from "lucide-react";
 import { DashboardOverview } from "./TeacherDashboard/DashboardOverview";
 import { ManageStudents } from "./TeacherDashboard/ManageStudents";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchAcademicData } from "@/services/AcademicService";
 import { useNavigate } from "react-router-dom";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface TeacherDashboardProps {
   section?: string;
@@ -752,18 +750,18 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                     </div>
                     
                     <div className="grid gap-4 md:grid-cols-2">
-                      <div className="grid gap-2">
-                          <Label htmlFor="examSubject">Subject</Label>
-                          <Select value={examSubject} onValueChange={setExamSubject}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select subject" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableSubjectsAll.slice(1).map(subject => (
-                                <SelectItem key={subject} value={subject}>{subject}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                    <div className="grid gap-2">
+                        <Label htmlFor="examSubject">Subject</Label>
+                        <Select value={examSubject} onValueChange={setExamSubject}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select subject" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableSubjectsAll.slice(1).map(subject => (
+                              <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         </div>
                         <div className="grid gap-2">
                         <Label htmlFor="examDuration">Total Duration (minutes)</Label>
@@ -775,7 +773,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                           onChange={(e) => setExamDuration(e.target.value)}
                         />
                       </div>
-                    </div>
+                      </div>
                     
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="grid gap-2">
@@ -945,32 +943,35 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                           <Label htmlFor="questionText">Question Text</Label>
                           <Textarea
                             id="questionText"
+                            placeholder="Enter your question here"
                             value={currentQuestion.text}
                             onChange={(e) => setCurrentQuestion({ ...currentQuestion, text: e.target.value })}
-                            placeholder="Enter your question here"
+                            rows={3}
                           />
                         </div>
                         
                         {currentQuestion.type === "multiple-choice" && (
                           <div className="space-y-4">
                             <Label>Options</Label>
-                            {currentQuestion.options?.map((option, index) => (
-                              <div key={index} className="flex items-center gap-2">
-                                <RadioGroup 
-                                  value={currentQuestion.correctAnswer} 
-                                  onValueChange={(value) => setCurrentQuestion({ ...currentQuestion, correctAnswer: value })}
-                                  className="flex-shrink-0"
-                                >
-                                  <RadioGroupItem value={String(index)} id={`option-${index}`} />
-                                </RadioGroup>
-                                <Input
-                                  value={option}
-                                  onChange={(e) => handleOptionChange(index, e.target.value)}
-                                  placeholder={`Option ${index + 1}`}
-                                  className="flex-grow"
-                                />
-                              </div>
-                            ))}
+                            <div className="space-y-2">
+                              {currentQuestion.options?.map((option, index) => (
+                                <div key={index} className="flex gap-2 items-center">
+                                  <RadioGroup 
+                                    value={currentQuestion.correctAnswer} 
+                                    onValueChange={(val) => setCurrentQuestion({ ...currentQuestion, correctAnswer: val })}
+                                    className="flex-shrink-0"
+                                  >
+                                    <RadioGroupItem value={String(index)} id={`option-${index}`} />
+                                  </RadioGroup>
+                                  <Input
+                                    placeholder={`Option ${index + 1}`}
+                                    value={option}
+                                    onChange={(e) => handleOptionChange(index, e.target.value)}
+                                    className="flex-grow"
+                                  />
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                         
@@ -979,14 +980,14 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                             <Label htmlFor="correctAnswer">Correct Answer</Label>
                             <Input
                               id="correctAnswer"
+                              placeholder="Enter the correct answer"
                               value={currentQuestion.correctAnswer || ""}
                               onChange={(e) => setCurrentQuestion({ ...currentQuestion, correctAnswer: e.target.value })}
-                              placeholder="Enter correct answer"
                             />
                           </div>
                         )}
                         
-                        <div className="grid gap-4 grid-cols-2">
+                        <div className="grid grid-cols-2 gap-4">
                           <div className="grid gap-2">
                             <Label htmlFor="questionPoints">Points</Label>
                             <Input
@@ -994,134 +995,156 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                               type="number"
                               min="1"
                               value={currentQuestion.points}
-                              onChange={(e) => setCurrentQuestion({ ...currentQuestion, points: parseInt(e.target.value) || 1 })}
+                              onChange={(e) => setCurrentQuestion({ ...currentQuestion, points: Number(e.target.value) || 1 })}
+                              className="w-full"
                             />
                           </div>
                           <div className="grid gap-2">
-                            <Label htmlFor="timeLimit">Time Limit (minutes)</Label>
+                            <Label htmlFor="questionTimeLimit">Time Limit (min)</Label>
                             <Input
-                              id="timeLimit"
+                              id="questionTimeLimit"
                               type="number"
                               min="1"
                               value={currentQuestion.timeLimit}
-                              onChange={(e) => setCurrentQuestion({ ...currentQuestion, timeLimit: parseInt(e.target.value) || 1 })}
+                              onChange={(e) => setCurrentQuestion({ ...currentQuestion, timeLimit: Number(e.target.value) || 1 })}
+                              className="w-full"
                             />
                           </div>
                         </div>
                         
-                        <div className="flex justify-end gap-2 pt-4">
-                          <Button variant="outline" onClick={() => setActiveTab("details")}>
-                            Back to Details
-                          </Button>
-                          <Button onClick={handleAddQuestion}>
-                            Add Question
-                          </Button>
-                          <Button variant="outline" onClick={() => setActiveTab("students")}>
-                            Next: Assign Students
-                          </Button>
-                        </div>
+                        <Button onClick={handleAddQuestion} className="mt-2">
+                          <PlusCircle className="h-4 w-4 mr-2" />
+                          Add Question
+                        </Button>
                       </CardContent>
                     </Card>
+                    
+                    <div className="flex justify-between gap-2 pt-4">
+                      <Button variant="outline" onClick={() => setActiveTab("details")}>Back to Details</Button>
+                      <Button 
+                        onClick={() => setActiveTab("students")}
+                        disabled={questions.length === 0}
+                      >
+                        Next: Assign Students
+                      </Button>
+                    </div>
                   </TabsContent>
                   
-                  <TabsContent value="students" className="pt-6 space-y-4">
-                    <div className="flex flex-col gap-4">
-                      <div className="flex justify-between items-center">
-                        <h2 className="text-xl font-semibold">Assign Students to Exam</h2>
-                        <div className="flex gap-2">
-                          <Select
-                            value={selectedSemester}
-                            onValueChange={setSelectedSemester}
-                          >
-                            <SelectTrigger className="w-[140px]">
-                              <SelectValue placeholder="Semester" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableSemesters.map(semester => (
-                                <SelectItem key={semester} value={semester}>{semester}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            variant="outline"
-                            onClick={() => handleSelectAllStudents(selectedSemester)}
-                            className="whitespace-nowrap"
-                          >
-                            {selectedStudents.length === students.filter(
-                              s => selectedSemester === "All" || s.semester === selectedSemester
-                            ).length
-                              ? "Deselect All"
-                              : "Select All"}
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      <div className="border rounded-md">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
-                          {students
-                            .filter(student => selectedSemester === "All" || student.semester === selectedSemester)
-                            .map(student => (
-                              <div key={student.id} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={`student-${student.id}`}
-                                  checked={selectedStudents.includes(student.id)}
-                                  onCheckedChange={() => handleStudentSelection(student.id)}
-                                />
-                                <Label
-                                  htmlFor={`student-${student.id}`}
-                                  className="flex flex-col cursor-pointer"
-                                >
-                                  <span className="font-medium">{student.name}</span>
-                                  <span className="text-sm text-muted-foreground">{student.regNumber}</span>
-                                </Label>
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4">
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="grid gap-2">
-                          <Label htmlFor="minScoreToPass">Minimum Score to Pass (%)</Label>
-                          <Input
-                            id="minScoreToPass"
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={minScoreToPass}
-                            onChange={(e) => setMinScoreToPass(parseInt(e.target.value) || 0)}
-                          />
+                  <TabsContent value="students" className="pt-6 space-y-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Exam Settings</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="maxScore">Maximum Score</Label>
+                            <Input
+                              id="maxScore"
+                              value={calculateMaxScore()}
+                              disabled
+                              className="bg-muted"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Total points from all questions
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="minScore">Minimum Score to Pass</Label>
+                            <Input
+                              id="minScore"
+                              type="number"
+                              min="0"
+                              max={calculateMaxScore()}
+                              value={minScoreToPass}
+                              onChange={(e) => setMinScoreToPass(Number(e.target.value))}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Students must score at least this many points to pass
+                            </p>
+                          </div>
                         </div>
                         
-                        <div className="grid gap-2">
-                          <Label htmlFor="warningsThreshold">Maximum Warnings Before Disqualification</Label>
+                        <div className="space-y-2">
+                          <Label htmlFor="warningsThreshold">Warning Threshold</Label>
                           <Input
                             id="warningsThreshold"
                             type="number"
                             min="1"
                             value={warningsThreshold}
-                            onChange={(e) => setWarningsThreshold(parseInt(e.target.value) || 3)}
+                            onChange={(e) => setWarningsThreshold(Number(e.target.value))}
                           />
+                          <p className="text-xs text-muted-foreground">
+                            Exam will auto-submit after this many warnings
+                          </p>
                         </div>
-                      </div>
-                    </div>
-                    
-                    <DialogFooter className="pt-6">
-                      <div className="flex justify-between w-full">
+
+                        <div className="mt-6">
+                          <Label className="text-lg font-medium mb-2 block">Assign Students</Label>
+                          <div className="flex justify-end mb-4 gap-2">
+                            <Select 
+                              value={selectedSemester} 
+                              onValueChange={setSelectedSemester}
+                            >
+                              <SelectTrigger className="w-[130px]">
+                                <SelectValue placeholder="Filter by semester" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableSemesters.map(s => (
+                                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button variant="outline" onClick={() => handleSelectAllStudents(selectedSemester)}>
+                              {selectedStudents.length === students.filter(s => selectedSemester === "All" || s.semester === selectedSemester).length 
+                                ? "Deselect All" 
+                                : "Select All"}
+                            </Button>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {students
+                              .filter(student => 
+                                student.department === teacherDepartment &&
+                                (selectedSemester === "All" || student.semester === selectedSemester)
+                              )
+                              .map((student) => (
+                                <div key={student.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
+                                  <Checkbox 
+                                    id={`student-${student.id}`}
+                                    checked={selectedStudents.includes(student.id)}
+                                    onCheckedChange={() => handleStudentSelection(student.id)}
+                                  />
+                                  <div className="flex items-center flex-grow gap-3">
+                                    {student.photo ? (
+                                      <img src={student.photo} alt={student.name} className="h-8 w-8 rounded-full object-cover" />
+                                    ) : (
+                                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                        <Image className="h-4 w-4 text-muted-foreground" />
+                                      </div>
+                                    )}
+                                    <Label htmlFor={`student-${student.id}`} className="cursor-pointer flex-grow">
+                                      {student.name}
+                                    </Label>
+                                    <span className="text-xs text-muted-foreground">{student.semester}</span>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                      <CardFooter className="flex justify-between pt-4 px-6">
                         <Button variant="outline" onClick={() => setActiveTab("questions")}>
                           Back to Questions
                         </Button>
-                        <div className="flex gap-2">
-                          <Button variant="outline" onClick={() => setIsCreateExamDialogOpen(false)}>
-                            Cancel
-                          </Button>
-                          <Button onClick={handleSaveExam}>
-                            Create Exam
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogFooter>
+                        <Button 
+                          onClick={handleSaveExam}
+                          disabled={selectedStudents.length === 0}
+                        >
+                          Create Exam
+                        </Button>
+                      </CardFooter>
+                    </Card>
                   </TabsContent>
                 </Tabs>
               </DialogContent>
@@ -1129,373 +1152,170 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
           </div>
         </div>
         
-        <div className="flex flex-col md:flex-row md:justify-between gap-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Select
-              value={selectedSemester}
-              onValueChange={setSelectedSemester}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by Semester" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableSemesters.map(semester => (
-                  <SelectItem key={semester} value={semester}>{semester}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Select
-              value={selectedSubject}
-              onValueChange={setSelectedSubject}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by Subject" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableSubjects.map(subject => (
-                  <SelectItem key={subject} value={subject}>{subject}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatsCard
+            title="Total Exams"
+            value={exams.length}
+            description={`${exams.filter(e => e.status === 'active').length} active`}
+            icon={<FileText className="h-8 w-8 text-primary" />}
+          />
+          <StatsCard
+            title="Subjects"
+            value={availableSubjects.length - 1}
+            description="Across all semesters"
+            icon={<BookOpen className="h-8 w-8 text-primary" />}
+          />
+          <StatsCard
+            title="Active Students"
+            value={activeStudents}
+            description={`${totalStudents} total students`}
+            icon={<Users className="h-8 w-8 text-primary" />}
+          />
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredExams.length > 0 ? (
-            filteredExams.map(exam => (
-              <Card key={exam.id} className="flex flex-col">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">{exam.title}</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={
-                      exam.status === "active" ? "default" :
-                      exam.status === "scheduled" ? "secondary" :
-                      exam.status === "completed" ? "success" :
-                      "outline"
-                    }>
-                      {exam.status === "scheduled" ? "Scheduled" :
-                       exam.status === "active" ? "Active" :
-                       exam.status === "completed" ? "Completed" :
-                       exam.status === "expired" ? "Expired" : "Draft"}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {exam.semester || "All semesters"}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="pb-3">
-                  <div className="flex flex-col space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Subject:</span>
-                      <span>{exam.subject}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Duration:</span>
-                      <span>{exam.duration} min</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Questions:</span>
-                      <span>{exam.questions?.length || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Students:</span>
-                      <span>{exam.assignedStudents?.length || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Start:</span>
-                      <span>{new Date(exam.startDate).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="pt-0 mt-auto">
-                  <div className="flex w-full gap-2">
-                    {(exam.status === "active" || exam.status === "scheduled") && (
-                      <Button 
-                        variant="outline" 
-                        className="flex-1"
-                        onClick={() => handleMonitorExam(exam.id)}
-                      >
-                        <Users className="h-4 w-4 mr-1" />
-                        Monitor
-                      </Button>
-                    )}
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => handleEditExam(exam)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                      onClick={() => handleDeleteExam(exam)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardFooter>
-              </Card>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-10">
-              <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-              <h3 className="text-lg font-medium">No exams found</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Create your first exam to get started.
-              </p>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-lg">Upcoming Exams</h3>
+            <div className="flex items-center gap-2">
+              <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder="Semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSemesters.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder="Subject" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSubjects.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+          
+          {filteredExams.length > 0 ? (
+            <div className="grid gap-4">
+              {filteredExams.map(exam => {
+                const stDate = new Date(exam.startDate);
+                return (
+                  <Card key={exam.id}>
+                    <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
+                      <div className="flex-grow">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-lg">{exam.title}</h3>
+                          <Badge className={`${
+                            exam.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            exam.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {exam.status}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-1 mt-2">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Subject</p>
+                            <p className="text-sm font-medium">{exam.subject}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Semester</p>
+                            <p className="text-sm font-medium">{exam.semester}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Date & Time</p>
+                            <p className="text-sm font-medium">
+                              {stDate.toLocaleDateString()} at{" "}
+                              {stDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Duration</p>
+                            <p className="text-sm font-medium">{exam.duration} min</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 self-end md:self-auto w-full md:w-auto">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleEditExam(exam)}
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleMonitorExam(exam.id)}
+                              >
+                                Monitor
+                              </Button>
+                              <Button 
+                                variant="destructive" 
+                                size="sm"
+                                onClick={() => handleDeleteExam(exam)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
+                              </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="p-6 text-center text-muted-foreground">
+              <p>No exams found for the selected filters.</p>
+            </Card>
           )}
         </div>
       </div>
     );
   };
 
-  // Dialog for editing exam
-  const renderEditExamDialog = () => {
-    return (
-      <Dialog open={isEditExamDialogOpen} onOpenChange={setIsEditExamDialogOpen}>
-        <DialogContent className="sm:max-w-[550px]">
-          <DialogHeader>
-            <DialogTitle>Edit Exam</DialogTitle>
-            <DialogDescription>
-              Update exam details. Questions and assigned students cannot be changed after creation.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-examTitle">Exam Title</Label>
-              <Input
-                id="edit-examTitle"
-                value={examTitle}
-                onChange={(e) => setExamTitle(e.target.value)}
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-examSubject">Subject</Label>
-                <Select value={examSubject} onValueChange={setExamSubject}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select subject" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableSubjectsAll.slice(1).map(subject => (
-                      <SelectItem key={subject} value={subject}>{subject}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-examSemester">Semester</Label>
-                <Select value={examSemester} onValueChange={setExamSemester}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select semester" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableSemesters.slice(1).map(semester => (
-                      <SelectItem key={semester} value={semester}>{semester}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-examStartDate">Start Date</Label>
-                <Input
-                  id="edit-examStartDate"
-                  type="datetime-local"
-                  value={examStartDate}
-                  onChange={(e) => setExamStartDate(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-examEndDate">End Date</Label>
-                <Input
-                  id="edit-examEndDate"
-                  type="datetime-local"
-                  value={examEndDate}
-                  onChange={(e) => setExamEndDate(e.target.value)}
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-examDuration">Duration (minutes)</Label>
-                <Input
-                  id="edit-examDuration"
-                  type="number"
-                  min="1"
-                  value={examDuration}
-                  onChange={(e) => setExamDuration(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-minScoreToPass">Min. Score to Pass (%)</Label>
-                <Input
-                  id="edit-minScoreToPass"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={minScoreToPass}
-                  onChange={(e) => setMinScoreToPass(parseInt(e.target.value) || 0)}
-                />
-              </div>
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="edit-warningsThreshold">Max Warnings Before Disqualification</Label>
-              <Input
-                id="edit-warningsThreshold"
-                type="number"
-                min="1"
-                value={warningsThreshold}
-                onChange={(e) => setWarningsThreshold(parseInt(e.target.value) || 3)}
-              />
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditExamDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateExam}>
-              Update Exam
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  };
-
-  // Alert dialog for confirming exam deletion
-  const renderDeleteExamDialog = () => {
-    return (
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Exam</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this exam? This action cannot be undone.
-              {currentExam?.submissions && Object.keys(currentExam.submissions).length > 0 && (
-                <div className="mt-2 text-destructive">
-                  Warning: This exam has submissions. Deleting it will permanently remove all student submissions and results.
-                </div>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDeleteExam} className="bg-destructive text-destructive-foreground">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    );
-  };
-
-  // Add student dialog
-  const renderAddStudentDialog = () => {
-    return (
-      <Dialog open={isAddStudentDialogOpen} onOpenChange={setIsAddStudentDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{newStudent.id ? "Edit Student" : "Add New Student"}</DialogTitle>
-            <DialogDescription>
-              {newStudent.id ? "Update student information" : "Add a new student to the system"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                value={newStudent.name}
-                onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
-                placeholder="John Doe"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={newStudent.email}
-                onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
-                placeholder="john.doe@example.com"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="regNumber">Registration Number</Label>
-              <Input
-                id="regNumber"
-                value={newStudent.regNumber}
-                onChange={(e) => setNewStudent({ ...newStudent, regNumber: e.target.value })}
-                placeholder="REG-2023-001"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={newStudent.password}
-                onChange={(e) => setNewStudent({ ...newStudent, password: e.target.value })}
-                placeholder={newStudent.id ? "Leave blank to keep unchanged" : "New password"}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="semester">Semester</Label>
-              <Select 
-                value={newStudent.semester} 
-                onValueChange={(value) => setNewStudent({ ...newStudent, semester: value })}
-              >
-                <SelectTrigger id="semester">
-                  <SelectValue placeholder="Select semester" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSemesters.slice(1).map(semester => (
-                    <SelectItem key={semester} value={semester}>{semester}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddStudentDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddStudent}>
-              {newStudent.id ? "Update Student" : "Add Student"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  };
-
-  // Main render
-  if (section === "students") {
-    return <ManageStudents />;
-  } else if (section === "exams") {
-    return (
-      <>
-        {renderManageExams()}
-        {renderEditExamDialog()}
-        {renderDeleteExamDialog()}
-      </>
-    );
-  } else if (section === "schedule") {
-    // Render schedule section
-    return <div>Schedule Section</div>;
-  } else {
-    return <DashboardOverview />;
-  }
+  return (
+    <div className="space-y-8 p-6">
+      {section === "students" ? (
+        <ManageStudents 
+          students={students}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          isAddStudentDialogOpen={isAddStudentDialogOpen}
+          setIsAddStudentDialogOpen={setIsAddStudentDialogOpen}
+          newStudent={newStudent}
+          setNewStudent={setNewStudent}
+          SEMESTERS={availableSemesters}
+          handleAddStudent={handleAddStudent}
+          handleEditStudent={handleEditStudent}
+          handleDeleteStudent={handleDeleteStudent}
+          teacherDepartment={teacherDepartment}
+        />
+      ) : section === "exams" ? (
+        renderManageExams()
+      ) : (
+        <DashboardOverview
+          totalExams={totalExams}
+          totalAttended={totalAttended}
+          studentsPassed={studentsPassed}
+          selectedSemester={selectedSemester}
+          selectedSubject={selectedSubject}
+          setSelectedSemester={setSelectedSemester}
+          setSelectedSubject={setSelectedSubject}
+          SEMESTERS={availableSemesters}
+          availableSubjects={availableSubjects}
+          subjectData={subjectData}
+        />
+      )}
+      
+    </div>
+  );
 }
+
+export default TeacherDashboard;
