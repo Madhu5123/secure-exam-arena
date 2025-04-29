@@ -175,7 +175,7 @@ export function ManageExams() {
       case "active":
         return <Badge variant="default">Active</Badge>;
       case "completed":
-        return <Badge variant="success">Completed</Badge>;
+        return <Badge variant="default" className="bg-green-500 hover:bg-green-600">Completed</Badge>;
       case "expired":
         return <Badge>Expired</Badge>;
       default:
