@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, AlertCircle, CheckCircle, Clock, Camera, CameraOff } from "lucide-react";
@@ -13,6 +14,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { getExamById, submitExam, captureWarning } from "@/services/ExamService";
+
+// Add type declarations for our custom window properties
+declare global {
+  interface Window {
+    __lastFaceCheck?: number;
+    __currentFaceCount?: number;
+  }
+}
 
 interface ExamTakerProps {
   examId?: string;
