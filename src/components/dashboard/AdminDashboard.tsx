@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Users, Settings, PlusCircle, Upload, BarChart, PieChart, Home } from "lucide-react";
+import { Users, Settings, PlusCircle, Upload, BarChart, PieChart, Home, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserCard } from "@/components/common/UserCard";
@@ -26,6 +26,9 @@ import {
   ChartTooltipContent 
 } from "@/components/ui/chart";
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart as RechartsPieChart, Pie, Cell } from "recharts";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { fetchAcademicData } from "@/services/AcademicService";
+import { Badge } from "@/components/ui/badge";
 
 interface AdminDashboardProps {
   section?: string;
@@ -61,10 +64,16 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     studentsByDepartment: [],
     examsByDepartment: []
   });
+  
+  // New state for exams section
+  const [filteredExams, setFilteredExams] = useState<any[]>([]);
+  const [examSearchQuery, setExamSearchQuery] = useState("");
+  const [examSemesterFilter, setExamSemesterFilter] = useState<string>("all");
+  const [selectedDeptSemesters, setSelectedDeptSemesters] = useState<string[]>([]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Colors for charts
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82ca9d'];
 
   // Load data on mount
@@ -122,6 +131,7 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
           ...data,
         }));
         setExams(examsList);
+        setFilteredExams(examsList);
       }
     };
 
@@ -136,15 +146,78 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         setSelectedDepartment(departments[0].id);
       } else if (selectedDepartment) {
         generateDepartmentStats(selectedDepartment);
+        loadDepartmentSemesters(selectedDepartment);
       }
     }
   }, [selectedDepartment, departments, teachers, students, exams]);
+
+  // Filter exams when filters change
+  useEffect(() => {
+    filterExams();
+  }, [examSearchQuery, examSemesterFilter, selectedDepartment, exams]);
+  
+  // Load semesters for the selected department
+  const loadDepartmentSemesters = async (departmentId: string) => {
+    try {
+      const academicData = await fetchAcademicData(departmentId);
+      setSelectedDeptSemesters(academicData.semesters);
+    } catch (error) {
+      console.error('Error loading department semesters:', error);
+    }
+  };
+  
+  // Filter exams based on search query, department, and semester
+  const filterExams = () => {
+    if (!exams || exams.length === 0) return;
+    
+    let filtered = [...exams];
+    
+    // Filter by search query
+    if (examSearchQuery) {
+      filtered = filtered.filter(exam => 
+        exam.title?.toLowerCase().includes(examSearchQuery.toLowerCase()) ||
+        exam.subject?.toLowerCase().includes(examSearchQuery.toLowerCase())
+      );
+    }
+    
+    // Filter by department
+    if (selectedDepartment) {
+      filtered = filtered.filter(exam => exam.department === selectedDepartment);
+    }
+    
+    // Filter by semester
+    if (examSemesterFilter && examSemesterFilter !== "all") {
+      filtered = filtered.filter(exam => exam.semester === examSemesterFilter);
+    }
+    
+    setFilteredExams(filtered);
+  };
+  
+  // Get status badge variant based on exam status
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "active":
+        return "default";
+      case "completed":
+        return "secondary";
+      case "expired":
+        return "outline";
+      case "scheduled":
+        return "secondary";
+      case "draft":
+        return "outline";
+      default:
+        return "outline";
+    }
+  };
 
   // Handle showing appropriate content based on section
   const renderContent = () => {
     // If section is specified, show only that section
     if (section === "teachers") {
       return renderTeachersSection();
+    } else if (section === "exams") {
+      return renderExamsSection();
     }
     
     // Otherwise show the main dashboard with stats
@@ -239,7 +312,106 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     );
   };
 
-  // Teacher management section
+  // New section for exams
+  const renderExamsSection = () => {
+    return (
+      <>
+        <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center mb-6">
+          <div>
+            <h2 className="text-2xl font-bold">All Exams</h2>
+            <p className="text-muted-foreground">View and filter exams across departments and semesters</p>
+          </div>
+          <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+            <Input
+              placeholder="Search exams..."
+              value={examSearchQuery}
+              onChange={(e) => setExamSearchQuery(e.target.value)}
+              className="md:w-64"
+            />
+            <Select
+              value={selectedDepartment}
+              onValueChange={setSelectedDepartment}
+            >
+              <SelectTrigger className="md:w-40">
+                <SelectValue placeholder="Department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Departments</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={examSemesterFilter}
+              onValueChange={setExamSemesterFilter}
+              disabled={!selectedDepartment}
+            >
+              <SelectTrigger className="md:w-40">
+                <SelectValue placeholder="Semester" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Semesters</SelectItem>
+                {selectedDeptSemesters.map((semester) => (
+                  <SelectItem key={semester} value={semester}>{semester}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>Subject</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Semester</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Submissions</TableHead>
+                <TableHead>Created By</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredExams.length > 0 ? (
+                filteredExams.map((exam) => (
+                  <TableRow key={exam.id}>
+                    <TableCell className="font-medium">{exam.title}</TableCell>
+                    <TableCell>{exam.subject}</TableCell>
+                    <TableCell>
+                      {departments.find(d => d.id === exam.department)?.name || "N/A"}
+                    </TableCell>
+                    <TableCell>{exam.semester || "N/A"}</TableCell>
+                    <TableCell>
+                      {new Date(exam.startDate).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(exam.status)}>{exam.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {exam.submissions ? Object.keys(exam.submissions).length : 0}
+                    </TableCell>
+                    <TableCell>
+                      {teachers.find(t => t.id === exam.createdBy)?.name || "Unknown"}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-24 text-center">
+                    No exams found matching the filters.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </>
+    );
+  };
+
   const renderTeachersSection = () => {
     return (
       <>
@@ -416,7 +588,6 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     );
   };
 
-  // Other functions
   const generateDepartmentStats = (departmentId: string) => {
     const selectedDeptData = departments.find(d => d.id === departmentId);
     if (!selectedDeptData) return;
@@ -778,179 +949,3 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         description: "Failed to delete teacher. Please try again.",
         variant: "destructive",
       });
-    }
-  };
-
-  const filteredTeachers = teachers.filter(
-    (teacher) =>
-      teacher.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      teacher.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  return (
-    <div className="flex flex-col space-y-6">
-      {renderContent()}
-
-      {/* View Teacher Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Teacher Details</DialogTitle>
-          </DialogHeader>
-          {selectedTeacher && (
-            <div className="space-y-4">
-              <div className="flex justify-center">
-                {selectedTeacher.profileImage ? (
-                  <img 
-                    src={selectedTeacher.profileImage} 
-                    alt={`${selectedTeacher.name}'s profile`} 
-                    className="w-24 h-24 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center">
-                    <Users className="h-12 w-12 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label>Name</Label>
-                <div className="p-2 bg-muted rounded">{selectedTeacher.name}</div>
-              </div>
-              <div className="grid gap-2">
-                <Label>Email</Label>
-                <div className="p-2 bg-muted rounded">{selectedTeacher.email}</div>
-              </div>
-              <div className="grid gap-2">
-                <Label>Department</Label>
-                <div className="p-2 bg-muted rounded">
-                  {departments.find(d => d.id === selectedTeacher.department)?.name || "Not assigned"}
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label>Subjects</Label>
-                <div className="p-2 bg-muted rounded">
-                  {Array.isArray(selectedTeacher.subjects) 
-                    ? selectedTeacher.subjects.map(sid => {
-                        const subject = subjects.find(s => s.id === sid);
-                        return subject ? `${subject.name} (${subject.semester})` : sid;
-                      }).join(", ")
-                    : subjects.find(s => s.id === selectedTeacher.subject)?.name || selectedTeacher.subject || "Not assigned"}
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button onClick={() => setIsViewDialogOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Teacher Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Teacher</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-profileImage">Profile Image</Label>
-              <div className="flex gap-2 items-center">
-                <Button 
-                  variant="outline" 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex items-center justify-center"
-                  disabled={uploadingImage}
-                >
-                  <Upload className="h-4 w-4 mr-2" /> 
-                  {uploadingImage ? 'Uploading...' : 'Change Image'}
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  id="edit-profileImage"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleProfileImageUpload}
-                />
-              </div>
-              {uploadedImageUrl && (
-                <div className="mt-2">
-                  <img 
-                    src={uploadedImageUrl} 
-                    alt="Profile preview" 
-                    className="w-16 h-16 rounded-full object-cover"
-                  />
-                </div>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-name">Full Name</Label>
-              <Input
-                id="edit-name"
-                value={newTeacher.name}
-                onChange={(e) => setNewTeacher({ ...newTeacher, name: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={newTeacher.email}
-                onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-department">Department</Label>
-              <Select
-                value={newTeacher.department}
-                onValueChange={(value) => handleDepartmentChange(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>Subjects</Label>
-              <div className="border rounded-md p-4 max-h-48 overflow-y-auto">
-                {subjects.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No subjects available for this department</p>
-                ) : (
-                  <div className="grid gap-3">
-                    {subjects.map((subject) => (
-                      <div key={subject.id} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`edit-subject-${subject.id}`} 
-                          checked={newTeacher.subjects.includes(subject.id)}
-                          onCheckedChange={() => handleSubjectCheckboxChange(subject.id)}
-                        />
-                        <label
-                          htmlFor={`edit-subject-${subject.id}`}
-                          className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {subject.name} ({subject.semester})
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateTeacher} disabled={uploadingImage}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
