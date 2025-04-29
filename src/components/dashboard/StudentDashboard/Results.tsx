@@ -237,8 +237,16 @@ export function Results({ studentId }: ResultsProps) {
                                         ${isStudentAnswer && !isCorrectAnswer ? 'text-destructive' : ''}
                                       `}>
                                         {option}
-                                        {isStudentAnswer && ' (Your answer)'}
-                                        {isCorrectAnswer && !isStudentAnswer && ' (Correct answer)'}
+                                        {isStudentAnswer && (
+                                          <span className="ml-2 font-medium bg-primary/10 px-2 py-0.5 rounded-full text-xs">
+                                            Your answer
+                                          </span>
+                                        )}
+                                        {isCorrectAnswer && !isStudentAnswer && (
+                                          <span className="ml-2 font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
+                                            Correct answer
+                                          </span>
+                                        )}
                                       </span>
                                     </div>
                                   );
@@ -251,7 +259,7 @@ export function Results({ studentId }: ResultsProps) {
                             <p className="text-muted-foreground italic">Question details not available</p>
                             <div className="mt-2">
                               <p className="text-sm font-medium">Your Answer:</p>
-                              <p className="text-sm">{studentAnswer}</p>
+                              <p className="text-sm bg-primary/10 px-3 py-1 rounded-md inline-block">{studentAnswer}</p>
                             </div>
                           </>
                         )}
