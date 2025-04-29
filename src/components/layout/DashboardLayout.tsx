@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { LogOut, Menu, Users, Settings, Calendar, BarChart, FileText, Building, Bell, Book, User } from "lucide-react";
@@ -50,6 +51,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       ...commonItems,
       { title: "Manage Teachers", icon: Users, url: "/dashboard/teachers" },
       { title: "Departments", icon: Building, url: "/departments" },
+      { title: "Exams", icon: FileText, url: "/dashboard/exams" },
       // { title: "Settings", icon: Settings, url: "/dashboard/settings" },
     ];
     
