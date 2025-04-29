@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Users, Settings, PlusCircle, Upload, BarChart, PieChart, Home } from "lucide-react";
+import { Users, Settings, PlusCircle, Upload, BarChart, PieChart, Home, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserCard } from "@/components/common/UserCard";
@@ -26,6 +26,17 @@ import {
   ChartTooltipContent 
 } from "@/components/ui/chart";
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart as RechartsPieChart, Pie, Cell } from "recharts";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Exam } from '@/services/ExamService';
 
 interface AdminDashboardProps {
   section?: string;
@@ -54,6 +65,8 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string>("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [selectedSemester, setSelectedSemester] = useState<string>("");
+  const [examSearchQuery, setExamSearchQuery] = useState("");
   const [departmentStats, setDepartmentStats] = useState({
     teachersBySemester: [],
     teachersByDepartment: [],
@@ -145,6 +158,8 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     // If section is specified, show only that section
     if (section === "teachers") {
       return renderTeachersSection();
+    } else if (section === "exams") {
+      return renderExamsSection();
     }
     
     // Otherwise show the main dashboard with stats
@@ -409,6 +424,150 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
           ) : (
             <div className="col-span-full text-center py-10">
               <p className="text-muted-foreground">No teachers found. Add a new teacher to get started.</p>
+            </div>
+          )}
+        </div>
+      </>
+    );
+  };
+
+  // New Exams section
+  const renderExamsSection = () => {
+    // Get available semesters from the selected department
+    const availableSemesters = selectedDepartment ? 
+      departments.find(d => d.id === selectedDepartment)?.semesters || [] 
+      : [];
+
+    // Filter exams based on selected filters
+    const filteredExams = exams.filter(exam => {
+      const matchesDepartment = selectedDepartment ? exam.department === selectedDepartment : true;
+      const matchesSemester = selectedSemester ? exam.semester === selectedSemester : true;
+      const matchesSearch = examSearchQuery.trim() === '' ? true : 
+        (exam.title?.toLowerCase().includes(examSearchQuery.toLowerCase()) || 
+         exam.subject?.toLowerCase().includes(examSearchQuery.toLowerCase()));
+      
+      return matchesDepartment && matchesSemester && matchesSearch;
+    });
+
+    // Get status badge color
+    const getStatusColor = (status: string) => {
+      switch (status?.toLowerCase()) {
+        case 'active': return 'bg-green-500';
+        case 'scheduled': return 'bg-blue-500';
+        case 'draft': return 'bg-gray-500';
+        case 'completed': return 'bg-purple-500';
+        case 'expired': return 'bg-red-500';
+        default: return 'bg-gray-500';
+      }
+    };
+
+    return (
+      <>
+        <div className="flex flex-col space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold">Manage Exams</h2>
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <a href="/exam/create">
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Create Exam
+                </a>
+              </Button>
+            </div>
+          </div>
+          
+          <div className="flex flex-col md:flex-row gap-4 w-full">
+            <div className="flex-1">
+              <Input
+                placeholder="Search exams..."
+                value={examSearchQuery}
+                onChange={(e) => setExamSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="w-full md:w-auto">
+              <Select
+                value={selectedDepartment}
+                onValueChange={setSelectedDepartment}
+              >
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Select Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Departments</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full md:w-auto">
+              <Select
+                value={selectedSemester}
+                onValueChange={setSelectedSemester}
+                disabled={!selectedDepartment}
+              >
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Select Semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Semesters</SelectItem>
+                  {availableSemesters.map((semester) => (
+                    <SelectItem key={semester} value={semester}>{semester}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {filteredExams.length > 0 ? (
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Semester</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Submissions</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredExams.map((exam) => {
+                    const departmentName = departments.find(d => d.id === exam.department)?.name || 'Unknown';
+                    const submissionsCount = exam.submissions ? Object.keys(exam.submissions).length : 0;
+                    
+                    return (
+                      <TableRow key={exam.id}>
+                        <TableCell className="font-medium">{exam.title}</TableCell>
+                        <TableCell>{exam.subject}</TableCell>
+                        <TableCell>{departmentName}</TableCell>
+                        <TableCell>{exam.semester}</TableCell>
+                        <TableCell>{exam.duration} min</TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(exam.status)}>{exam.status}</Badge>
+                        </TableCell>
+                        <TableCell>{submissionsCount}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={`/exam/monitor/${exam.id}`}>
+                                View
+                              </a>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-8 border rounded-md">
+              <p className="text-muted-foreground">No exams found matching the selected filters.</p>
             </div>
           )}
         </div>
