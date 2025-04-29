@@ -52,6 +52,7 @@ const Dashboard = () => {
   const renderDashboard = () => {
     switch (userRole) {
       case "admin":
+        // Pass the section parameter to AdminDashboard for all sections
         return <AdminDashboard section={section} />;
       case "teacher":
         if (section === "schedule") {
