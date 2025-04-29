@@ -466,14 +466,6 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
         <div className="flex flex-col space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold">Manage Exams</h2>
-            <div className="flex gap-2">
-              <Button variant="outline" asChild>
-                <a href="/exam/create">
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Create Exam
-                </a>
-              </Button>
-            </div>
           </div>
           
           <div className="flex flex-col md:flex-row gap-4 w-full">
@@ -485,38 +477,42 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
               />
             </div>
             <div className="w-full md:w-auto">
-              <Select
-                value={selectedDepartment}
-                onValueChange={setSelectedDepartment}
-              >
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Select Department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Departments</SelectItem>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-full md:w-auto">
-              <Select
-                value={selectedSemester}
-                onValueChange={setSelectedSemester}
-                disabled={!selectedDepartment}
-              >
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Select Semester" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Semesters</SelectItem>
-                  {availableSemesters.map((semester) => (
-                    <SelectItem key={semester} value={semester}>{semester}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+  <Select
+    value={selectedDepartment}
+    onValueChange={setSelectedDepartment}
+  >
+    <SelectTrigger className="w-full md:w-[180px]">
+      <SelectValue placeholder="Select Department" />
+    </SelectTrigger>
+    <SelectContent>
+      {/* Avoid empty string for value */}
+      <SelectItem value={null}>All Departments</SelectItem>
+      {departments.map((dept) => (
+        <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+
+<div className="w-full md:w-auto">
+  <Select
+    value={selectedSemester}
+    onValueChange={setSelectedSemester}
+    disabled={!selectedDepartment}
+  >
+    <SelectTrigger className="w-full md:w-[180px]">
+      <SelectValue placeholder="Select Semester" />
+    </SelectTrigger>
+    <SelectContent>
+      {/* Avoid empty string for value */}
+      <SelectItem value={null}>All Semesters</SelectItem>
+      {availableSemesters.map((semester) => (
+        <SelectItem key={semester} value={semester}>{semester}</SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+
           </div>
 
           {filteredExams.length > 0 ? (

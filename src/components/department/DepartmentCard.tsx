@@ -75,7 +75,7 @@ export function DepartmentCard({ department, onUpdate }: DepartmentCardProps) {
             </h4>
             <div className="space-y-1">
               {department.semesters?.map((semester) => (
-                <div key={semester} className="text-sm px-2 py-1 bg-secondary rounded-md">
+                <div key={semester} className="text-sm px-2 py-1 bg-secondary rounded-md text-white">
                   {semester}
                 </div>
               ))}

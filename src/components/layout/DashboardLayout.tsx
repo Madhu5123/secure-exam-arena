@@ -50,8 +50,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     const adminItems = [
       ...commonItems,
       { title: "Manage Teachers", icon: Users, url: "/dashboard/teachers" },
+      { title: "Manage Exams", icon: FileText, url: "/dashboard/exams" },
       { title: "Departments", icon: Building, url: "/departments" },
-      { title: "Exams", icon: FileText, url: "/dashboard/exams" },
       // { title: "Settings", icon: Settings, url: "/dashboard/settings" },
     ];
     
