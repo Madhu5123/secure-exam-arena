@@ -1,18 +1,19 @@
 
 import { useState, useEffect, ChangeEvent } from 'react';
-import { getExamById, getExamSubmissions, getStudentWarnings } from '@/services/ExamService';
+import { getExamById, getExamSubmissions, getStudentWarnings, updateExamSubmission } from '@/services/ExamService';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Search, AlertTriangle, Camera, Clock, Timer } from 'lucide-react';
+import { Search, AlertTriangle, Camera, Clock, Timer, FileText, PenLine } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { ref, get } from 'firebase/database';
+import { ref, get, update } from 'firebase/database';
 import { db } from '@/config/firebase';
+import { useToast } from '@/hooks/use-toast';
 
 interface ExamMonitorProps {
   examId?: string;
@@ -36,6 +37,16 @@ interface Student {
     imageUrl: string;
   }>;
   status: 'completed' | 'in-progress' | 'not-started';
+  evaluated?: boolean;
+  pendingEvaluation?: boolean;
+}
+
+interface Question {
+  id: string;
+  text: string;
+  type: string;
+  points: number;
+  correctAnswer?: string;
 }
 
 export function ExamMonitor({ examId }: ExamMonitorProps) {
@@ -51,6 +62,13 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
     timestamp: string;
     imageUrl: string;
   }>>([]);
+  const [evaluationDialogOpen, setEvaluationDialogOpen] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState<number>(0);
+  const [shortAnswerQuestions, setShortAnswerQuestions] = useState<Question[]>([]);
+  const [shortAnswerResponses, setShortAnswerResponses] = useState<{[key: string]: string}>({});
+  const [scores, setScores] = useState<{[key: string]: number}>({});
+  const [hasShortAnswers, setHasShortAnswers] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchExamData = async () => {
@@ -71,6 +89,11 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
         }
         
         setExam(examResult.exam);
+        
+        // Check if exam has short answer questions
+        const shortAnswers = examResult.exam.questions.filter((q: any) => q.type === 'short-answer');
+        setHasShortAnswers(shortAnswers.length > 0);
+        setShortAnswerQuestions(shortAnswers);
         
         // Fetch submissions
         const submissionsResult = await getExamSubmissions(examId);
@@ -114,6 +137,15 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
               const timeTaken = submission.timeTaken || 
                 Math.round((endTime.getTime() - startTime.getTime()) / 60000); // in minutes
               
+              // Check if the submission needs evaluation (has short answers and not yet evaluated)
+              const pendingEvaluation = hasShortAnswers && 
+                submission.answers && 
+                Object.keys(submission.answers).some(key => {
+                  const question = examResult.exam.questions.find((q: any) => q.id === key);
+                  return question && question.type === 'short-answer';
+                }) && 
+                !submission.evaluated;
+              
               studentsData.push({
                 id: studentId,
                 name: studentProfile.name,
@@ -127,7 +159,9 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                 warningCount: submission.warningCount || 0,
                 warnings: submission.warnings || [],
                 status: 'completed',
-                timeTaken: timeTaken
+                timeTaken: timeTaken,
+                evaluated: submission.evaluated || false,
+                pendingEvaluation: pendingEvaluation
               });
             } else {
               // Student hasn't taken the exam
@@ -166,6 +200,131 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
     } else {
       setStudentWarnings([]);
       setWarningsDialogOpen(true);
+    }
+  };
+
+  const handleEvaluate = (student: Student) => {
+    setSelectedStudent(student);
+    
+    if (!student.answers) {
+      toast({
+        title: "No answers available",
+        description: "There are no answers to evaluate for this student.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Find all short answer questions and their responses
+    const questionsToEval: Question[] = [];
+    const responses: {[key: string]: string} = {};
+    const initialScores: {[key: string]: number} = {};
+    
+    if (exam && exam.questions) {
+      exam.questions.forEach((question: any) => {
+        if (question.type === 'short-answer' && student.answers && student.answers[question.id]) {
+          questionsToEval.push(question);
+          responses[question.id] = student.answers[question.id];
+          initialScores[question.id] = student.evaluated ? (student.scores?.[question.id] || 0) : 0;
+        }
+      });
+    }
+    
+    setShortAnswerQuestions(questionsToEval);
+    setShortAnswerResponses(responses);
+    setScores(initialScores);
+    setCurrentQuestion(0);
+    setEvaluationDialogOpen(true);
+  };
+
+  const handleScoreChange = (questionId: string, score: number) => {
+    setScores({
+      ...scores,
+      [questionId]: score
+    });
+  };
+
+  const handlePrevQuestion = () => {
+    if (currentQuestion > 0) {
+      setCurrentQuestion(currentQuestion - 1);
+    }
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestion < shortAnswerQuestions.length - 1) {
+      setCurrentQuestion(currentQuestion + 1);
+    }
+  };
+
+  const handleSubmitEvaluation = async () => {
+    if (!selectedStudent || !exam) return;
+    
+    try {
+      // Calculate total score
+      let totalScore = 0;
+      let totalMaxScore = 0;
+      
+      // Add scores from multiple choice questions (already evaluated)
+      if (exam.questions) {
+        exam.questions.forEach((question: any) => {
+          totalMaxScore += question.points || 0;
+          
+          // For multiple choice questions, use the previously calculated score
+          if (question.type === 'multiple-choice' && selectedStudent.answers && selectedStudent.answers[question.id]) {
+            const answer = selectedStudent.answers[question.id];
+            if (answer === question.correctAnswer) {
+              totalScore += question.points || 0;
+            }
+          }
+          
+          // For short answer questions, use the teacher's evaluation
+          if (question.type === 'short-answer' && scores[question.id] !== undefined) {
+            totalScore += scores[question.id];
+          }
+        });
+      }
+      
+      // Calculate percentage
+      const percentage = Math.round((totalScore / totalMaxScore) * 100);
+      
+      // Update submission in database
+      const submissionRef = ref(db, `submissions/${examId}/${selectedStudent.id}`);
+      await update(submissionRef, {
+        score: totalScore,
+        maxScore: totalMaxScore,
+        percentage,
+        evaluated: true,
+        scores: scores
+      });
+      
+      // Update local state
+      setStudents(students.map(student => {
+        if (student.id === selectedStudent.id) {
+          return {
+            ...student,
+            score: totalScore,
+            maxScore: totalMaxScore,
+            percentage,
+            evaluated: true,
+            pendingEvaluation: false
+          };
+        }
+        return student;
+      }));
+      
+      toast({
+        title: "Evaluation submitted",
+        description: `Successfully evaluated ${selectedStudent.name}'s answers.`,
+      });
+      
+      setEvaluationDialogOpen(false);
+    } catch (error) {
+      console.error("Error submitting evaluation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit evaluation. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -261,6 +420,11 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
               <CardTitle>Student Results</CardTitle>
               <CardDescription>
                 {students.length} students assigned • {students.filter(s => s.status === 'completed').length} completed
+                {hasShortAnswers && (
+                  <span className="ml-2 text-amber-600 font-medium">
+                    • {students.filter(s => s.pendingEvaluation).length} pending evaluation
+                  </span>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -305,13 +469,23 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                                student.status === 'in-progress' ? 'In Progress' :
                                'Not Started'}
                             </Badge>
+                            {student.pendingEvaluation && (
+                              <Badge className="ml-2 bg-amber-100 text-amber-800">
+                                Needs Evaluation
+                              </Badge>
+                            )}
                           </td>
                           <td className="text-center py-3 px-4">
-                            {student.status === 'completed' ? 
-                              `${student.score}/${student.maxScore}` : '-'}
+                            {student.status === 'completed' ? (
+                              hasShortAnswers && !student.evaluated ? (
+                                <span className="text-amber-600">Pending Evaluation</span>
+                              ) : (
+                                `${student.score}/${student.maxScore}`
+                              )
+                            ) : '-'}
                           </td>
                           <td className="text-center py-3 px-4">
-                            {student.status === 'completed' ? 
+                            {student.status === 'completed' && student.evaluated ? 
                               <span className={`font-medium ${
                                 (student.percentage || 0) >= 70 ? 'text-green-600' : 
                                 (student.percentage || 0) >= 40 ? 'text-yellow-600' : 
@@ -336,17 +510,32 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                               </span> : '-'}
                           </td>
                           <td className="text-center py-3 px-4">
-                            {student.status === 'completed' && (student.warningCount || 0) > 0 && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleViewWarnings(student)}
-                                className="flex items-center gap-1"
-                              >
-                                <AlertTriangle className="h-4 w-4" />
-                                View
-                              </Button>
-                            )}
+                            <div className="flex items-center justify-center gap-2">
+                              {student.status === 'completed' && (student.warningCount || 0) > 0 && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => handleViewWarnings(student)}
+                                  className="flex items-center gap-1"
+                                >
+                                  <AlertTriangle className="h-4 w-4" />
+                                  View
+                                </Button>
+                              )}
+                              {student.status === 'completed' && hasShortAnswers && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => handleEvaluate(student)}
+                                  className={`flex items-center gap-1 ${
+                                    student.pendingEvaluation ? 'border-amber-500 text-amber-600 hover:bg-amber-50' : ''
+                                  }`}
+                                >
+                                  <PenLine className="h-4 w-4" />
+                                  {student.evaluated ? "Review" : "Evaluate"}
+                                </Button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -385,14 +574,14 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                 <div className="bg-muted/30 p-4 rounded-md">
                   <h3 className="text-lg font-medium mb-2">Average Score</h3>
                   <p className="text-3xl font-bold">
-                    {students.filter(s => s.status === 'completed').length > 0
-                      ? Math.round(students.filter(s => s.status === 'completed')
+                    {students.filter(s => s.status === 'completed' && s.evaluated).length > 0
+                      ? Math.round(students.filter(s => s.status === 'completed' && s.evaluated)
                           .reduce((sum, s) => sum + (s.percentage || 0), 0) / 
-                          students.filter(s => s.status === 'completed').length)
+                          students.filter(s => s.status === 'completed' && s.evaluated).length)
                       : 0}%
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {students.filter(s => s.percentage && s.percentage >= 40).length} passing students
+                    {students.filter(s => s.percentage && s.percentage >= 40 && s.evaluated).length} passing students
                   </p>
                 </div>
                 
@@ -467,6 +656,122 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
               </p>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Evaluation Dialog */}
+      <Dialog open={evaluationDialogOpen} onOpenChange={setEvaluationDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PenLine className="h-5 w-5 text-primary" />
+              Evaluate Short Answers for {selectedStudent?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Question {currentQuestion + 1} of {shortAnswerQuestions.length}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {shortAnswerQuestions.length > 0 && currentQuestion < shortAnswerQuestions.length ? (
+            <div className="space-y-6 mt-4">
+              <Card className="border border-muted">
+                <CardHeader className="bg-muted/20">
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-lg">Question {currentQuestion + 1}</CardTitle>
+                    <Badge>
+                      {shortAnswerQuestions[currentQuestion].points} {
+                        shortAnswerQuestions[currentQuestion].points === 1 ? 'point' : 'points'
+                      }
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <p className="text-lg font-medium">{shortAnswerQuestions[currentQuestion].text}</p>
+                  
+                  <div className="mt-6">
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Student's Answer:</p>
+                    <div className="bg-muted/20 p-4 rounded-md min-h-[100px]">
+                      {shortAnswerResponses[shortAnswerQuestions[currentQuestion].id] || 
+                        <span className="text-muted-foreground italic">No answer provided</span>
+                      }
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6">
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Expected Answer:</p>
+                    <div className="bg-green-50 p-4 rounded-md border border-green-100">
+                      {shortAnswerQuestions[currentQuestion].correctAnswer || 
+                        <span className="text-muted-foreground italic">No model answer provided</span>
+                      }
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6">
+                    <Label htmlFor="score" className="flex justify-between">
+                      <span>Score for this answer</span>
+                      <span className="text-primary font-medium">
+                        {scores[shortAnswerQuestions[currentQuestion].id] || 0} / {shortAnswerQuestions[currentQuestion].points}
+                      </span>
+                    </Label>
+                    <Input
+                      id="score"
+                      type="range"
+                      min="0"
+                      max={shortAnswerQuestions[currentQuestion].points}
+                      step="1"
+                      value={scores[shortAnswerQuestions[currentQuestion].id] || 0}
+                      onChange={(e) => handleScoreChange(
+                        shortAnswerQuestions[currentQuestion].id,
+                        parseInt(e.target.value)
+                      )}
+                      className="mt-2"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>0</span>
+                      <span>{shortAnswerQuestions[currentQuestion].points}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <div className="flex justify-between items-center">
+                <Button 
+                  variant="outline" 
+                  onClick={handlePrevQuestion}
+                  disabled={currentQuestion === 0}
+                >
+                  Previous Question
+                </Button>
+                
+                {currentQuestion < shortAnswerQuestions.length - 1 ? (
+                  <Button onClick={handleNextQuestion}>
+                    Next Question
+                  </Button>
+                ) : (
+                  <Button onClick={handleSubmitEvaluation}>
+                    Submit Evaluation
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8">
+              <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
+              <p className="text-lg font-semibold">No short answer questions</p>
+              <p className="text-sm text-muted-foreground">
+                This exam doesn't have any short answer questions to evaluate.
+              </p>
+            </div>
+          )}
+          
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setEvaluationDialogOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={handleSubmitEvaluation}>
+              Submit Evaluation
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
