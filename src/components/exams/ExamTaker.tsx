@@ -470,7 +470,8 @@ useEffect(() => {
   };
 }, [cameraStream]);
 
-  
+
+
   useEffect(() => {
     if (exam && warningCount >= exam.warningsThreshold) {
       toast({
@@ -669,6 +670,30 @@ useEffect(() => {
     handleConfirmSubmit();
   };
 
+  useEffect(() => {
+    const preventCopyPaste = (event: ClipboardEvent) => {
+      event.preventDefault();
+      toast({
+        title: "Action blocked",
+        description: "Copying, cutting, and pasting are not allowed during the exam.",
+        variant: "destructive",
+      });
+    };
+  
+    // Add event listeners for copy, cut, and paste
+    document.addEventListener('copy', preventCopyPaste);
+    document.addEventListener('cut', preventCopyPaste);
+    document.addEventListener('paste', preventCopyPaste);
+  
+    // Cleanup event listeners when component unmounts
+    return () => {
+      document.removeEventListener('copy', preventCopyPaste);
+      document.removeEventListener('cut', preventCopyPaste);
+      document.removeEventListener('paste', preventCopyPaste);
+    };
+  }, []);
+
+  
   const handleFinishReview = () => {
     navigate("/dashboard");
   };

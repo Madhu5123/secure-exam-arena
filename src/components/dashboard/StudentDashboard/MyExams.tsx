@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { getExamsForStudent } from "@/services/ExamService";
+import { get, ref } from "firebase/database";
+import { db } from "@/config/firebase"; 
 
 interface MyExamsProps {
   studentId: string;
@@ -19,6 +21,7 @@ export function MyExams({ studentId }: MyExamsProps) {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [teachers, setTeachers] = useState<{ [key: string]: string }>({}); 
 
   useEffect(() => {
     const fetchExams = async () => {
@@ -43,6 +46,35 @@ export function MyExams({ studentId }: MyExamsProps) {
     });
     navigate(`/exam/take/${examId}`);
   };
+
+  const fetchTeacherName = async (teacherId: string) => {
+    const userRef = ref(db, `users/${teacherId}`);
+    const snapshot = await get(userRef);
+    if (snapshot.exists()) {
+      const userData = snapshot.val();
+      return userData.name; // Return teacher's name
+    }
+    return "Not specified";
+  };
+
+  useEffect(() => {
+    const fetchTeachers = async () => {
+      const newTeachers: { [key: string]: string } = {};
+
+      for (const exam of exams) {
+        if (exam.createdBy && !newTeachers[exam.createdBy]) {
+          const teacherName = await fetchTeacherName(exam.createdBy);
+          newTeachers[exam.createdBy] = teacherName;
+        }
+      }
+
+      setTeachers(newTeachers); // Update state with teacher names
+    };
+
+    if (exams.length > 0) {
+      fetchTeachers();
+    }
+  }, [exams]);
 
   // Filter exams by status
   const upcomingExams = exams.filter(e => e.status === "scheduled");
@@ -87,6 +119,7 @@ export function MyExams({ studentId }: MyExamsProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {availableExams.map((exam) => {
             const stDate = new Date(exam.startDate);
+            const teacherName = teachers[exam.createdBy] || "Not specified";
             return (
               <Card key={exam.id} className="overflow-hidden hover:shadow-md transition-all">
                 <CardHeader className="pb-2">
@@ -109,7 +142,7 @@ export function MyExams({ studentId }: MyExamsProps) {
                       <span className="font-medium">Duration:</span> {exam.duration} minutes
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">Teacher:</span> {exam.createdBy || "Not specified"}
+                      <span className="font-medium">Teacher:</span> {teacherName || "Not specified"}
                     </div>
                   </div>
                 </CardContent>
