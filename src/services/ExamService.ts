@@ -1,3 +1,4 @@
+
 import { ref, set, get, push, query, orderByChild, equalTo, remove } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
@@ -769,8 +770,27 @@ export const updateExamSubmission = async (
       };
     }
     
-    // Get the current submission data with proper type assertion
-    const currentSubmission = snapshot.val() as Submission;
+    // Get the current submission data and ensure it's properly typed
+    const submissionData = snapshot.val();
+    // Initialize with default empty values for the properties that might be missing
+    const currentSubmission: Submission = {
+      examId: submissionData.examId || examId,
+      studentId: submissionData.studentId || studentId,
+      studentName: submissionData.studentName || '',
+      studentPhoto: submissionData.studentPhoto || '',
+      answers: submissionData.answers || {},
+      startTime: submissionData.startTime || '',
+      endTime: submissionData.endTime || '',
+      score: submissionData.score || 0,
+      maxScore: submissionData.maxScore || 0,
+      warningCount: submissionData.warningCount || 0,
+      percentage: submissionData.percentage,
+      timeTaken: submissionData.timeTaken,
+      needsEvaluation: submissionData.needsEvaluation || false,
+      evaluationComplete: submissionData.evaluationComplete || false,
+      warnings: submissionData.warnings || [],
+      sectionScores: submissionData.sectionScores || []
+    };
     
     // Update the submission with the new data
     const updatedSubmission = {
@@ -779,7 +799,7 @@ export const updateExamSubmission = async (
       // Safely update needsEvaluation based on evaluationComplete
       needsEvaluation: updateData.evaluationComplete === true 
         ? false 
-        : (currentSubmission.needsEvaluation ?? false)
+        : currentSubmission.needsEvaluation
     };
     
     // Update the submission in the database
