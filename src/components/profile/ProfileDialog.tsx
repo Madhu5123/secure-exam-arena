@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Camera, User, KeyRound } from "lucide-react";
 import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
 import { updateUserProfile, getCurrentUser, resetPassword } from "@/services/AuthService";
+import {  getFullCurrentUser } from "@/services/Fulldata";
 
 interface ProfileData {
   name: string;
@@ -55,7 +56,7 @@ export function ProfileDialog() {
 
   const loadUser = async () => {
     try {
-      const currentUser = await getCurrentUser();
+      const currentUser = await getFullCurrentUser();
       if (currentUser) {
         setUser(currentUser);
         setFormData({
@@ -234,8 +235,8 @@ export function ProfileDialog() {
                   id="department"
                   placeholder="Enter department"
                   value={formData.department}
-                  onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
-                  disabled={loading}
+                  readOnly
+                  disabled                  
                 />
               </div>
               <div className="space-y-2">

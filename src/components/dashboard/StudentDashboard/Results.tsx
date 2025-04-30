@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Eye, Check, X, Clock, AlertTriangle } from "lucide-react";
+import stringSimilarity from "string-similarity";
 import { 
   Table,
   TableBody,
@@ -188,85 +189,129 @@ export function Results({ studentId }: ResultsProps) {
             </Card>
           </div>
           
-          <ScrollArea className="border rounded-lg p-4 mb-2 h-[350px]">
-            <h3 className="font-medium mb-4">Your Answers</h3>
-            <div className="space-y-4">
-              {selectedExam?.answers && Object.entries(selectedExam.answers).map(([questionId, answer]: [string, any], index) => {
-                // Find question data using questionId
-                const question = selectedExam._questions && selectedExam._questions.find((q: any) => q.id === questionId);
-                const studentAnswer = answer; // Store the student's answer
-                
-                return (
-                  <Card key={questionId} className="overflow-hidden">
-                    <CardHeader className="bg-muted/40 py-3">
-                      <CardTitle className="text-sm font-medium flex justify-between">
-                        <span>Question {index + 1}</span>
-                        <Badge variant={studentAnswer === (question?.correctAnswer || '') ? "default" : "destructive"}>
-                          {studentAnswer === (question?.correctAnswer || '') ? "Correct" : "Incorrect"}
-                        </Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="py-3">
-                      <div className="space-y-2">
-                      {question ? (
-                          <>
-                            <p className="text-sm font-medium">{question.text}</p>
-                            {question.options && (
-                              <div className="ml-2 mt-2 space-y-1">
-                                {question.options.map((option: string, i: number) => {
-                                  const studentAnswerIndex = Number(studentAnswer); // Make sure it's a number
-                                  const correctAnswerIndex = Number(question.correctAnswer); // Also a number
+          
 
-                                  const isStudentAnswer = i === studentAnswerIndex;
-                                  const isCorrectAnswer = i === correctAnswerIndex;
+<ScrollArea className="border rounded-lg p-4 mb-2 h-[350px]">
+  <h3 className="font-medium mb-4">Your Answers</h3>
+  <div className="space-y-4">
+    {selectedExam?.answers &&
+      Object.entries(selectedExam.answers).map(([questionId, answer]: [string, any], index) => {
+        const question =
+          selectedExam._questions &&
+          selectedExam._questions.find((q: any) => q.id === questionId);
+        const studentAnswer = answer;
 
-                                  return (
-                                    <div 
-                                      key={i} 
-                                      className={`flex items-center text-sm p-1 px-2 rounded-md 
-                                        ${isStudentAnswer ? 'bg-white' : ''}`}
-                                    >
-                                      <div 
-                                        className={`w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2 border
-                                          ${isStudentAnswer && isCorrectAnswer ? 'bg-green-500 border-green-500 text-white' : 
-                                          isStudentAnswer ? 'bg-destructive border-destructive text-white' : 
-                                          isCorrectAnswer ? 'bg-green-500 border-green-500 text-white' : 
-                                          'border-muted-foreground text-muted-foreground'}`}
-                                      >
-                                        {String.fromCharCode(65 + i)} {/* A, B, C, D */}
-                                      </div>
-                                      
-                                      <span className={`
-                                        ${isCorrectAnswer ? 'text-green-500' : ''}
-                                        ${isStudentAnswer && !isCorrectAnswer ? 'text-destructive' : ''}
-                                      `}>
-                                        {option}
-                                        {isStudentAnswer && ' (Your answer)'}
-                                        {isCorrectAnswer && !isStudentAnswer && ' (Correct answer)'}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
+        // Function to check if answer is correct
+        const isAnswerCorrect = (student: any, correct: any, isMCQ: boolean): boolean => {
+          if (isMCQ) {
+            return Number(student) === Number(correct);
+          }
+          const sim = stringSimilarity.compareTwoStrings(
+            String(student).trim().toLowerCase(),
+            String(correct).trim().toLowerCase()
+          );
+          return sim >= 0.8;
+        };
+
+        const isMCQ = !!question?.options;
+        const answerCorrect = isAnswerCorrect(studentAnswer, question?.correctAnswer || "", isMCQ);
+        const similarity = !isMCQ
+          ? stringSimilarity.compareTwoStrings(
+              String(studentAnswer).trim().toLowerCase(),
+              String(question?.correctAnswer || "").trim().toLowerCase()
+            )
+          : null;
+
+        return (
+          <Card key={questionId} className="overflow-hidden">
+            <CardHeader className="bg-muted/40 py-3">
+              <CardTitle className="text-sm font-medium flex justify-between">
+                <span>Question {index + 1}</span>
+                <Badge variant={answerCorrect ? "default" : "destructive"}>
+                  {answerCorrect ? "Correct" : "Incorrect"}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="py-3">
+              <div className="space-y-2">
+                {question ? (
+                  <>
+                    <p className="text-sm font-medium">{question.text}</p>
+
+                    {isMCQ ? (
+                      <div className="ml-2 mt-2 space-y-1">
+                        {question.options.map((option: string, i: number) => {
+                          const studentAnswerIndex = Number(studentAnswer);
+                          const correctAnswerIndex = Number(question.correctAnswer);
+
+                          const isStudentAnswer = i === studentAnswerIndex;
+                          const isCorrectAnswer = i === correctAnswerIndex;
+
+                          return (
+                            <div
+                              key={i}
+                              className={`flex items-center text-sm p-1 px-2 rounded-md ${
+                                isStudentAnswer ? "bg-white" : ""
+                              }`}
+                            >
+                              <div
+                                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2 border
+                                  ${
+                                    isStudentAnswer && isCorrectAnswer
+                                      ? "bg-green-500 border-green-500 text-white"
+                                      : isStudentAnswer
+                                      ? "bg-destructive border-destructive text-white"
+                                      : isCorrectAnswer
+                                      ? "bg-green-500 border-green-500 text-white"
+                                      : "border-muted-foreground text-muted-foreground"
+                                  }`}
+                              >
+                                {String.fromCharCode(65 + i)}
                               </div>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-muted-foreground italic">Question details not available</p>
-                            <div className="mt-2">
-                              <p className="text-sm font-medium">Your Answer:</p>
-                              <p className="text-sm">{studentAnswer}</p>
-                            </div>
-                          </>
-                        )}
 
+                              <span
+                                className={`${
+                                  isCorrectAnswer ? "text-green-500" : ""
+                                } ${isStudentAnswer && !isCorrectAnswer ? "text-destructive" : ""}`}
+                              >
+                                {option}
+                                {isStudentAnswer && " (Your answer)"}
+                                {isCorrectAnswer && !isStudentAnswer && " (Correct answer)"}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </ScrollArea>
+                    ) : (
+                      // Short answer
+                      <div className="mt-2">
+                        <p className="text-sm font-medium">Your Answer:</p>
+                        <p className="text-sm">{studentAnswer}</p>
+                        <p className="text-sm font-medium mt-2">Correct Answer:</p>
+                        <p className="text-sm">{question.correctAnswer}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Similarity Score: {(similarity! * 100).toFixed(1)}%
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="text-muted-foreground italic">Question details not available</p>
+                    <div className="mt-2">
+                      <p className="text-sm font-medium">Your Answer:</p>
+                      <p className="text-sm">{studentAnswer}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+  </div>
+</ScrollArea>
+
         </DialogContent>
       </Dialog>
     </div>
