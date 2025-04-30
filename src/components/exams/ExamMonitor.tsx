@@ -14,6 +14,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { ref, get } from 'firebase/database';
 import { db } from '@/config/firebase';
+import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+
 
 interface ExamMonitorProps {
   examId?: string;
@@ -320,8 +323,21 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
     );
   }
 
+
   return (
     <div className="container mx-auto py-8">
+      <div className="mb-6">
+  <Link
+    to="/dashboard/exams"
+    className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+  >
+    <div className="p-2 rounded-full bg-muted hover:bg-muted/60 transition-colors">
+      <ArrowLeft className="h-4 w-4" />
+    </div>
+    Back to Home
+  </Link>
+</div>
+
       <Card className="mb-8">
         <CardHeader>
           <div className="flex items-center justify-between">
