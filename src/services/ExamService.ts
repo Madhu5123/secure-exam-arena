@@ -770,8 +770,8 @@ export const updateExamSubmission = async (
       };
     }
     
-    // Get the current submission data and properly cast it to prevent TypeScript errors
-    const submissionData = snapshot.val() || {};
+    // Get the current submission data with explicit type
+    const submissionData: Record<string, any> = snapshot.val() || {};
     
     // Initialize with default values for the properties that might be missing
     const currentSubmission: Submission = {
@@ -787,8 +787,8 @@ export const updateExamSubmission = async (
       warningCount: submissionData.warningCount || 0,
       percentage: submissionData.percentage,
       timeTaken: submissionData.timeTaken,
-      needsEvaluation: Boolean(submissionData.needsEvaluation),
-      evaluationComplete: Boolean(submissionData.evaluationComplete),
+      needsEvaluation: submissionData.needsEvaluation !== undefined ? Boolean(submissionData.needsEvaluation) : false,
+      evaluationComplete: submissionData.evaluationComplete !== undefined ? Boolean(submissionData.evaluationComplete) : false,
       warnings: submissionData.warnings || [],
       sectionScores: submissionData.sectionScores || []
     };
