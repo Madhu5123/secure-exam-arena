@@ -775,7 +775,8 @@ export const updateExamSubmission = async (
     const updatedSubmission = {
       ...currentSubmission,
       ...updateData,
-      needsEvaluation: updateData.evaluationComplete ? false : currentSubmission.needsEvaluation
+      // Fix: Only access evaluationComplete if it exists in updateData (and provide a default for needsEvaluation)
+      needsEvaluation: updateData.evaluationComplete === true ? false : currentSubmission.needsEvaluation || false
     };
     
     // Update the submission in the database
