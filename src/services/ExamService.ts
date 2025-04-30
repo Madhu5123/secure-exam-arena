@@ -1,3 +1,4 @@
+
 import { ref, set, get, push, query, orderByChild, equalTo, remove } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
@@ -770,7 +771,7 @@ export const updateExamSubmission = async (
     }
     
     // Get the current submission data and properly cast it to prevent TypeScript errors
-    const submissionData: any = snapshot.val() || {};
+    const submissionData = snapshot.val() || {};
     
     // Initialize with default values for the properties that might be missing
     const currentSubmission: Submission = {
@@ -786,8 +787,8 @@ export const updateExamSubmission = async (
       warningCount: submissionData.warningCount || 0,
       percentage: submissionData.percentage,
       timeTaken: submissionData.timeTaken,
-      needsEvaluation: submissionData.needsEvaluation || false,
-      evaluationComplete: submissionData.evaluationComplete || false,
+      needsEvaluation: Boolean(submissionData.needsEvaluation),
+      evaluationComplete: Boolean(submissionData.evaluationComplete),
       warnings: submissionData.warnings || [],
       sectionScores: submissionData.sectionScores || []
     };
