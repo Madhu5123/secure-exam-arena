@@ -158,7 +158,7 @@ export function AdminDashboard({ section }: AdminDashboardProps) {
     // If section is specified, show only that section
     if (section === "teachers") {
       return renderTeachersSection();
-    } else if (section === "exams") {
+    } else if (section === "adminexams") {
       return renderExamsSection();
     }
     
