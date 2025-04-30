@@ -772,11 +772,15 @@ export const updateExamSubmission = async (
     const currentSubmission = snapshot.val();
     
     // Update the submission with the new data
+    // Explicitly check if evaluationComplete exists in updateData and provide default for needsEvaluation
     const updatedSubmission = {
       ...currentSubmission,
       ...updateData,
-      // Fix: Only access evaluationComplete if it exists in updateData (and provide a default for needsEvaluation)
-      needsEvaluation: updateData.evaluationComplete === true ? false : currentSubmission.needsEvaluation || false
+      needsEvaluation: updateData.evaluationComplete === true 
+        ? false 
+        : (currentSubmission.needsEvaluation !== undefined 
+            ? currentSubmission.needsEvaluation 
+            : false)
     };
     
     // Update the submission in the database
