@@ -57,17 +57,17 @@ const Index = () => {
   const testimonials = [
     {
       text: "This platform revolutionized how we conduct exams. The AI proctoring is fantastic!",
-      author: "Dr. Sarah Johnson",
+      author: "Tejas R",
       role: "Professor of Computer Science"
     },
     {
       text: "The interface is intuitive, and the real-time monitoring features are exceptional.",
-      author: "Mark Wilson",
+      author: "Pawan Wadeyar",
       role: "Department Head"
     },
     {
       text: "As a student, I love how smooth and stress-free the exam experience is.",
-      author: "Emily Chen",
+      author: "Mahesh",
       role: "Student"
     }
   ];
@@ -305,17 +305,16 @@ const Index = () => {
                     <div className="space-y-4">
                       <div className="flex items-center gap-3">
                         <Mail className="h-5 w-5 text-primary" />
-                        <span>support@secureexam.com</span>
+                        <span>examportal@gmail.com</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <Phone className="h-5 w-5 text-primary" />
-                        <span>+1 (555) 123-4567</span>
+                        <span>6360991933</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <MapPin className="h-5 w-5 text-primary" />
                         <address className="not-italic">
-                          123 Education Ave, Suite 500<br />
-                          San Francisco, CA 94107
+                          Bangalore
                         </address>
                       </div>
                     </div>
