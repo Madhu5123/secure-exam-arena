@@ -44,8 +44,6 @@ interface Submission {
   warningCount: number;
   percentage?: number;
   timeTaken?: number;
-  needsEvaluation?: boolean;
-  evaluationComplete?: boolean;
   warnings?: Array<{
     type: string;
     timestamp: string;
@@ -154,18 +152,9 @@ export const submitExam = async (
     let score = 0;
     let maxScore = 0;
     
-    // Check if there are any short answer questions
-    const hasShortAnswerQuestions = exam.questions.some(question => question.type === "short-answer");
-    
-    // If we have short answer questions, mark the submission as needing evaluation
-    const needsEvaluation = hasShortAnswerQuestions;
-    
-    // Calculate scores only for multiple choice and true/false questions
     exam.questions.forEach(question => {
       maxScore += question.points;
-      
-      // Only automatically score non-short-answer questions
-      if (question.type !== "short-answer" && answers[question.id] === question.correctAnswer) {
+      if (answers[question.id] === question.correctAnswer) {
         score += question.points;
       }
     });
@@ -183,9 +172,7 @@ export const submitExam = async (
       maxScore,
       warningCount,
       warnings,
-      percentage: needsEvaluation ? null : (maxScore > 0 ? Math.round((score / maxScore) * 100) : 0),
-      needsEvaluation,
-      evaluationComplete: !needsEvaluation
+      percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
     };
     
     await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
@@ -372,21 +359,12 @@ export const getStudentResults = async (studentId: string) => {
       .filter(exam => exam.status === "completed")
       .map(exam => {
         const submissionData = exam.submissions?.[studentId] || {};
-        
-        // Check if this exam needs evaluation
-        const hasShortAnswerQuestions = exam.questions && 
-          exam.questions.some((q: Question) => q.type === "short-answer");
-        
-        const needsEvaluation = hasShortAnswerQuestions && 
-          (!submissionData.evaluationComplete || submissionData.needsEvaluation);
-        
         return {
           examId: exam.id,
           examTitle: exam.title,
           examSubject: exam.subject,
           examDate: exam.startDate,
           _questions: exam.questions,
-          needsEvaluation,
           ...submissionData
         };
       });
@@ -734,86 +712,6 @@ export const getExamWarnings = async (examId: string, studentId: string) => {
     return {
       success: false,
       error: "Failed to fetch warnings",
-    };
-  }
-};
-
-export const updateExamSubmission = async (
-  examId: string,
-  studentId: string,
-  updateData: { 
-    score?: number; 
-    maxScore?: number; 
-    percentage?: number; 
-    evaluationComplete?: boolean;
-    shortAnswerScores?: Record<string, number>;
-  }
-) => {
-  try {
-    const role = await checkUserRole();
-    if (role !== "teacher" && role !== "admin") {
-      return {
-        success: false,
-        error: "Only teachers and admins can update submissions",
-      };
-    }
-    
-    // Get the current submission data
-    const submissionRef = ref(db, `exams/${examId}/submissions/${studentId}`);
-    const snapshot = await get(submissionRef);
-    
-    if (!snapshot.exists()) {
-      return {
-        success: false,
-        error: "Submission not found",
-      };
-    }
-    
-    // Get the current submission data with explicit type
-    const submissionData: Record<string, any> = snapshot.val() || {};
-    
-    // Initialize with default values for the properties that might be missing
-    const currentSubmission: Submission = {
-      examId: submissionData.examId || examId,
-      studentId: submissionData.studentId || studentId,
-      studentName: submissionData.studentName || '',
-      studentPhoto: submissionData.studentPhoto || '',
-      answers: submissionData.answers || {},
-      startTime: submissionData.startTime || '',
-      endTime: submissionData.endTime || '',
-      score: submissionData.score || 0,
-      maxScore: submissionData.maxScore || 0,
-      warningCount: submissionData.warningCount || 0,
-      percentage: submissionData.percentage || null,
-      timeTaken: submissionData.timeTaken || 0,
-      needsEvaluation: typeof submissionData.needsEvaluation === 'boolean' ? submissionData.needsEvaluation : false,
-      evaluationComplete: typeof submissionData.evaluationComplete === 'boolean' ? submissionData.evaluationComplete : false,
-      warnings: submissionData.warnings || [],
-      sectionScores: submissionData.sectionScores || []
-    };
-    
-    // Update the submission with the new data
-    const updatedSubmission: Submission = {
-      ...currentSubmission,
-      ...updateData,
-      // Safely update needsEvaluation based on evaluationComplete
-      needsEvaluation: updateData.evaluationComplete === true 
-        ? false 
-        : currentSubmission.needsEvaluation
-    };
-    
-    // Update the submission in the database
-    await set(submissionRef, updatedSubmission);
-    
-    return {
-      success: true,
-      submission: updatedSubmission,
-    };
-  } catch (error) {
-    console.error('Error updating exam submission:', error);
-    return {
-      success: false,
-      error: "Failed to update submission",
     };
   }
 };

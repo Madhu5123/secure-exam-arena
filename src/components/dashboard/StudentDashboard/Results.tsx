@@ -59,15 +59,6 @@ export function Results({ studentId }: ResultsProps) {
     return `${hours} hr${hours !== 1 ? 's' : ''} ${remainingMins} min${remainingMins !== 1 ? 's' : ''}`;
   };
 
-  // Helper function to check if exam needs evaluation
-  const needsEvaluation = (exam: any) => {
-    // Check if the exam has short answer questions and evaluation is not complete
-    return exam.needsEvaluation || 
-           (exam._questions && 
-            exam._questions.some((q: any) => q.type === "short-answer") && 
-            exam.evaluationComplete !== true);
-  };
-
   return (
     <div className="space-y-6">
       <div className="border rounded-lg overflow-hidden bg-card">
@@ -93,15 +84,9 @@ export function Results({ studentId }: ResultsProps) {
                   </TableCell>
                   <TableCell className="hidden md:table-cell">{result.examSubject}</TableCell>
                   <TableCell className="text-right">
-                    {needsEvaluation(result) ? (
-                      <Badge variant="outline" className="bg-amber-100 text-amber-800">
-                        Pending Evaluation
-                      </Badge>
-                    ) : (
-                      <Badge variant={result.percentage >= 40 ? "default" : "destructive"} className="font-medium">
-                        {result.percentage}%
-                      </Badge>
-                    )}
+                    <Badge variant={result.percentage >= 40 ? "default" : "destructive"} className="font-medium">
+                      {result.percentage}%
+                    </Badge>
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-right text-sm">
                     {formatDuration(result.startTime, result.endTime)}
@@ -149,19 +134,11 @@ export function Results({ studentId }: ResultsProps) {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center">
-                  {needsEvaluation(selectedExam) ? (
-                    <div className="text-2xl font-bold text-amber-500">
-                      Pending
-                    </div>
-                  ) : (
-                    <div className={`text-2xl font-bold ${selectedExam?.percentage >= 40 ? 'text-primary' : 'text-destructive'}`}>
-                      {selectedExam?.percentage}%
-                    </div>
-                  )}
+                  <div className={`text-2xl font-bold ${selectedExam?.percentage >= 40 ? 'text-primary' : 'text-destructive'}`}>
+                    {selectedExam?.percentage}%
+                  </div>
                   <div className="ml-auto">
-                    {needsEvaluation(selectedExam) ? (
-                      <Clock className="h-5 w-5 text-amber-500" />
-                    ) : selectedExam?.percentage >= 40 ? (
+                    {selectedExam?.percentage >= 40 ? (
                       <Check className="h-5 w-5 text-green-500" />
                     ) : (
                       <X className="h-5 w-5 text-destructive" />
@@ -169,9 +146,7 @@ export function Results({ studentId }: ResultsProps) {
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {needsEvaluation(selectedExam) ? 
-                    "Will be evaluated by teacher" : 
-                    `${selectedExam?.score}/${selectedExam?.maxScore} points`}
+                  {selectedExam?.score}/{selectedExam?.maxScore} points
                 </div>
               </CardContent>
             </Card>
@@ -226,15 +201,9 @@ export function Results({ studentId }: ResultsProps) {
                     <CardHeader className="bg-muted/40 py-3">
                       <CardTitle className="text-sm font-medium flex justify-between">
                         <span>Question {index + 1}</span>
-                        {question?.type === "short-answer" ? (
-                          <Badge variant="outline" className="bg-amber-100 text-amber-800">
-                            Pending Evaluation
-                          </Badge>
-                        ) : (
-                          <Badge variant={studentAnswer === (question?.correctAnswer || '') ? "default" : "destructive"}>
-                            {studentAnswer === (question?.correctAnswer || '') ? "Correct" : "Incorrect"}
-                          </Badge>
-                        )}
+                        <Badge variant={studentAnswer === (question?.correctAnswer || '') ? "default" : "destructive"}>
+                          {studentAnswer === (question?.correctAnswer || '') ? "Correct" : "Incorrect"}
+                        </Badge>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="py-3">
@@ -242,12 +211,7 @@ export function Results({ studentId }: ResultsProps) {
                       {question ? (
                           <>
                             <p className="text-sm font-medium">{question.text}</p>
-                            {question.type === "short-answer" ? (
-                              <div className="mt-2 p-3 bg-muted/30 rounded-md">
-                                <p className="text-sm italic mb-1 text-muted-foreground">Your answer:</p>
-                                <p className="text-sm">{studentAnswer}</p>
-                              </div>
-                            ) : question.options && (
+                            {question.options && (
                               <div className="ml-2 mt-2 space-y-1">
                                 {question.options.map((option: string, i: number) => {
                                   const studentAnswerIndex = Number(studentAnswer); // Make sure it's a number
@@ -295,6 +259,7 @@ export function Results({ studentId }: ResultsProps) {
                             </div>
                           </>
                         )}
+
                       </div>
                     </CardContent>
                   </Card>
