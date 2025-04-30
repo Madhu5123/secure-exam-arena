@@ -769,16 +769,17 @@ export const updateExamSubmission = async (
       };
     }
     
-    // Get the current submission and cast it to the Submission interface to help TypeScript
-    const currentSubmission = snapshot.val() as Partial<Submission>;
+    // Get the current submission data with proper type assertion
+    const currentSubmission = snapshot.val() as Submission;
     
     // Update the submission with the new data
     const updatedSubmission = {
       ...currentSubmission,
       ...updateData,
+      // Safely update needsEvaluation based on evaluationComplete
       needsEvaluation: updateData.evaluationComplete === true 
         ? false 
-        : (currentSubmission.needsEvaluation !== undefined ? currentSubmission.needsEvaluation : false)
+        : (currentSubmission.needsEvaluation ?? false)
     };
     
     // Update the submission in the database
