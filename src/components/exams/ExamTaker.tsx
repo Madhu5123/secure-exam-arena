@@ -15,6 +15,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { getExamById, submitExam, captureWarning } from "@/services/ExamService";
 import * as tf from '@tensorflow/tfjs';
 import * as blazeface from '@tensorflow-models/blazeface';
+import "@tensorflow/tfjs-backend-webgl";
 
 // Add type declarations for our custom window properties
 declare global {
@@ -236,224 +237,238 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [isInstructionsOpen, isSectionIntroOpen, toast, examComplete]);
 
+// Load BlazeFace model
+const loadFaceModel = async () => {
+  if (modelLoadingRef.current) return;
 
-  // Load BlazeFace model
-  const loadFaceModel = async () => {
-    if (modelLoadingRef.current) return; // Prevent multiple simultaneous loading attempts
-    
-    try {
-      console.log("🔄 Loading BlazeFace model...");
-      modelLoadingRef.current = true;
-      faceModelRef.current = await blazeface.load();
-      console.log("✅ BlazeFace model loaded successfully");
-      return faceModelRef.current;
-    } catch (error) {
-      console.error("❌ Error loading BlazeFace model:", error);
-      toast({
-        title: "Face Detection Error",
-        description: "Failed to initialize face detection. The exam will continue, but face monitoring may not work properly.",
-        variant: "destructive",
-      });
-      return null;
-    } finally {
-      modelLoadingRef.current = false;
-    }
-  };
+  try {
+    console.log("🔄 Loading BlazeFace model...");
+    modelLoadingRef.current = true;
+    faceModelRef.current = await blazeface.load();
+    console.log("✅ BlazeFace model loaded successfully");
+    return faceModelRef.current;
+  } catch (error) {
+    console.error("❌ Error loading BlazeFace model:", error);
+    toast({
+      title: "Face Detection Error",
+      description: "Failed to initialize face detection. The exam will continue, but face monitoring may not work properly.",
+      variant: "destructive",
+    });
+    return null;
+  } finally {
+    modelLoadingRef.current = false;
+  }
+};
 
-  // Detect faces using the model
-  const detectFaces = async () => {
-    if (!faceModelRef.current) {
-      await loadFaceModel();
-      if (!faceModelRef.current) return { count: 1 }; // Default to 1 to avoid false warnings
-    }
-    
-    if (!videoRef.current || !videoRef.current.srcObject || videoRef.current.readyState < 2) {
-      console.warn("Video element not ready for face detection");
-      return { count: 1 }; // Default to 1 to avoid false warnings
-    }
+// Detect faces using the model
+const detectFaces = async () => {
+  console.log("Detect face");
+  if (!faceModelRef.current) {
+    await loadFaceModel();
+    if (!faceModelRef.current) return { count: 1 };
+  }
 
-    try {
-      const predictions = await faceModelRef.current.estimateFaces(videoRef.current, false);
-      console.log(`Detected faces: ${predictions.length}`);
-      return { count: predictions.length };
-    } catch (error) {
-      console.error("BlazeFace detection error:", error);
-      return { count: 1, error: "Detection error" }; // fallback to avoid false positives
-    }
-  };
+  if (!videoRef.current || !videoRef.current.srcObject || videoRef.current.readyState < 2) {
+    console.warn("Video element not ready for face detection");
+    return { count: 1 };
+  }
 
-  // Start face detection interval
-  const startFaceDetection = () => {
-    if (faceDetectionIntervalRef.current) {
-      clearInterval(faceDetectionIntervalRef.current);
-    }
+  try {
+    const predictions = await faceModelRef.current.estimateFaces(videoRef.current, false);
+    console.log(`Detected faces: ${predictions.length}`);
+    return { count: predictions.length };
+  } catch (error) {
+    console.error("BlazeFace detection error:", error);
+    return { count: 1, error: "Detection error" };
+  }
+};
 
-    const interval = window.setInterval(async () => {
-      if (examComplete || isInstructionsOpen || isSectionIntroOpen || !videoRef.current || !videoRef.current.srcObject) return;
+// Start face detection interval
+const startFaceDetection = () => {
+  if (faceDetectionIntervalRef.current) {
+    clearInterval(faceDetectionIntervalRef.current);
+  }
 
-      const faceDetectionResult = await detectFaces();
-      const facesDetected = faceDetectionResult.count;
-      setFaceCount(facesDetected);
+  console.log("🚀 Starting face detection interval");
 
-      console.log(`Face detection check: ${facesDetected} faces`);
+  const interval = window.setInterval(async () => {
+    console.log("🔁 Face detection interval running");
 
-      if (facesDetected === 0 && !examComplete) {
-        setWarningCount(prev => prev + 1);
-        setShowWarning(true);
-        await handleCaptureWarningImage('No face detected');
-        toast({
-          title: "Warning",
-          description: "No face detected! Please ensure your face is visible.",
-          variant: "destructive",
-        });
-      } else if (facesDetected > 1 && !examComplete) {
-        setWarningCount(prev => prev + 1);
-        setShowWarning(true);
-        await handleCaptureWarningImage('Multiple faces detected');
-        toast({
-          title: "Warning",
-          description: "Multiple faces detected! Only you should be visible.",
-          variant: "destructive",
-        });
-      }
-    }, 5000); // every 5 seconds
+    console.log({
+      examComplete,
+      isInstructionsOpen,
+      isSectionIntroOpen,
+      videoAvailable: !!videoRef.current,
+      streamAvailable: !!videoRef.current?.srcObject
+    });
 
-    faceDetectionIntervalRef.current = interval;
-    setIsFaceDetectionActive(true);
-  };
-
-  // Initialize webcam with better error handling and logging
-  const initializeCamera = async () => {
-    try {
-      console.log("📷 Initializing camera...");
-      
-      // Clean up existing stream if any
-      if (cameraStream) {
-        console.log("🧹 Cleaning up existing camera stream");
-        cameraStream.getTracks().forEach(track => {
-          console.log(`Stopping ${track.kind} track`);
-          track.stop();
-        });
-        setCameraStream(null);
-      }
-
-      // Ensure video element is properly created and referenced before accessing it
-      if (!videoRef.current) {
-        console.error("❌ Video element reference not available - waiting for DOM update");
-        // Wait for the next render cycle to ensure the video element is available
-        setTimeout(initializeCamera, 100);
-        return;
-      }
-
-      if (videoRef.current && videoRef.current.srcObject) {
-        console.log("🧹 Cleaning up video element");
-        videoRef.current.srcObject = null;
-      }
-
-      const constraints = {
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: "user",
-          frameRate: { ideal: 10 }
-        },
-        audio: false
-      };
-
-      console.log("🎥 Requesting camera with constraints:", constraints);
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log("✅ Camera access granted");
-      
-      // Store stream in state for cleanup later
-      setCameraStream(stream);
-
-      // Double-check reference is still valid
-      if (!videoRef.current) {
-        console.error("❌ Video element reference lost after stream acquisition");
-        return;
-      }
-
-      console.log("📹 Assigning stream to video element");
-      videoRef.current.srcObject = stream;
-      videoRef.current.muted = true; // Ensure video is muted
-      
-      // Listen for errors
-      videoRef.current.onerror = (err) => {
-        console.error("❌ Video element error:", err);
-        setIsCameraError(true);
-      };
-
-      try {
-        console.log("▶️ Starting video playback");
-        await videoRef.current.play();
-        console.log("✅ Video playback started");
-        setCameraInitialized(true);
-        
-        // Load face detection model
-        await loadFaceModel();
-        
-        // Start checking if video is ready for detection
-        console.log("🔍 Setting up video readiness check");
-        checkVideoReady();
-      } catch (playError) {
-        console.error("❌ Error playing video:", playError);
-        setIsCameraError(true);
-        toast({
-          title: "Camera Error",
-          description: "Could not start camera playback. Please reload the page and try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("❌ Camera access error:", error);
-      setIsCameraError(true);
-      toast({
-        title: "Camera Required",
-        description: "Camera access is required for this exam. Please allow camera access and reload the page.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Check if video is ready for detection
-  const checkVideoReady = () => {
-    if (!videoRef.current) {
-      console.error("❌ Video reference lost during readiness check");
+    if (examComplete || isInstructionsOpen || isSectionIntroOpen || !videoRef.current || !videoRef.current.srcObject) {
+      console.log("⛔️ Skipping detection due to one or more blocking conditions.");
       return;
     }
 
-    const video = videoRef.current;
-    
-    if (video && video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
-      console.log(`✅ Video is ready (size: ${video.videoWidth}x${video.videoHeight}, state: ${video.readyState})`);
-      startFaceDetection();
-    } else {
-      console.log(`🔄 Video not ready yet (size: ${video.videoWidth}x${video.videoHeight}, state: ${video.readyState})`);
-      // Check again in 500ms
-      setTimeout(checkVideoReady, 500);
+    const faceDetectionResult = await detectFaces();
+    const facesDetected = faceDetectionResult.count;
+    setFaceCount(facesDetected);
+
+    console.log(`👤 Face detection check: ${facesDetected} face(s)`);
+
+    if (facesDetected === 0 && !examComplete) {
+      setWarningCount(prev => prev + 1);
+      setShowWarning(true);
+      await handleCaptureWarningImage('No face detected');
+      toast({
+        title: "Warning",
+        description: "No face detected! Please ensure your face is visible.",
+        variant: "destructive",
+      });
+    } else if (facesDetected > 1 && !examComplete) {
+      setWarningCount(prev => prev + 1);
+      setShowWarning(true);
+      await handleCaptureWarningImage('Multiple faces detected');
+      toast({
+        title: "Warning",
+        description: "Multiple faces detected! Only you should be visible.",
+        variant: "destructive",
+      });
+    }
+  }, 5000);
+
+  faceDetectionIntervalRef.current = interval;
+  console.log("✅ Face detection interval started");
+  setIsFaceDetectionActive(true);
+};
+
+// Initialize webcam with better error handling and logging
+const initializeCamera = async () => {
+  try {
+    console.log("📷 Initializing camera...");
+
+    if (cameraStream) {
+      console.log("🧹 Cleaning up existing camera stream");
+      cameraStream.getTracks().forEach(track => {
+        console.log(`Stopping ${track.kind} track`);
+        track.stop();
+      });
+      setCameraStream(null);
+    }
+
+    if (!videoRef.current) {
+      console.error("❌ Video element reference not available - waiting for DOM update");
+      setTimeout(initializeCamera, 100);
+      return;
+    }
+
+    if (videoRef.current && videoRef.current.srcObject) {
+      console.log("🧹 Cleaning up video element");
+      videoRef.current.srcObject = null;
+    }
+
+    const constraints = {
+      video: {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        facingMode: "user",
+        frameRate: { ideal: 10 }
+      },
+      audio: false
+    };
+
+    console.log("🎥 Requesting camera with constraints:", constraints);
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    console.log("✅ Camera access granted");
+    setCameraStream(stream);
+
+    if (!videoRef.current) {
+      console.error("❌ Video element reference lost after stream acquisition");
+      return;
+    }
+
+    console.log("📹 Assigning stream to video element");
+    videoRef.current.srcObject = stream;
+    videoRef.current.muted = true;
+
+    videoRef.current.onerror = (err) => {
+      console.error("❌ Video element error:", err);
+      setIsCameraError(true);
+    };
+
+    try {
+      console.log("▶️ Starting video playback");
+      await videoRef.current.play();
+      console.log("✅ Video playback started");
+      setCameraInitialized(true);
+
+      await loadFaceModel();
+
+      console.log("🔍 Setting up video readiness check");
+      checkVideoReady();
+    } catch (playError) {
+      console.error("❌ Error playing video:", playError);
+      setIsCameraError(true);
+      toast({
+        title: "Camera Error",
+        description: "Could not start camera playback. Please reload the page and try again.",
+        variant: "destructive",
+      });
+    }
+  } catch (error) {
+    console.error("❌ Camera access error:", error);
+    setIsCameraError(true);
+    toast({
+      title: "Camera Required",
+      description: "Camera access is required for this exam. Please allow camera access and reload the page.",
+      variant: "destructive",
+    });
+  }
+};
+
+// Check if video is ready for detection
+const checkVideoReady = () => {
+  if (!videoRef.current) {
+    console.error("❌ Video reference lost during readiness check");
+    return;
+  }
+
+  const video = videoRef.current;
+
+  if (video && video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
+    console.log(`✅ Video is ready (size: ${video.videoWidth}x${video.videoHeight}, state: ${video.readyState})`);
+    // Removed direct call to startFaceDetection() — now controlled via useEffect below
+  } else {
+    console.log(`🔄 Video not ready yet (size: ${video.videoWidth}x${video.videoHeight}, state: ${video.readyState})`);
+    setTimeout(checkVideoReady, 500);
+  }
+};
+
+// Start detection only when exam is running and modals are closed
+useEffect(() => {
+  if (!isInstructionsOpen && !isSectionIntroOpen && cameraInitialized && !examComplete) {
+    console.log("📸 All conditions met, starting face detection");
+    startFaceDetection();
+  }
+}, [isInstructionsOpen, isSectionIntroOpen, cameraInitialized, examComplete]);
+
+// Cleanup on component unmount
+useEffect(() => {
+  return () => {
+    console.log("🧹 Component unmounting, cleaning up resources");
+
+    if (cameraStream) {
+      console.log("Stopping camera stream tracks");
+      cameraStream.getTracks().forEach(track => {
+        console.log(`Stopping ${track.kind} track`);
+        track.stop();
+      });
+    }
+
+    if (faceDetectionIntervalRef.current) {
+      console.log("Clearing face detection interval");
+      clearInterval(faceDetectionIntervalRef.current);
+      faceDetectionIntervalRef.current = null;
     }
   };
-
-  // Cleanup on component unmount
-  useEffect(() => {
-    return () => {
-      console.log("🧹 Component unmounting, cleaning up resources");
-      
-      if (cameraStream) {
-        console.log("Stopping camera stream tracks");
-        cameraStream.getTracks().forEach(track => {
-          console.log(`Stopping ${track.kind} track`);
-          track.stop();
-        });
-      }
-
-      if (faceDetectionIntervalRef.current) {
-        console.log("Clearing face detection interval");
-        clearInterval(faceDetectionIntervalRef.current);
-        faceDetectionIntervalRef.current = null;
-      }
-    };
-  }, [cameraStream]);
+}, [cameraStream]);
 
   
   useEffect(() => {
@@ -967,7 +982,7 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
                     <video
                       ref={videoRef}
                       autoPlay
-                      playsInline
+                      // playsInline
                       muted
                       width="640"
                       height="480"
