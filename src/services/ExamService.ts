@@ -771,7 +771,8 @@ export const updateExamSubmission = async (
     
     // Get the current submission data and ensure it's properly typed
     const submissionData = snapshot.val();
-    // Initialize with default empty values for the properties that might be missing
+    
+    // Initialize with default values for the properties that might be missing
     const currentSubmission: Submission = {
       examId: submissionData.examId || examId,
       studentId: submissionData.studentId || studentId,
