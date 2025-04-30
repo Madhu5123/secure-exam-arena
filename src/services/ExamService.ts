@@ -771,16 +771,20 @@ export const updateExamSubmission = async (
     
     const currentSubmission = snapshot.val();
     
-    // Update the submission with the new data
-    // Explicitly check if evaluationComplete exists in updateData and provide default for needsEvaluation
-    const updatedSubmission = {
+    // Ensure currentSubmission has the required properties by providing defaults
+    // This is to prevent TypeScript errors when accessing properties
+    const typedCurrentSubmission = {
       ...currentSubmission,
+      needsEvaluation: currentSubmission.needsEvaluation !== undefined ? currentSubmission.needsEvaluation : false
+    };
+    
+    // Update the submission with the new data
+    const updatedSubmission = {
+      ...typedCurrentSubmission,
       ...updateData,
       needsEvaluation: updateData.evaluationComplete === true 
         ? false 
-        : (currentSubmission.needsEvaluation !== undefined 
-            ? currentSubmission.needsEvaluation 
-            : false)
+        : typedCurrentSubmission.needsEvaluation
     };
     
     // Update the submission in the database
