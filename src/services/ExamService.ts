@@ -1,4 +1,3 @@
-
 import { ref, set, get, push, query, orderByChild, equalTo, remove } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
@@ -785,10 +784,10 @@ export const updateExamSubmission = async (
       score: submissionData.score || 0,
       maxScore: submissionData.maxScore || 0,
       warningCount: submissionData.warningCount || 0,
-      percentage: submissionData.percentage,
-      timeTaken: submissionData.timeTaken,
-      needsEvaluation: submissionData.needsEvaluation !== undefined ? Boolean(submissionData.needsEvaluation) : false,
-      evaluationComplete: submissionData.evaluationComplete !== undefined ? Boolean(submissionData.evaluationComplete) : false,
+      percentage: submissionData.percentage || null,
+      timeTaken: submissionData.timeTaken || 0,
+      needsEvaluation: typeof submissionData.needsEvaluation === 'boolean' ? submissionData.needsEvaluation : false,
+      evaluationComplete: typeof submissionData.evaluationComplete === 'boolean' ? submissionData.evaluationComplete : false,
       warnings: submissionData.warnings || [],
       sectionScores: submissionData.sectionScores || []
     };
