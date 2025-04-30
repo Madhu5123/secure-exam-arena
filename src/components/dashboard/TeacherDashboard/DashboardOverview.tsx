@@ -52,9 +52,11 @@ export function DashboardOverview({
     fetchTopStudents();
   }, [selectedSubject, selectedSemester]);
 
-  const passRate = useMemo(() => 
-    totalAttended > 0 ? Math.round((studentsPassed / totalAttended) * 100) : 0,
-  [studentsPassed, totalAttended]);
+  // Fix passRate calculation to handle zero values properly
+  const passRate = useMemo(() => {
+    if (!totalAttended || totalAttended === 0) return 0;
+    return Math.round((studentsPassed / totalAttended) * 100);
+  }, [studentsPassed, totalAttended]);
 
   // New chart data for subject distribution
   const subjectDistributionData = useMemo(() => {
@@ -71,7 +73,7 @@ export function DashboardOverview({
           <div className="w-12 h-12 flex items-center justify-center rounded-full bg-[#f4f0fa] dark:bg-[#2d2d45] mb-2 shadow-inner">
             <Book size={28} strokeWidth={1.5} className="text-[#9b87f5]" />
           </div>
-          <div className="text-2xl font-semibold text-[#9b87f5]">{totalExams}</div>
+          <div className="text-2xl font-semibold text-[#9b87f5]">{totalExams || 0}</div>
           <div className="text-xs text-[#7E69AB] dark:text-[#b9a6eb] mt-1 tracking-wide text-center">
             {selectedSubject === "All" ? "Total Exams" : `${selectedSubject} Exams`}
           </div>
@@ -82,7 +84,7 @@ export function DashboardOverview({
           <div className="w-12 h-12 flex items-center justify-center rounded-full bg-[#e5fafd] dark:bg-[#25364d] mb-2 shadow-inner">
             <Calendar size={28} strokeWidth={1.5} className="text-[#33C3F0]" />
           </div>
-          <div className="text-2xl font-semibold text-[#33C3F0]">{totalAttended}</div>
+          <div className="text-2xl font-semibold text-[#33C3F0]">{totalAttended || 0}</div>
           <div className="text-xs text-[#6E59A5] dark:text-[#8e80c0] mt-1 tracking-wide text-center">Students Attended</div>
           <div className="mt-2 text-sm text-[#6E59A5] dark:text-[#8e80c0]">Active Participation</div>
         </Card>
@@ -93,7 +95,7 @@ export function DashboardOverview({
           </div>
           <div className="text-2xl font-semibold text-[#7E69AB]">{passRate}%</div>
           <div className="text-xs text-[#a497d7] mt-1 tracking-wide text-center">Pass Rate</div>
-          <div className="mt-2 text-sm text-[#7E69AB] dark:text-[#b9a6eb]">{studentsPassed} Students Passed</div>
+          <div className="mt-2 text-sm text-[#7E69AB] dark:text-[#b9a6eb]">{studentsPassed || 0} Students Passed</div>
         </Card>
       </div>
 
