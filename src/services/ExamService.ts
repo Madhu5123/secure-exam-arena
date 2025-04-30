@@ -769,8 +769,8 @@ export const updateExamSubmission = async (
       };
     }
     
-    // Get the current submission data and ensure it's properly typed
-    const submissionData = snapshot.val();
+    // Get the current submission data and properly cast it to prevent TypeScript errors
+    const submissionData: any = snapshot.val() || {};
     
     // Initialize with default values for the properties that might be missing
     const currentSubmission: Submission = {
