@@ -58,6 +58,7 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
   const faceDetectionIntervalRef = useRef<number | null>(null);
   const faceModelRef = useRef<blazeface.BlazeFaceModel | null>(null);
   const modelLoadingRef = useRef<boolean>(false);
+  const [cameraInitialized, setCameraInitialized] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchExam = async () => {
@@ -336,6 +337,14 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
         setCameraStream(null);
       }
 
+      // Ensure video element is properly created and referenced before accessing it
+      if (!videoRef.current) {
+        console.error("❌ Video element reference not available - waiting for DOM update");
+        // Wait for the next render cycle to ensure the video element is available
+        setTimeout(initializeCamera, 100);
+        return;
+      }
+
       if (videoRef.current && videoRef.current.srcObject) {
         console.log("🧹 Cleaning up video element");
         videoRef.current.srcObject = null;
@@ -358,39 +367,42 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
       // Store stream in state for cleanup later
       setCameraStream(stream);
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.muted = true; // Ensure video is muted
-        
-        // Listen for errors
-        videoRef.current.onerror = (err) => {
-          console.error("❌ Video element error:", err);
-          setIsCameraError(true);
-        };
+      // Double-check reference is still valid
+      if (!videoRef.current) {
+        console.error("❌ Video element reference lost after stream acquisition");
+        return;
+      }
 
-        try {
-          console.log("▶️ Starting video playback");
-          await videoRef.current.play();
-          console.log("✅ Video playback started");
-          
-          // Load face detection model
-          await loadFaceModel();
-          
-          // Start checking if video is ready for detection
-          console.log("🔍 Setting up video readiness check");
-          checkVideoReady();
-        } catch (playError) {
-          console.error("❌ Error playing video:", playError);
-          setIsCameraError(true);
-          toast({
-            title: "Camera Error",
-            description: "Could not start camera playback. Please reload the page and try again.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        console.error("❌ Video element reference not available");
+      console.log("📹 Assigning stream to video element");
+      videoRef.current.srcObject = stream;
+      videoRef.current.muted = true; // Ensure video is muted
+      
+      // Listen for errors
+      videoRef.current.onerror = (err) => {
+        console.error("❌ Video element error:", err);
         setIsCameraError(true);
+      };
+
+      try {
+        console.log("▶️ Starting video playback");
+        await videoRef.current.play();
+        console.log("✅ Video playback started");
+        setCameraInitialized(true);
+        
+        // Load face detection model
+        await loadFaceModel();
+        
+        // Start checking if video is ready for detection
+        console.log("🔍 Setting up video readiness check");
+        checkVideoReady();
+      } catch (playError) {
+        console.error("❌ Error playing video:", playError);
+        setIsCameraError(true);
+        toast({
+          title: "Camera Error",
+          description: "Could not start camera playback. Please reload the page and try again.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("❌ Camera access error:", error);
@@ -460,7 +472,6 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
   
   const handleStartExam = async () => {
     setStartTime(new Date());
-    await initializeCamera();
     
     try {
       await document.documentElement.requestFullscreen();
@@ -476,6 +487,11 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
     }
     
     setIsInstructionsOpen(false);
+    
+    // Initialize camera after state updates are applied and DOM is updated
+    setTimeout(() => {
+      initializeCamera();
+    }, 100);
     
     if (exam?.sections && exam.sections.length > 0) {
       setIsSectionIntroOpen(true);
@@ -953,7 +969,8 @@ const ExamTaker = ({ examId }: ExamTakerProps) => {
                       autoPlay
                       playsInline
                       muted
-                      style={{ width: '100%', height: 'auto' }}
+                      width="640"
+                      height="480"
                       className="w-full h-40 object-cover rounded-lg bg-gray-100"
                     />
                     {faceCount !== 1 && !isInstructionsOpen && !isSectionIntroOpen && (
