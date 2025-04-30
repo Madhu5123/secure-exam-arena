@@ -1,4 +1,4 @@
-import { ref, set, get, push, query, orderByChild, equalTo, remove, update } from 'firebase/database';
+import { ref, set, get, push, query, orderByChild, equalTo, remove } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
 import { uploadToCloudinary, dataURLtoFile } from '@/utils/CloudinaryUpload';
@@ -712,36 +712,6 @@ export const getExamWarnings = async (examId: string, studentId: string) => {
     return {
       success: false,
       error: "Failed to fetch warnings",
-    };
-  }
-};
-
-export const updateExamSubmission = async (
-  examId: string,
-  studentId: string,
-  submissionData: Partial<Submission>
-) => {
-  try {
-    const role = await checkUserRole();
-    if (role !== "teacher" && role !== "admin") {
-      return {
-        success: false,
-        error: "Only teachers and admins can update exam submissions",
-      };
-    }
-    
-    const submissionRef = ref(db, `exams/${examId}/submissions/${studentId}`);
-    await update(submissionRef, submissionData);
-    
-    return {
-      success: true,
-      message: "Submission updated successfully",
-    };
-  } catch (error) {
-    console.error('Error updating exam submission:', error);
-    return {
-      success: false,
-      error: "Failed to update exam submission",
     };
   }
 };
