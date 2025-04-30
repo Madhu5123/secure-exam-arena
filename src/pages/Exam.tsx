@@ -88,9 +88,6 @@ const Exam = ({ action: propAction }: ExamProps) => {
     }
   };
 
-  // Log the action and ID for debugging purposes
-  console.log("Exam component - action:", action, "id:", id);
-
   return renderComponent();
 };
 

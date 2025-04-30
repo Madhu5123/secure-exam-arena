@@ -715,3 +715,58 @@ export const getExamWarnings = async (examId: string, studentId: string) => {
     };
   }
 };
+
+export const updateExamSubmission = async (
+  examId: string,
+  studentId: string,
+  updateData: { 
+    score?: number; 
+    maxScore?: number; 
+    percentage?: number; 
+    evaluationComplete?: boolean;
+    shortAnswerScores?: Record<string, number>;
+  }
+) => {
+  try {
+    const role = await checkUserRole();
+    if (role !== "teacher" && role !== "admin") {
+      return {
+        success: false,
+        error: "Only teachers and admins can update submissions",
+      };
+    }
+    
+    // Get the current submission data
+    const submissionRef = ref(db, `exams/${examId}/submissions/${studentId}`);
+    const snapshot = await get(submissionRef);
+    
+    if (!snapshot.exists()) {
+      return {
+        success: false,
+        error: "Submission not found",
+      };
+    }
+    
+    const currentSubmission = snapshot.val();
+    
+    // Update the submission with the new data
+    const updatedSubmission = {
+      ...currentSubmission,
+      ...updateData,
+    };
+    
+    // Update the submission in the database
+    await set(submissionRef, updatedSubmission);
+    
+    return {
+      success: true,
+      submission: updatedSubmission,
+    };
+  } catch (error) {
+    console.error('Error updating exam submission:', error);
+    return {
+      success: false,
+      error: "Failed to update submission",
+    };
+  }
+};
