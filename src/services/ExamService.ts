@@ -29,7 +29,6 @@ export interface Exam {
   minScoreToPass: number;
   maxScore?: number;
   warningsThreshold: number;
-  hasShortAnswerQuestions?: boolean;
 }
 
 interface Submission {
@@ -55,8 +54,6 @@ interface Submission {
     score: number;
     maxScore: number;
   }[];
-  evaluationStatus?: "pending" | "completed";
-  shortAnswerScores?: Record<string, number>;
 }
 
 interface Question {
@@ -272,17 +269,11 @@ export const createExam = async (examData: Omit<Exam, "id">) => {
       };
     }
     
-    // Check if exam has short answer questions
-    const hasShortAnswerQuestions = examData.questions?.some(q => q.type === "short-answer") || false;
-    
-    await set(newExamRef, {
-      ...examData,
-      hasShortAnswerQuestions
-    });
+    await set(newExamRef, examData);
     
     return {
       success: true,
-      exam: { id: examId, ...examData, hasShortAnswerQuestions },
+      exam: { id: examId, ...examData },
     };
   } catch (error) {
     console.error('Error creating exam:', error);
@@ -517,91 +508,6 @@ export const getTopStudents = async (examId: string) => {
       success: false,
       error: "Failed to fetch top students",
       topStudents: []
-    };
-  }
-};
-
-/**
- * Update a student's exam submission with teacher evaluation scores for short answer questions
- */
-export const updateExamSubmission = async (
-  examId: string, 
-  studentId: string,
-  shortAnswerScores: Record<string, number>
-) => {
-  try {
-    const role = await checkUserRole();
-    if (role !== "teacher" && role !== "admin") {
-      return {
-        success: false,
-        error: "Only teachers and admins can evaluate submissions",
-      };
-    }
-    
-    // Get the current submission
-    const submissionRef = ref(db, `exams/${examId}/submissions/${studentId}`);
-    const snapshot = await get(submissionRef);
-    
-    if (!snapshot.exists()) {
-      return {
-        success: false,
-        error: "Submission not found",
-      };
-    }
-    
-    const submission = snapshot.val();
-    
-    // Get the exam to calculate the total score
-    const examResult = await getExamById(examId);
-    if (!examResult.success || !examResult.exam) {
-      return {
-        success: false,
-        error: "Exam not found",
-      };
-    }
-    
-    const exam = examResult.exam;
-    
-    // Calculate the updated score
-    let totalScore = 0;
-    let totalMaxScore = 0;
-    
-    if (exam.questions) {
-      exam.questions.forEach(question => {
-        totalMaxScore += question.points;
-        
-        if (question.type === "short-answer") {
-          // Use teacher-provided score for short answer questions
-          const questionScore = shortAnswerScores[question.id] || 0;
-          totalScore += questionScore;
-        } else if (submission.answers[question.id] === question.correctAnswer) {
-          // Auto-scored questions
-          totalScore += question.points;
-        }
-      });
-    }
-    
-    // Update the submission
-    const updatedSubmission = {
-      ...submission,
-      score: totalScore,
-      maxScore: totalMaxScore,
-      percentage: totalMaxScore > 0 ? Math.round((totalScore / totalMaxScore) * 100) : 0,
-      shortAnswerScores: shortAnswerScores,
-      evaluationStatus: "completed"
-    };
-    
-    await set(submissionRef, updatedSubmission);
-    
-    return {
-      success: true,
-      submission: updatedSubmission,
-    };
-  } catch (error) {
-    console.error("Error updating submission:", error);
-    return {
-      success: false,
-      error: "Failed to update submission",
     };
   }
 };
