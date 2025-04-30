@@ -1,6 +1,5 @@
-
 import { useState, useEffect, ChangeEvent } from 'react';
-import { getExamById, getExamSubmissions, getStudentWarnings, updateExamSubmission } from '@/services/ExamService';
+import { getExamById, getExamSubmissions, getStudentWarnings } from '@/services/ExamService';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -225,7 +224,8 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
         if (question.type === 'short-answer' && student.answers && student.answers[question.id]) {
           questionsToEval.push(question);
           responses[question.id] = student.answers[question.id];
-          initialScores[question.id] = student.evaluated ? (student.scores?.[question.id] || 0) : 0;
+          // Fix the property access error by using score property if available or defaulting to 0
+          initialScores[question.id] = student.evaluated ? (student.score ? student.score : 0) : 0;
         }
       });
     }
@@ -287,8 +287,8 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
       // Calculate percentage
       const percentage = Math.round((totalScore / totalMaxScore) * 100);
       
-      // Update submission in database
-      const submissionRef = ref(db, `submissions/${examId}/${selectedStudent.id}`);
+      // Update submission in database - fix the path to use proper collection
+      const submissionRef = ref(db, `exams/${examId}/submissions/${selectedStudent.id}`);
       await update(submissionRef, {
         score: totalScore,
         maxScore: totalMaxScore,
