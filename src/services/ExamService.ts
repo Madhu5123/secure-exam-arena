@@ -54,6 +54,8 @@ interface Submission {
     score: number;
     maxScore: number;
   }[];
+  evaluationComplete?: boolean;
+  needsEvaluation?: boolean;
 }
 
 interface Question {
@@ -66,6 +68,55 @@ interface Question {
   section?: string;
   timeLimit?: number;
 }
+
+/**
+ * Evaluates a short answer by comparing it to the correct answer using keyword matching
+ * @param studentAnswer The answer submitted by the student
+ * @param correctAnswer The correct answer provided by the teacher
+ * @param maxPoints Maximum points for the question
+ * @returns Calculated score based on keyword matching
+ */
+const evaluateShortAnswer = (studentAnswer: string, correctAnswer: string, maxPoints: number): number => {
+  if (!studentAnswer) return 0;
+  
+  // Normalize both answers (lowercase, remove punctuation)
+  const normalizeText = (text: string): string => {
+    return text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+  };
+  
+  const normalizedStudentAnswer = normalizeText(studentAnswer);
+  const normalizedCorrectAnswer = normalizeText(correctAnswer);
+  
+  // Get keywords from correct answer (words with 3 or more characters)
+  const correctKeywords = normalizedCorrectAnswer
+    .split(/\s+/)
+    .filter(word => word.length >= 3);
+  
+  if (correctKeywords.length === 0) return 0;
+  
+  // Count matching keywords in student answer
+  let matchCount = 0;
+  correctKeywords.forEach(keyword => {
+    if (normalizedStudentAnswer.includes(keyword)) {
+      matchCount++;
+    }
+  });
+  
+  // Calculate score based on percentage of keywords matched
+  const matchPercentage = matchCount / correctKeywords.length;
+  
+  // Score tiers:
+  // 80%+ keywords match = full points
+  // 60-79% keywords match = 75% of points
+  // 40-59% keywords match = 50% of points
+  // 20-39% keywords match = 25% of points
+  // Less than 20% = 0 points
+  if (matchPercentage >= 0.8) return maxPoints;
+  if (matchPercentage >= 0.6) return Math.round(maxPoints * 0.75);
+  if (matchPercentage >= 0.4) return Math.round(maxPoints * 0.5);
+  if (matchPercentage >= 0.2) return Math.round(maxPoints * 0.25);
+  return 0;
+};
 
 export const getExamsForTeacher = async (teacherId: string) => {
   try {
@@ -151,10 +202,21 @@ export const submitExam = async (
     
     let score = 0;
     let maxScore = 0;
+    let needsEvaluation = false;
     
     exam.questions.forEach(question => {
       maxScore += question.points;
-      if (answers[question.id] === question.correctAnswer) {
+      
+      if (question.type === "short-answer") {
+        // Short answer questions need manual evaluation initially
+        // but we'll do keyword matching for automatic scoring
+        needsEvaluation = true;
+        
+        if (question.correctAnswer && typeof question.correctAnswer === 'string' && answers[question.id]) {
+          score += evaluateShortAnswer(answers[question.id], question.correctAnswer, question.points);
+        }
+      } else if (answers[question.id] === question.correctAnswer) {
+        // For multiple choice and true/false questions
         score += question.points;
       }
     });
@@ -172,7 +234,9 @@ export const submitExam = async (
       maxScore,
       warningCount,
       warnings,
-      percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
+      percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0,
+      evaluationComplete: !needsEvaluation,
+      needsEvaluation
     };
     
     await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
@@ -589,6 +653,60 @@ export const captureWarning = async (
   } catch (error) {
     console.error("Error capturing warning image:", error);
     return null;
+  }
+};
+
+// Function to update exam submission (for teacher evaluation)
+export const updateExamSubmission = async (examId: string, studentId: string, submissionData: Partial<Submission>) => {
+  try {
+    const role = await checkUserRole();
+    if (role !== "teacher" && role !== "admin") {
+      return {
+        success: false,
+        error: "Only teachers and admins can update submissions",
+      };
+    }
+    
+    // Get the current submission
+    const submissionRef = ref(db, `exams/${examId}/submissions/${studentId}`);
+    const snapshot = await get(submissionRef);
+    
+    if (!snapshot.exists()) {
+      return {
+        success: false,
+        error: "Submission not found",
+      };
+    }
+    
+    // Initialize the current submission with default values for the properties we need
+    const currentSubmission = {
+      ...(snapshot.val() || {}),
+      evaluationComplete: false,
+      needsEvaluation: false
+    };
+    
+    // Update only the fields provided in submissionData
+    const updatedSubmission = {
+      ...currentSubmission,
+      ...submissionData,
+      // If a score is provided, recalculate the percentage
+      percentage: submissionData.score !== undefined ? 
+        Math.round((submissionData.score / currentSubmission.maxScore) * 100) : 
+        currentSubmission.percentage
+    };
+    
+    await set(submissionRef, updatedSubmission);
+    
+    return {
+      success: true,
+      submission: updatedSubmission,
+    };
+  } catch (error) {
+    console.error('Error updating submission:', error);
+    return {
+      success: false,
+      error: "Failed to update submission",
+    };
   }
 };
 

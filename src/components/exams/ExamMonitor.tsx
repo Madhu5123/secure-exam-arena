@@ -1,16 +1,17 @@
 
 import { useState, useEffect, ChangeEvent } from 'react';
-import { getExamById, getExamSubmissions, getStudentWarnings } from '@/services/ExamService';
+import { getExamById, getExamSubmissions, getStudentWarnings, updateExamSubmission } from '@/services/ExamService';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Search, AlertTriangle, Camera, Clock, Timer } from 'lucide-react';
+import { Search, AlertTriangle, Camera, Clock, Timer, CheckCircle, Edit } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { toast } from 'sonner';
 import { ref, get } from 'firebase/database';
 import { db } from '@/config/firebase';
 
@@ -36,6 +37,8 @@ interface Student {
     imageUrl: string;
   }>;
   status: 'completed' | 'in-progress' | 'not-started';
+  evaluationComplete?: boolean;
+  needsEvaluation?: boolean;
 }
 
 export function ExamMonitor({ examId }: ExamMonitorProps) {
@@ -46,11 +49,21 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [warningsDialogOpen, setWarningsDialogOpen] = useState(false);
+  const [evaluationDialogOpen, setEvaluationDialogOpen] = useState(false);
   const [studentWarnings, setStudentWarnings] = useState<Array<{
     type: string;
     timestamp: string;
     imageUrl: string;
   }>>([]);
+  const [shortAnswers, setShortAnswers] = useState<Array<{
+    questionId: string;
+    questionText: string;
+    studentAnswer: string;
+    correctAnswer: string;
+    points: number;
+    score: number;
+  }>>([]);
+  const [updatedScores, setUpdatedScores] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchExamData = async () => {
@@ -127,7 +140,9 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                 warningCount: submission.warningCount || 0,
                 warnings: submission.warnings || [],
                 status: 'completed',
-                timeTaken: timeTaken
+                timeTaken: timeTaken,
+                evaluationComplete: submission.evaluationComplete !== undefined ? submission.evaluationComplete : true,
+                needsEvaluation: submission.needsEvaluation !== undefined ? submission.needsEvaluation : false
               });
             } else {
               // Student hasn't taken the exam
@@ -166,6 +181,111 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
     } else {
       setStudentWarnings([]);
       setWarningsDialogOpen(true);
+    }
+  };
+  
+  const handleViewEvaluation = (student: Student) => {
+    if (!exam || !exam.questions || !student.answers) return;
+    
+    setSelectedStudent(student);
+    
+    // Find short answer questions that need evaluation
+    const shortAnswerQuestions = exam.questions.filter((q: any) => q.type === 'short-answer');
+    
+    if (shortAnswerQuestions.length === 0) {
+      toast.info("No short answer questions to evaluate");
+      return;
+    }
+    
+    // Prepare short answers for evaluation
+    const shortAnswersData = shortAnswerQuestions.map((question: any) => {
+      const studentAnswer = student.answers?.[question.id] || '';
+      
+      return {
+        questionId: question.id,
+        questionText: question.text,
+        studentAnswer: studentAnswer,
+        correctAnswer: question.correctAnswer || '',
+        points: question.points || 0,
+        score: 0 // Will be updated by teacher
+      };
+    });
+    
+    // Initialize scores with current values
+    const initialScores: Record<string, number> = {};
+    shortAnswersData.forEach(qa => {
+      initialScores[qa.questionId] = qa.score;
+    });
+    
+    setShortAnswers(shortAnswersData);
+    setUpdatedScores(initialScores);
+    setEvaluationDialogOpen(true);
+  };
+  
+  const handleScoreChange = (questionId: string, score: number, maxPoints: number) => {
+    // Ensure score is within valid range
+    const validScore = Math.min(Math.max(0, score), maxPoints);
+    setUpdatedScores(prev => ({
+      ...prev,
+      [questionId]: validScore
+    }));
+  };
+  
+  const handleSaveEvaluation = async () => {
+    if (!selectedStudent || !examId) return;
+    
+    try {
+      // Calculate the total score including the updated short answer scores
+      let totalScore = 0;
+      let shortAnswerScore = 0;
+      
+      // Calculate score from short answers
+      shortAnswers.forEach(sa => {
+        shortAnswerScore += updatedScores[sa.questionId] || 0;
+      });
+      
+      // Calculate score from other question types (multiple choice, true/false)
+      const otherQuestions = exam.questions.filter((q: any) => q.type !== 'short-answer');
+      otherQuestions.forEach((question: any) => {
+        if (selectedStudent.answers?.[question.id] === question.correctAnswer) {
+          totalScore += question.points;
+        }
+      });
+      
+      // Add the short answer score to the total
+      totalScore += shortAnswerScore;
+      
+      // Update the submission
+      const result = await updateExamSubmission(examId, selectedStudent.id, {
+        score: totalScore,
+        evaluationComplete: true,
+        needsEvaluation: false
+      });
+      
+      if (result.success) {
+        toast.success("Evaluation saved successfully");
+        
+        // Update the local students array with the new score and evaluation status
+        setStudents(prev => prev.map(s => {
+          if (s.id === selectedStudent.id) {
+            return {
+              ...s,
+              score: totalScore,
+              percentage: Math.round((totalScore / (s.maxScore || 1)) * 100),
+              evaluationComplete: true,
+              needsEvaluation: false
+            };
+          }
+          return s;
+        }));
+        
+        setEvaluationDialogOpen(false);
+      } else {
+        toast.error("Failed to save evaluation");
+      }
+    } catch (error) {
+      console.error("Error saving evaluation:", error);
+      toast.error("An error occurred while saving the evaluation");
     }
   };
 
@@ -261,6 +381,9 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
               <CardTitle>Student Results</CardTitle>
               <CardDescription>
                 {students.length} students assigned • {students.filter(s => s.status === 'completed').length} completed
+                {students.filter(s => s.needsEvaluation).length > 0 && (
+                  <span className="ml-2 text-amber-600">• {students.filter(s => s.needsEvaluation).length} need evaluation</span>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -304,11 +427,17 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                               {student.status === 'completed' ? 'Completed' :
                                student.status === 'in-progress' ? 'In Progress' :
                                'Not Started'}
+                              {student.needsEvaluation && (
+                                <span className="ml-2 inline-block w-2 h-2 bg-amber-500 rounded-full"></span>
+                              )}
                             </Badge>
                           </td>
                           <td className="text-center py-3 px-4">
                             {student.status === 'completed' ? 
                               `${student.score}/${student.maxScore}` : '-'}
+                            {student.needsEvaluation && (
+                              <span className="text-xs text-amber-600 block">Needs review</span>
+                            )}
                           </td>
                           <td className="text-center py-3 px-4">
                             {student.status === 'completed' ? 
@@ -336,17 +465,30 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
                               </span> : '-'}
                           </td>
                           <td className="text-center py-3 px-4">
-                            {student.status === 'completed' && (student.warningCount || 0) > 0 && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleViewWarnings(student)}
-                                className="flex items-center gap-1"
-                              >
-                                <AlertTriangle className="h-4 w-4" />
-                                View
-                              </Button>
-                            )}
+                            <div className="flex justify-center space-x-2">
+                              {student.status === 'completed' && (student.warningCount || 0) > 0 && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => handleViewWarnings(student)}
+                                  className="flex items-center gap-1"
+                                >
+                                  <AlertTriangle className="h-4 w-4" />
+                                  View
+                                </Button>
+                              )}
+                              {student.status === 'completed' && student.needsEvaluation && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => handleViewEvaluation(student)}
+                                  className="flex items-center gap-1 bg-amber-50 hover:bg-amber-100"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                  Evaluate
+                                </Button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -464,6 +606,85 @@ export function ExamMonitor({ examId }: ExamMonitorProps) {
               <p className="text-lg font-semibold">No warning images available</p>
               <p className="text-sm text-muted-foreground">
                 This student has warnings recorded, but no images were captured.
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Evaluation Dialog */}
+      <Dialog open={evaluationDialogOpen} onOpenChange={setEvaluationDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5 text-amber-500" />
+              Evaluate Short Answers - {selectedStudent?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Review short answer questions and assign scores manually
+            </DialogDescription>
+          </DialogHeader>
+          
+          {shortAnswers.length > 0 ? (
+            <div className="space-y-6 mt-4">
+              {shortAnswers.map((qa, index) => (
+                <Card key={index}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Question {index + 1}: {qa.questionText}</CardTitle>
+                    <CardDescription>
+                      <div className="flex items-center">
+                        <span className="font-medium">Points: {qa.points}</span>
+                      </div>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Correct Answer (Teacher's Reference)</Label>
+                      <div className="p-3 bg-muted/20 rounded-md mt-1">
+                        {qa.correctAnswer || <span className="text-muted-foreground italic">No reference answer provided</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Student's Answer</Label>
+                      <div className="p-3 bg-muted/20 rounded-md mt-1">
+                        {qa.studentAnswer || <span className="text-muted-foreground italic">No answer provided</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor={`score-${qa.questionId}`}>Score (out of {qa.points})</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input
+                          id={`score-${qa.questionId}`}
+                          type="number"
+                          min={0}
+                          max={qa.points}
+                          value={updatedScores[qa.questionId] || 0}
+                          onChange={(e) => handleScoreChange(qa.questionId, parseInt(e.target.value), qa.points)}
+                          className="w-20"
+                        />
+                        <span className="text-sm text-muted-foreground">/ {qa.points}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={() => setEvaluationDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEvaluation}>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Save Evaluation
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Edit className="h-12 w-12 text-muted-foreground/50 mb-4" />
+              <p className="text-lg font-semibold">No short answer questions found</p>
+              <p className="text-sm text-muted-foreground">
+                This exam doesn't have any short answer questions to evaluate.
               </p>
             </div>
           )}
