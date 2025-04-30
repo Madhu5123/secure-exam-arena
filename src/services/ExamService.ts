@@ -44,6 +44,8 @@ interface Submission {
   warningCount: number;
   percentage?: number;
   timeTaken?: number;
+  needsEvaluation?: boolean;
+  evaluationComplete?: boolean;
   warnings?: Array<{
     type: string;
     timestamp: string;
@@ -152,9 +154,18 @@ export const submitExam = async (
     let score = 0;
     let maxScore = 0;
     
+    // Check if there are any short answer questions
+    const hasShortAnswerQuestions = exam.questions.some(question => question.type === "short-answer");
+    
+    // If we have short answer questions, mark the submission as needing evaluation
+    const needsEvaluation = hasShortAnswerQuestions;
+    
+    // Calculate scores only for multiple choice and true/false questions
     exam.questions.forEach(question => {
       maxScore += question.points;
-      if (answers[question.id] === question.correctAnswer) {
+      
+      // Only automatically score non-short-answer questions
+      if (question.type !== "short-answer" && answers[question.id] === question.correctAnswer) {
         score += question.points;
       }
     });
@@ -172,7 +183,9 @@ export const submitExam = async (
       maxScore,
       warningCount,
       warnings,
-      percentage: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
+      percentage: needsEvaluation ? null : (maxScore > 0 ? Math.round((score / maxScore) * 100) : 0),
+      needsEvaluation,
+      evaluationComplete: !needsEvaluation
     };
     
     await set(ref(db, `exams/${examId}/submissions/${studentId}`), submission);
@@ -359,12 +372,21 @@ export const getStudentResults = async (studentId: string) => {
       .filter(exam => exam.status === "completed")
       .map(exam => {
         const submissionData = exam.submissions?.[studentId] || {};
+        
+        // Check if this exam needs evaluation
+        const hasShortAnswerQuestions = exam.questions && 
+          exam.questions.some((q: Question) => q.type === "short-answer");
+        
+        const needsEvaluation = hasShortAnswerQuestions && 
+          (!submissionData.evaluationComplete || submissionData.needsEvaluation);
+        
         return {
           examId: exam.id,
           examTitle: exam.title,
           examSubject: exam.subject,
           examDate: exam.startDate,
           _questions: exam.questions,
+          needsEvaluation,
           ...submissionData
         };
       });
@@ -753,6 +775,7 @@ export const updateExamSubmission = async (
     const updatedSubmission = {
       ...currentSubmission,
       ...updateData,
+      needsEvaluation: updateData.evaluationComplete ? false : currentSubmission.needsEvaluation
     };
     
     // Update the submission in the database
