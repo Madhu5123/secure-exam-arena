@@ -1,4 +1,3 @@
-
 import { ref, set, get, push, query, orderByChild, equalTo, remove } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
@@ -793,7 +792,7 @@ export const updateExamSubmission = async (
     };
     
     // Update the submission with the new data
-    const updatedSubmission = {
+    const updatedSubmission: Submission = {
       ...currentSubmission,
       ...updateData,
       // Safely update needsEvaluation based on evaluationComplete
