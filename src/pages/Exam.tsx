@@ -21,15 +21,15 @@ const Exam = ({ action: propAction }: ExamProps) => {
 
   useEffect(() => {
     const fetchUserRole = async () => {
-      const roleResponse = await checkUserRole();
+      const role = await checkUserRole();
       
-      if (!roleResponse.role) {
+      if (!role) {
         // User is not authenticated, redirect to login
         navigate("/");
         return;
       }
       
-      setUserRole(roleResponse.role);
+      setUserRole(role);
       setLoading(false);
     };
 
