@@ -1,3 +1,4 @@
+
 import { ref, set, get, push, query, orderByChild, equalTo, remove } from 'firebase/database';
 import { db } from '../config/firebase';
 import { checkUserRole } from './AuthService';
@@ -314,8 +315,8 @@ const updateExamStatus = async (examId: string, status: "draft" | "scheduled" | 
 
 export const createExam = async (examData: Omit<Exam, "id">) => {
   try {
-    const role = await checkUserRole();
-    if (role !== "teacher" && role !== "admin") {
+    const roleResponse = await checkUserRole();
+    if (roleResponse.role !== "teacher" && roleResponse.role !== "admin") {
       return {
         success: false,
         error: "Only teachers and admins can create exams",
@@ -350,8 +351,8 @@ export const createExam = async (examData: Omit<Exam, "id">) => {
 
 export const getExamSubmissions = async (examId: string) => {
   try {
-    const role = await checkUserRole();
-    if (role !== "teacher" && role !== "admin") {
+    const roleResponse = await checkUserRole();
+    if (roleResponse.role !== "teacher" && roleResponse.role !== "admin") {
       return {
         success: false,
         error: "Only teachers and admins can view submissions",
@@ -578,8 +579,8 @@ export const getTopStudents = async (examId: string) => {
 
 export const getStudentWarnings = async (examId: string, studentId: string) => {
   try {
-    const role = await checkUserRole();
-    if (role !== "teacher" && role !== "admin") {
+    const roleResponse = await checkUserRole();
+    if (roleResponse.role !== "teacher" && roleResponse.role !== "admin") {
       return {
         success: false,
         error: "Only teachers and admins can view warnings",
@@ -659,8 +660,8 @@ export const captureWarning = async (
 // Function to update exam submission (for teacher evaluation)
 export const updateExamSubmission = async (examId: string, studentId: string, submissionData: Partial<Submission>) => {
   try {
-    const role = await checkUserRole();
-    if (role !== "teacher" && role !== "admin") {
+    const roleResponse = await checkUserRole();
+    if (roleResponse.role !== "teacher" && roleResponse.role !== "admin") {
       return {
         success: false,
         error: "Only teachers and admins can update submissions",
@@ -712,8 +713,8 @@ export const updateExamSubmission = async (examId: string, studentId: string, su
 
 export const updateExam = async (examId: string, examData: Partial<Omit<Exam, "id">>) => {
   try {
-    const role = await checkUserRole();
-    if (role !== "teacher" && role !== "admin") {
+    const roleResponse = await checkUserRole();
+    if (roleResponse.role !== "teacher" && roleResponse.role !== "admin") {
       return {
         success: false,
         error: "Only teachers and admins can update exams",
@@ -756,8 +757,8 @@ export const updateExam = async (examId: string, examData: Partial<Omit<Exam, "i
 
 export const deleteExam = async (examId: string) => {
   try {
-    const role = await checkUserRole();
-    if (role !== "teacher" && role !== "admin") {
+    const roleResponse = await checkUserRole();
+    if (roleResponse.role !== "teacher" && roleResponse.role !== "admin") {
       return {
         success: false,
         error: "Only teachers and admins can delete exams",
@@ -802,8 +803,8 @@ export const deleteExam = async (examId: string) => {
 
 export const getExamWarnings = async (examId: string, studentId: string) => {
   try {
-    const role = await checkUserRole();
-    if (role !== "teacher" && role !== "admin" && role !== "student") {
+    const roleResponse = await checkUserRole();
+    if (roleResponse.role !== "teacher" && roleResponse.role !== "admin" && roleResponse.role !== "student") {
       return {
         success: false,
         error: "Unauthorized access",
