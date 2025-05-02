@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -7,7 +6,7 @@ import { TeacherDashboard } from "@/components/dashboard/TeacherDashboard";
 import { Schedule } from "@/components/dashboard/TeacherDashboard/Schedule";
 import { NoticeBoard } from "@/components/dashboard/TeacherDashboard/NoticeBoard";
 import { Support } from "@/components/dashboard/TeacherDashboard/Support";
-import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
+import { StudentDashboard, StudentDashboardProps } from "@/components/dashboard/StudentDashboard";
 import { StudentNoticeBoard } from "@/components/dashboard/StudentDashboard/NoticeBoard";
 import { checkUserRole } from "@/services/AuthService";
 import { ref, get } from 'firebase/database';
@@ -18,12 +17,8 @@ interface SupportProps {
   userId: string | null;
 }
 
-interface TeacherDashboardProps {
+export interface TeacherDashboardProps {
   section?: string;
-  userId: string | null;
-}
-
-interface StudentDashboardProps {
   userId: string | null;
 }
 

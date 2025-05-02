@@ -36,6 +36,7 @@ import {
 
 interface TeacherDashboardProps {
   section?: string;
+  userId: string | null;
 }
 
 interface StudentData {
@@ -48,7 +49,7 @@ interface StudentData {
   semester: string;
 }
 
-export function TeacherDashboard({ section }: TeacherDashboardProps) {
+export function TeacherDashboard({ section, userId }: TeacherDashboardProps) {
   const [students, setStudents] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
