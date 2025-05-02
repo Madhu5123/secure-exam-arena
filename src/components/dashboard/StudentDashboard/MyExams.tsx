@@ -163,6 +163,7 @@ export function MyExams({ studentId }: MyExamsProps) {
           <h2 className="text-2xl font-bold">Upcoming Exams</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {upcomingExams.map((exam) => {
+              const teacherName = teachers[exam.createdBy] || "Not specified";
               const stDate = new Date(exam.startDate);
               return (
                 <Card key={exam.id} className="overflow-hidden hover:shadow-md transition-all">
@@ -188,7 +189,7 @@ export function MyExams({ studentId }: MyExamsProps) {
                         <span className="font-medium">Duration:</span> {exam.duration} minutes
                       </div>
                       <div className="text-sm">
-                        <span className="font-medium">Teacher:</span> {exam.createdBy || "Not specified"}
+                        <span className="font-medium">Teacher:</span> {teacherName || "Not specified"}
                       </div>
                     </div>
                   </CardContent>
