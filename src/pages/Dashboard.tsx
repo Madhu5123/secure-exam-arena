@@ -13,6 +13,20 @@ import { checkUserRole } from "@/services/AuthService";
 import { ref, get } from 'firebase/database';
 import { db } from '@/config/firebase';
 
+// Define proper prop types for components that need userId
+interface SupportProps {
+  userId: string | null;
+}
+
+interface TeacherDashboardProps {
+  section?: string;
+  userId: string | null;
+}
+
+interface StudentDashboardProps {
+  userId: string | null;
+}
+
 const Dashboard = () => {
   const [userRole, setUserRole] = useState<"admin" | "teacher" | "student" | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -41,14 +55,14 @@ const Dashboard = () => {
       // If not found in localStorage or parsing failed, check with the service
       const response = await checkUserRole();
       
-      if (!response || !response.role) {
+      if (!response.role) {
         // User is not authenticated, redirect to login
         navigate("/");
         return;
       }
       
       setUserRole(response.role);
-      setUserId(response.userId || null);
+      setUserId(response.userId);
       setLoading(false);
     };
 

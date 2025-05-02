@@ -14,7 +14,11 @@ import { Results } from "./StudentDashboard/Results";
 import { MyExams } from "./StudentDashboard/MyExams";
 import { HelpDialog } from "./StudentDashboard/HelpDialog";
 
-export function StudentDashboard() {
+interface StudentDashboardProps {
+  userId: string | null;
+}
+
+export function StudentDashboard({ userId }: StudentDashboardProps) {
   const [view, setView] = useState<"dashboard" | "results" | "myexams">("dashboard");
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
   const { toast } = useToast();

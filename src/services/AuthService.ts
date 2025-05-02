@@ -164,13 +164,16 @@ export const registerUser = async (
   }
 };
 
-export const checkUserRole = async (): Promise<"admin" | "teacher" | "student" | null> => {
+export const checkUserRole = async (): Promise<{ role: "admin" | "teacher" | "student" | null, userId: string | null }> => {
   const storedUser = localStorage.getItem("examUser");
   if (storedUser) {
     try {
       const parsedUser = JSON.parse(storedUser);
       if (parsedUser && parsedUser.role) {
-        return parsedUser.role as "admin" | "teacher" | "student";
+        return {
+          role: parsedUser.role as "admin" | "teacher" | "student",
+          userId: parsedUser.id || null
+        };
       }
     } catch (error) {
       console.error("Error parsing stored user:", error);
@@ -178,7 +181,7 @@ export const checkUserRole = async (): Promise<"admin" | "teacher" | "student" |
   }
   
   const user = await getCurrentUser();
-  return user ? user.role : null;
+  return user ? { role: user.role, userId: user.id } : { role: null, userId: null };
 };
 
 export const resetPassword = async (email: string) => {
