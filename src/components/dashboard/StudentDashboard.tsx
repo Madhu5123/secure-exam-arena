@@ -14,7 +14,7 @@ import { Results } from "./StudentDashboard/Results";
 import { MyExams } from "./StudentDashboard/MyExams";
 import { HelpDialog } from "./StudentDashboard/HelpDialog";
 
-interface StudentDashboardProps {
+export interface StudentDashboardProps {
   userId: string | null;
 }
 
