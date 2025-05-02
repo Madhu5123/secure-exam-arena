@@ -10,9 +10,12 @@ import { Support } from "@/components/dashboard/TeacherDashboard/Support";
 import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
 import { StudentNoticeBoard } from "@/components/dashboard/StudentDashboard/NoticeBoard";
 import { checkUserRole } from "@/services/AuthService";
+import { ref, get } from 'firebase/database';
+import { db } from '@/config/firebase';
 
 const Dashboard = () => {
   const [userRole, setUserRole] = useState<"admin" | "teacher" | "student" | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { section } = useParams();
@@ -26,6 +29,7 @@ const Dashboard = () => {
           const user = JSON.parse(storedUser);
           if (user && user.role) {
             setUserRole(user.role);
+            setUserId(user.id || null);
             setLoading(false);
             return;
           }
@@ -35,15 +39,16 @@ const Dashboard = () => {
       }
       
       // If not found in localStorage or parsing failed, check with the service
-      const role = await checkUserRole();
+      const response = await checkUserRole();
       
-      if (!role) {
+      if (!response || !response.role) {
         // User is not authenticated, redirect to login
         navigate("/");
         return;
       }
       
-      setUserRole(role);
+      setUserRole(response.role);
+      setUserId(response.userId || null);
       setLoading(false);
     };
 
@@ -61,17 +66,17 @@ const Dashboard = () => {
         } else if (section === "notices") {
           return <NoticeBoard />;
         } else if (section === "support") {
-          return <Support />;
+          return <Support userId={userId} />;
         } else if (section === "exams") {
-          return <TeacherDashboard section={section} />;
+          return <TeacherDashboard section={section} userId={userId} />;
         } else {
-          return <TeacherDashboard section={section} />;
+          return <TeacherDashboard section={section} userId={userId} />;
         }
       case "student":
         if (section === "notices") {
           return <StudentNoticeBoard />;
         } else {
-          return <StudentDashboard />;
+          return <StudentDashboard userId={userId} />;
         }
       default:
         return (

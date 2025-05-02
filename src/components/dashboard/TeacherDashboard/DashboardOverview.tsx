@@ -4,6 +4,8 @@ import { useMemo, useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Book, Users, Calendar } from "lucide-react";
 import { getTopStudentsBySubject } from "@/services/ExamService";
+import { ref, get } from 'firebase/database';
+import { db } from '@/config/firebase';
 
 type Props = {
   totalExams: number;
