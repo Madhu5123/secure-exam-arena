@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { ref, push, serverTimestamp } from "firebase/database";
 import { db } from "@/config/firebase";
+import { getExamsForStudent } from "@/services/ExamService";
 
 interface HelpDialogProps {
   open: boolean;
@@ -29,6 +30,7 @@ interface HelpFormValues {
 export function HelpDialog({ open, onOpenChange, studentId, studentName, studentEmail }: HelpDialogProps) {
   const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isLoadingExams, setIsLoadingExams] = useState(false);
   const { toast } = useToast();
   
   const form = useForm<HelpFormValues>({
@@ -43,28 +45,32 @@ export function HelpDialog({ open, onOpenChange, studentId, studentName, student
   // Fetch student's exams for the dropdown
   useEffect(() => {
     const fetchExams = async () => {
+      if (!open || !studentId) return;
+      
+      setIsLoadingExams(true);
       try {
-        const examsRef = ref(db, "exams");
-        const snapshot = await fetch(`https://exam-portal-bba32-default-rtdb.firebaseio.com/exams.json?orderBy="students/${studentId}"&equalTo=true`);
-        const data = await snapshot.json();
-
-        if (data) {
-          const examArray = Object.keys(data).map(key => ({
-            id: key,
-            ...data[key],
-            title: data[key].title || "Untitled Exam"
-          }));
-          setExams(examArray);
+        const studentExams = await getExamsForStudent(studentId);
+        if (studentExams && studentExams.length > 0) {
+          setExams(studentExams);
+        } else {
+          setExams([]);
         }
       } catch (error) {
         console.error("Error fetching exams:", error);
+        toast({
+          title: "Failed to load exams",
+          description: "Could not retrieve your exams. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingExams(false);
       }
     };
 
     if (open) {
       fetchExams();
     }
-  }, [open, studentId]);
+  }, [open, studentId, toast]);
 
   const onSubmit = async (values: HelpFormValues) => {
     setLoading(true);
@@ -145,16 +151,22 @@ export function HelpDialog({ open, onOpenChange, studentId, studentName, student
                   <FormLabel>Select Exam</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an exam" />
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder={isLoadingExams ? "Loading exams..." : "Select an exam"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {exams.map(exam => (
-                        <SelectItem key={exam.id} value={exam.id}>
-                          {exam.title}
+                      {exams.length > 0 ? (
+                        exams.map(exam => (
+                          <SelectItem key={exam.id} value={exam.id}>
+                            {exam.title}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="general" disabled={isLoadingExams}>
+                          {isLoadingExams ? "Loading exams..." : "No exams found"}
                         </SelectItem>
-                      ))}
+                      )}
                       <SelectItem value="general">General Question (No Specific Exam)</SelectItem>
                     </SelectContent>
                   </Select>
