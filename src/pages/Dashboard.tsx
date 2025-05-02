@@ -5,7 +5,7 @@ import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
 import { TeacherDashboard } from "@/components/dashboard/TeacherDashboard";
 import { Schedule } from "@/components/dashboard/TeacherDashboard/Schedule";
 import { NoticeBoard } from "@/components/dashboard/TeacherDashboard/NoticeBoard";
-import { Support } from "@/components/dashboard/TeacherDashboard/Support";
+import { Support, SupportProps } from "@/components/dashboard/TeacherDashboard/Support";
 import { StudentDashboard, StudentDashboardProps } from "@/components/dashboard/StudentDashboard";
 import { StudentNoticeBoard } from "@/components/dashboard/StudentDashboard/NoticeBoard";
 import { checkUserRole } from "@/services/AuthService";
