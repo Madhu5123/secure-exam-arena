@@ -5,18 +5,14 @@ import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
 import { TeacherDashboard } from "@/components/dashboard/TeacherDashboard";
 import { Schedule } from "@/components/dashboard/TeacherDashboard/Schedule";
 import { NoticeBoard } from "@/components/dashboard/TeacherDashboard/NoticeBoard";
-import { Support, SupportProps } from "@/components/dashboard/TeacherDashboard/Support";
-import { StudentDashboard, StudentDashboardProps } from "@/components/dashboard/StudentDashboard";
+import { Support } from "@/components/dashboard/TeacherDashboard/Support";
+import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
 import { StudentNoticeBoard } from "@/components/dashboard/StudentDashboard/NoticeBoard";
 import { checkUserRole } from "@/services/AuthService";
 import { ref, get } from 'firebase/database';
 import { db } from '@/config/firebase';
 
 // Define proper prop types for components that need userId
-interface SupportProps {
-  userId: string | null;
-}
-
 export interface TeacherDashboardProps {
   section?: string;
   userId: string | null;
