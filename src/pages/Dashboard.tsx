@@ -6,6 +6,7 @@ import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
 import { TeacherDashboard } from "@/components/dashboard/TeacherDashboard";
 import { Schedule } from "@/components/dashboard/TeacherDashboard/Schedule";
 import { NoticeBoard } from "@/components/dashboard/TeacherDashboard/NoticeBoard";
+import { Support } from "@/components/dashboard/TeacherDashboard/Support";
 import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
 import { StudentNoticeBoard } from "@/components/dashboard/StudentDashboard/NoticeBoard";
 import { checkUserRole } from "@/services/AuthService";
@@ -59,6 +60,8 @@ const Dashboard = () => {
           return <Schedule />;
         } else if (section === "notices") {
           return <NoticeBoard />;
+        } else if (section === "support") {
+          return <Support />;
         } else if (section === "exams") {
           return <TeacherDashboard section={section} />;
         } else {
