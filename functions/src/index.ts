@@ -4,7 +4,7 @@ import * as functions from 'firebase-functions';
 
 admin.initializeApp();
 
-exports.deleteUser = functions.https.onCall(async (data, context) => {
+exports.deleteUser = functions.https.onCall(async (data: {email: string}, context: functions.https.CallableContext) => {
   // Check if request is made by an authenticated user
   if (!context.auth) {
     throw new functions.https.HttpsError(
