@@ -1,12 +1,13 @@
 
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { CallableRequest } from 'firebase-functions/v2/https';
 
 admin.initializeApp();
 
-exports.deleteUser = functions.https.onCall(async (data: {email: string}, context: functions.https.CallableContext) => {
+exports.deleteUser = functions.https.onCall(async (request: CallableRequest) => {
   // Check if request is made by an authenticated user
-  if (!context.auth) {
+  if (!request.auth) {
     throw new functions.https.HttpsError(
       'unauthenticated',
       'The function must be called while authenticated.'
@@ -15,7 +16,7 @@ exports.deleteUser = functions.https.onCall(async (data: {email: string}, contex
   
   try {
     // Check if the caller is a teacher or admin
-    const callerUid = context.auth.uid;
+    const callerUid = request.auth.uid;
     const callerRef = admin.database().ref(`/users/${callerUid}`);
     const callerSnapshot = await callerRef.once('value');
     const callerData = callerSnapshot.val();
@@ -28,7 +29,7 @@ exports.deleteUser = functions.https.onCall(async (data: {email: string}, contex
     }
     
     // Get the email of the user to delete
-    const { email } = data;
+    const { email } = request.data as { email: string };
     if (!email) {
       throw new functions.https.HttpsError(
         'invalid-argument',
