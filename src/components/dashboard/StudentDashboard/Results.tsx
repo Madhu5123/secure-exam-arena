@@ -214,7 +214,9 @@ export function Results({ studentId }: ResultsProps) {
         };
 
         const isMCQ = !!question?.options;
-        const answerCorrect = isAnswerCorrect(studentAnswer, question?.correctAnswer || "", isMCQ);
+        const hasAttempted = studentAnswer !== undefined && studentAnswer !== null && studentAnswer !== "";
+        const answerCorrect = hasAttempted && isAnswerCorrect(studentAnswer, question?.correctAnswer || "", isMCQ);
+
         const similarity = !isMCQ
           ? stringSimilarity.compareTwoStrings(
               String(studentAnswer).trim().toLowerCase(),
@@ -227,9 +229,9 @@ export function Results({ studentId }: ResultsProps) {
             <CardHeader className="bg-muted/40 py-3">
               <CardTitle className="text-sm font-medium flex justify-between">
                 <span>Question {index + 1}</span>
-                <Badge variant={answerCorrect ? "default" : "destructive"}>
-                  {answerCorrect ? "Correct" : "Incorrect"}
-                </Badge>
+                <Badge variant={!hasAttempted ? "destructive" : answerCorrect ? "default" : "destructive"}>
+  {!hasAttempted ? "Not Answered" : answerCorrect ? "Correct" : "Incorrect"}
+</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="py-3">
@@ -241,10 +243,10 @@ export function Results({ studentId }: ResultsProps) {
                     {isMCQ ? (
                       <div className="ml-2 mt-2 space-y-1">
                         {question.options.map((option: string, i: number) => {
-                          const studentAnswerIndex = Number(studentAnswer);
+                          const studentAnswerIndex = hasAttempted ? Number(studentAnswer) : null;
                           const correctAnswerIndex = Number(question.correctAnswer);
 
-                          const isStudentAnswer = i === studentAnswerIndex;
+                          const isStudentAnswer = studentAnswerIndex !== null && i === studentAnswerIndex;
                           const isCorrectAnswer = i === correctAnswerIndex;
 
                           return (
@@ -275,12 +277,20 @@ export function Results({ studentId }: ResultsProps) {
                                 } ${isStudentAnswer && !isCorrectAnswer ? "text-destructive" : ""}`}
                               >
                                 {option}
-                                {isStudentAnswer && " (Your answer)"}
+                                {isStudentAnswer && hasAttempted && " (Your answer)"}
                                 {isCorrectAnswer && !isStudentAnswer && " (Correct answer)"}
                               </span>
+                              
                             </div>
                           );
                         })}
+                          {!hasAttempted && (
+                            <p style={{ color: 'red' }} className="text-sm italic mt-2">
+                            You did not answer this question.
+                          </p>                      
+                          )}
+
+
                       </div>
                     ) : (
                       // Short answer

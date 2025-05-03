@@ -674,7 +674,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
     return bySemester && bySubject;
   });
 
-  const totalStudents = selectedSemester === "All" ? students.length : students.filter(s => s.semester === selectedSemester).length;
+  const totalStudents = students.filter(s => (selectedSemester === "All" || s.semester === selectedSemester) && s.department === teacherDepartment ).length;
   const activeStudents = filteredStudents.filter(s => s.status === "active").length;
   const totalExams = filteredExams.length;
   const totalAttended = filteredExams.reduce((sum, exam) => sum + (Array.isArray(exam.submissions) ? exam.submissions.length : exam.attendance || 0), 0);
