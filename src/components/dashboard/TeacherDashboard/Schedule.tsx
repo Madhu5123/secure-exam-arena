@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { format, parseISO, isSameDay } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
@@ -13,13 +12,14 @@ import { DayProps } from "react-day-picker";
 
 interface Exam {
   id: string;
-  title: string;
-  date: string; // Format: yyyy-MM-dd
-  time: string;
-  subject: string;
-  semester: string;
-  status: string;
-  department: string;
+  name: string;           // exam title/name
+  startDate: string;      // date string (yyyy-MM-dd or ISO)
+  time?: string;
+  subject?: string;
+  semester?: string;
+  status?: string;
+  department?: string;
+  [key: string]: any;     // allow extra unknown fields
 }
 
 export function Schedule() {
@@ -42,36 +42,44 @@ export function Schedule() {
         
         snapshot.forEach((childSnapshot) => {
           const examData = childSnapshot.val();
+
           if (
             examData.createdBy === userData.id ||
             examData.department === userData.department
           ) {
-            const exam = {
-              id: childSnapshot.key,
-              ...examData
+            const exam: Exam = {
+              id: childSnapshot.key || '',
+              name: examData.name || 'Untitled Exam',
+              startDate: examData.startDate || examData.date || '', // fallback to date if startDate missing
+              time: examData.time,
+              subject: examData.subject,
+              semester: examData.semester,
+              status: examData.status,
+              department: examData.department,
+              ...examData // include any other fields
             };
+
             allExams.push(exam);
-            // Parse exam date to Date object (skip if not valid)
-            if (exam.date) {
+
+            // Parse exam startDate to Date object (skip if not valid)
+            if (exam.startDate) {
               try {
-                // Accept either yyyy-MM-dd or ISO string
                 let parsedDate: Date;
-                if (/\d{4}-\d{2}-\d{2}/.test(exam.date)) {
-                  parsedDate = parseISO(exam.date);
+                if (/\d{4}-\d{2}-\d{2}/.test(exam.startDate)) {
+                  parsedDate = parseISO(exam.startDate);
                 } else {
-                  parsedDate = new Date(exam.date);
+                  parsedDate = new Date(exam.startDate);
                 }
                 if (!isNaN(parsedDate.getTime())) {
                   dates.push(parsedDate);
                 }
               } catch (err) {
-                console.error("Invalid date format:", exam.date);
+                console.error("Invalid date format:", exam.startDate);
               }
             }
           }
         });
-        console.log("Loaded exams:", allExams);
-        console.log("Parsed exam dates:", dates.map(d => d.toISOString()));
+
         setExams(allExams);
         setExamDates(dates);
       }
@@ -82,14 +90,13 @@ export function Schedule() {
 
   // Filter exams for the selected date
   const selectedDateExams = exams.filter(exam => {
-    if (!selectedDate || !exam.date) return false;
+    if (!selectedDate || !exam.startDate) return false;
     try {
-      // Normalize comparison: strip to date only (remove times)
-      const examDateObj = /\d{4}-\d{2}-\d{2}/.test(exam.date)
-        ? parseISO(exam.date)
-        : new Date(exam.date);
+      const examDateObj = /\d{4}-\d{2}-\d{2}/.test(exam.startDate)
+        ? parseISO(exam.startDate)
+        : new Date(exam.startDate);
       return isSameDay(examDateObj, selectedDate);
-    } catch (e) {
+    } catch {
       return false;
     }
   });
@@ -124,14 +131,12 @@ export function Schedule() {
               }}
               className="rounded-md border"
               components={{
-                Day: ({ date, className, ...props }: DayProps & { className?: string }) => {
-                  // Highlight exam days
+                Day: ({ date, className }: DayProps & { className?: string }) => {
                   const isExamDay = examDates.some(examDate =>
                     examDate && isSameDay(examDate, date)
                   );
                   return (
                     <div
-                      {...props}
                       className={cn(
                         className,
                         isExamDay && "bg-red-100 text-red-800 hover:bg-red-200 hover:text-red-900 font-semibold"
@@ -169,23 +174,27 @@ export function Schedule() {
                       <div>
                         <h3 className="font-medium text-lg">{exam.title}</h3>
                         <div className="flex flex-wrap gap-2 mt-1">
-                          <Badge variant="secondary">{exam.subject}</Badge>
-                          <Badge variant="outline">{exam.semester}</Badge>
-                          <Badge variant={
-                            exam.status === 'active' ? 'default' : 
-                            exam.status === 'completed' ? 'secondary' : 
-                            'outline'
-                          }>
-                            {exam.status}
-                          </Badge>
+                          {exam.subject && <Badge variant="secondary">{exam.subject}</Badge>}
+                          {exam.semester && <Badge variant="outline">{exam.semester}</Badge>}
+                          {exam.status && (
+                            <Badge variant={
+                              exam.status === 'active' ? 'default' : 
+                              exam.status === 'completed' ? 'secondary' : 
+                              'outline'
+                            }>
+                              {exam.status}
+                            </Badge>
+                          )}
                         </div>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Time: {exam.time}
-                        </p>
+                        {exam.time && (
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Time: {exam.time}
+                          </p>
+                        )}
                       </div>
-                      <Button variant="outline" size="sm" className="mt-2 md:mt-0">
+                      {/* <Button variant="outline" size="sm" className="mt-2 md:mt-0">
                         View Details
-                      </Button>
+                      </Button> */}
                     </div>
                   </div>
                 ))}

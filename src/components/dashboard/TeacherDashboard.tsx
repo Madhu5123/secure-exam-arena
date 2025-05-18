@@ -629,7 +629,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
 
   const handleSelectAllStudents = (semesterFilter: string) => {
     const semesterStudents = students
-      .filter(student => semesterFilter === "All" || student.semester === semesterFilter)
+      .filter(student => student.department === teacherDepartment && (semesterFilter === "All" || student.semester === semesterFilter))
       .map(student => student.id);
     
     if (selectedStudents.length === semesterStudents.length) {
@@ -1106,7 +1106,7 @@ export function TeacherDashboard({ section }: TeacherDashboardProps) {
                               </SelectContent>
                             </Select>
                             <Button variant="outline" onClick={() => handleSelectAllStudents(selectedSemester)}>
-                              {selectedStudents.length === students.filter(s => selectedSemester === "All" || s.semester === selectedSemester).length 
+                              {selectedStudents.length === students.filter(s => s.department === teacherDepartment && (selectedSemester === "All" || s.semester === selectedSemester)).length 
                                 ? "Deselect All" 
                                 : "Select All"}
                             </Button>
