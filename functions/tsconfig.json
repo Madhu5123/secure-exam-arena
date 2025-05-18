@@ -1,4 +1,3 @@
-
 {
   "compilerOptions": {
     "module": "NodeNext",
@@ -9,8 +8,7 @@
     "outDir": "lib",
     "sourceMap": true,
     "strict": true,
-    "target": "es2017",
-    "skipLibCheck": true
+    "target": "es2017"
   },
   "compileOnSave": true,
   "include": [

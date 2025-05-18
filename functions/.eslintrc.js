@@ -1,4 +1,3 @@
-
 module.exports = {
   root: true,
   env: {
@@ -15,21 +14,19 @@ module.exports = {
   ],
   parser: "@typescript-eslint/parser",
   parserOptions: {
-    tsconfigRootDir: __dirname,
     project: ["tsconfig.json", "tsconfig.dev.json"],
     sourceType: "module",
   },
   ignorePatterns: [
     "/lib/**/*", // Ignore built files.
     "/generated/**/*", // Ignore generated files.
-    "node_modules/**/*", // Ignore node_modules
   ],
   plugins: [
     "@typescript-eslint",
     "import",
   ],
   rules: {
-    "quotes": ["error", "single"],
+    "quotes": ["error", "double"],
     "import/no-unresolved": 0,
     "indent": ["error", 2],
   },

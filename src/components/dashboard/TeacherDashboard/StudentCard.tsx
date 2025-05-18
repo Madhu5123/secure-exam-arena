@@ -1,90 +1,81 @@
 
-import React from 'react';
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Button } from '@/components/ui/button';
-import { MoreVertical, Pencil, Trash2, UserCircle } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Image, Users } from "lucide-react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface StudentCardProps {
   student: any;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
-  isDeleting?: boolean;
 }
 
-export function StudentCard({ student, onEdit, onDelete, isDeleting = false }: StudentCardProps) {
+export function StudentCard({ student, onEdit, onDelete }: StudentCardProps) {
   return (
-    <Card className="overflow-hidden">
-      <div className="bg-gradient-to-r from-primary/20 to-primary/5 p-6">
-        <div className="flex justify-between">
-          <div className="flex items-center gap-3">
-            {student.profileImage ? (
-              <img 
-                src={student.profileImage} 
-                alt={student.name} 
-                className="h-12 w-12 rounded-full object-cover border-2 border-white"
-              />
-            ) : (
-              <UserCircle className="h-12 w-12 text-primary" />
-            )}
-            <div>
-              <h3 className="font-semibold text-lg">{student.name}</h3>
-              <p className="text-sm text-muted-foreground">{student.semester || "No semester"}</p>
+    <div className="rounded-2xl shadow-lg relative bg-gradient-to-br from-[#F1F0FB] to-[#E5DEFF] p-6 flex flex-col items-center border-2 border-[#9b87f5]/30 hover:scale-105 transition-transform min-h-[240px]">
+      <div className="relative -mt-10 mb-2">
+        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center border-2 border-[#9b87f5] shadow-lg">
+          {student.photo ? (
+            <img src={student.photo} alt={student.name} className="w-20 h-20 object-cover rounded-full" />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-[#E5DEFF] flex items-center justify-center text-[#9b87f5] text-3xl">
+              {student.name?.charAt(0) ?? "?"}
             </div>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(student.id)}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-red-600" 
-                onClick={() => onDelete(student.id)}
-                disabled={isDeleting}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {isDeleting ? "Deleting..." : "Delete"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          )}
+          <span className="absolute bottom-[-8px] right-[0px] bg-gradient-to-br from-[#7E69AB] to-[#9b87f5] text-white text-xs px-2 py-0.5 rounded-full shadow font-bold">
+            {student.semester}
+          </span>
         </div>
       </div>
-      <CardContent className="p-6 pt-4">
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-sm text-muted-foreground">Email:</span>
-            <span className="text-sm font-medium">{student.email}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-sm text-muted-foreground">Reg Number:</span>
-            <span className="text-sm font-medium">{student.regNumber || "None"}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-sm text-muted-foreground">Department:</span>
-            <span className="text-sm font-medium">{student.department || "None"}</span>
-          </div>
-        </div>
-      </CardContent>
-      <CardFooter className="p-4 border-t bg-muted/50 flex justify-end gap-2">
+      <div className="pt-2 text-center w-full">
+        <h3 className="font-bold text-lg text-[#403E43]">{student.name}</h3>
+        <p className="text-[#8A898C] text-sm">{student.email}</p>
+        <p className="text-xs mt-1 text-[#7E69AB]">{student.regNumber}</p>
+      </div>
+      <div className="mt-4 flex justify-center gap-3 w-full">
         <Button 
-          variant="outline" 
-          size="sm" 
+          className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white text-xs px-4 py-1.5 rounded-lg font-semibold transition"
           onClick={() => onEdit(student.id)}
         >
-          Edit Profile
+          Edit
         </Button>
-      </CardFooter>
-    </Card>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button 
+              className="bg-[#ea384c] hover:bg-[#cf2840] text-white text-xs px-4 py-1.5 rounded-lg font-semibold transition"
+            >
+              Delete
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Student</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete {student.name}? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => onDelete(student.id)}
+                className="bg-exam-danger hover:bg-exam-danger/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </div>
   );
 }

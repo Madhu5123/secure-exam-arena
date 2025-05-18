@@ -1,4 +1,3 @@
-
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -8,8 +7,6 @@ import { StudentCard } from "./StudentCard";
 import { uploadToCloudinary } from "@/utils/CloudinaryUpload";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/config/firebase";
 
 interface ManageStudentsProps {
   students: any[];
@@ -41,7 +38,6 @@ export function ManageStudents({
   teacherDepartment
 }: ManageStudentsProps) {
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [deletingStudent, setDeletingStudent] = useState<string | null>(null);
   const { toast } = useToast();
   
   // Filter students to only show those from teacher's department
@@ -74,34 +70,6 @@ export function ManageStudents({
       } finally {
         setUploadingImage(false);
       }
-    }
-  };
-
-  // Enhanced delete function that also removes the user from Firebase Auth
-  const handleDeleteStudentEnhanced = async (id: string, email: string) => {
-    try {
-      setDeletingStudent(id);
-      
-      // First delete from Realtime Database using the existing handler
-      await handleDeleteStudent(id);
-      
-      // Then delete from Firebase Authentication using Cloud Function
-      const deleteUser = httpsCallable(functions, 'deleteUser');
-      await deleteUser({ email });
-      
-      toast({
-        title: "Student deleted",
-        description: "Student has been removed from both database and authentication.",
-      });
-    } catch (error) {
-      console.error("Error deleting student:", error);
-      toast({
-        title: "Error",
-        description: "Failed to completely delete the student. They may still exist in Authentication.",
-        variant: "destructive",
-      });
-    } finally {
-      setDeletingStudent(null);
     }
   };
 
@@ -212,8 +180,7 @@ export function ManageStudents({
               key={student.id}
               student={student}
               onEdit={handleEditStudent}
-              onDelete={(id) => handleDeleteStudentEnhanced(id, student.email)}
-              isDeleting={deletingStudent === student.id}
+              onDelete={handleDeleteStudent}
             />
           ))
         ) : (
