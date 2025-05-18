@@ -1,11 +1,10 @@
+
 import { useState, useEffect } from "react";
-import { format, parse, isSameDay } from "date-fns";
+import { format, parseISO, isSameDay } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon } from "lucide-react";
 import { ref, onValue } from 'firebase/database';
 import { db } from '@/config/firebase';
 import { cn } from "@/lib/utils";
@@ -15,7 +14,7 @@ import { DayProps } from "react-day-picker";
 interface Exam {
   id: string;
   title: string;
-  date: string;
+  date: string; // Format: yyyy-MM-dd
   time: string;
   subject: string;
   semester: string;
@@ -35,7 +34,7 @@ export function Schedule() {
     
     const userData = JSON.parse(user);
     const examsRef = ref(db, 'exams');
-    
+
     const unsubscribeExams = onValue(examsRef, (snapshot) => {
       if (snapshot.exists()) {
         const allExams: Exam[] = [];
@@ -43,30 +42,41 @@ export function Schedule() {
         
         snapshot.forEach((childSnapshot) => {
           const examData = childSnapshot.val();
-          if (examData.createdBy === userData.id || examData.department === userData.department) {
+          if (
+            examData.createdBy === userData.id ||
+            examData.department === userData.department
+          ) {
             const exam = {
               id: childSnapshot.key,
               ...examData
             };
             allExams.push(exam);
-            
-            // Parse exam date to Date object
+            // Parse exam date to Date object (skip if not valid)
             if (exam.date) {
               try {
-                const parsedDate = parse(exam.date, 'yyyy-MM-dd', new Date());
-                dates.push(parsedDate);
+                // Accept either yyyy-MM-dd or ISO string
+                let parsedDate: Date;
+                if (/\d{4}-\d{2}-\d{2}/.test(exam.date)) {
+                  parsedDate = parseISO(exam.date);
+                } else {
+                  parsedDate = new Date(exam.date);
+                }
+                if (!isNaN(parsedDate.getTime())) {
+                  dates.push(parsedDate);
+                }
               } catch (err) {
                 console.error("Invalid date format:", exam.date);
               }
             }
           }
         });
-        
+        console.log("Loaded exams:", allExams);
+        console.log("Parsed exam dates:", dates.map(d => d.toISOString()));
         setExams(allExams);
         setExamDates(dates);
       }
     });
-    
+
     return () => unsubscribeExams();
   }, []);
 
@@ -74,9 +84,12 @@ export function Schedule() {
   const selectedDateExams = exams.filter(exam => {
     if (!selectedDate || !exam.date) return false;
     try {
-      const examDate = parse(exam.date, 'yyyy-MM-dd', new Date());
-      return isSameDay(examDate, selectedDate);
-    } catch {
+      // Normalize comparison: strip to date only (remove times)
+      const examDateObj = /\d{4}-\d{2}-\d{2}/.test(exam.date)
+        ? parseISO(exam.date)
+        : new Date(exam.date);
+      return isSameDay(examDateObj, selectedDate);
+    } catch (e) {
       return false;
     }
   });
@@ -112,11 +125,10 @@ export function Schedule() {
               className="rounded-md border"
               components={{
                 Day: ({ date, className, ...props }: DayProps & { className?: string }) => {
-                  // Check if this date has an exam
-                  const isExamDay = examDates.some(examDate => 
+                  // Highlight exam days
+                  const isExamDay = examDates.some(examDate =>
                     examDate && isSameDay(examDate, date)
                   );
-                  
                   return (
                     <div
                       {...props}
